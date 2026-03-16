@@ -30,10 +30,10 @@ const mainMenu: NavItem[] = [
 ];
 
 const subjectsMenu: NavItem[] = [
-  { icon: Code2, label: "Software Engineering", href: "/subjects/software-engineering" },
-  { icon: Database, label: "Data Structures", href: "/subjects/data-structures" },
-  { icon: Layers, label: "System Design", href: "/subjects/system-design" },
-  { icon: GitBranch, label: "DevOps", href: "/subjects/devops" },
+  { icon: Code2, label: "Software Engineering", href: "/dashboard/subjects/software-engineering" },
+  { icon: Database, label: "Data Structures", href: "/dashboard/subjects/data-structures" },
+  { icon: Layers, label: "System Design", href: "/dashboard/subjects/system-design" },
+  { icon: GitBranch, label: "DevOps", href: "/dashboard/subjects/devops" },
 ];
 
 export function Sidebar() {
