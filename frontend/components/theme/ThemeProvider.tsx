@@ -18,37 +18,39 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 function getInitialTheme(): Theme {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "light";
   const stored = window.localStorage.getItem("mekari_theme");
   if (stored === "light" || stored === "dark") return stored;
-  return window.matchMedia &&
-    window.matchMedia("(prefers-color-scheme: light)").matches
-    ? "light"
-    : "dark";
+  
+  // Check system preference
+  if (window.matchMedia) {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+  }
+  
+  return "light";
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  const [theme, setTheme] = useState<Theme>(() => getInitialTheme());
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
     window.localStorage.setItem("mekari_theme", theme);
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
   }, [theme]);
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"));
   };
 
-  const baseClasses =
-    "min-h-screen flex flex-col px-4 py-6 md:px-8 transition-colors";
-  const palette =
-    theme === "dark"
-      ? "bg-slate-950 text-slate-50"
-      : "bg-slate-50 text-slate-900";
-
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      <div className={`${baseClasses} ${palette}`}>{children}</div>
+      {children}
     </ThemeContext.Provider>
   );
 }
