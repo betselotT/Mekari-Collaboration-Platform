@@ -38,7 +38,5 @@ npm run dev
 
 The frontend will run on `http://localhost:3000` by default and expects the backend on `http://localhost:4000`.
 
-### Next steps
 
-The current implementation gives you a solid foundation aligned with the capstone design: authentication, user profiles, threads/messages, gamification and analytics endpoints, plus a modern UI shell. You can now continue iterating to add Google Meet integration, richer AI chatbot behavior, advanced matching logic and any additional requirements from your project document.
 
