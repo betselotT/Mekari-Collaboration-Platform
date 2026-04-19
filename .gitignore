@@ -5,3 +5,6 @@ frontend/node_modules/
 backend/.env
 frontend/.env
 dist/
+**/__pycache__/
+**/.pytest_cache__/
+.venv/
