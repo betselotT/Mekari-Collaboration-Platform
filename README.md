@@ -38,5 +38,12 @@ npm run dev
 
 The frontend will run on `http://localhost:3000` by default and expects the backend on `http://localhost:4000`.
 
+### Team Members
+1.  Betselot Tesfa (ETS0327/14)
+2.	Edom Mulugeta	(ETS0503/14)
+3.	Gelila Nebiyu (ETS0690/14)
+4.	Meklit Habtamu (ETS1030/14)
+5.	Rafia Kedir	(ETS1329/14)
+
 
 
