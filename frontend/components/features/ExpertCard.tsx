@@ -16,29 +16,50 @@ export interface ExpertCardProps {
   onConsult?: () => void;
 }
 
-export function ExpertCard({
-  name,
-  title,
-  company,
-  rating,
-  image,
-  skills,
-  status,
-  onConsult,
-}: ExpertCardProps) {
-  const statusConfig = {
-    available: { color: "bg-emerald-500", text: "AVAILABLE NOW" },
-    available_in_2h: { color: "bg-amber-500", text: "AVAILABLE IN 2H" },
-    away: { color: "bg-neutral-400", text: "AWAY" },
+export function ExpertCard(props: ExpertCardProps) {
+  const {
+    name,
+    title,
+    company,
+    rating,
+    image,
+    skills,
+    status,
+    onConsult,
+  } = props;
+
+  const statusConfig: Record<
+    ExpertCardProps["status"],
+    { color: string; text: string }
+  > = {
+    available: {
+      color: "bg-emerald-500",
+      text: "AVAILABLE NOW",
+    },
+    available_in_2h: {
+      color: "bg-amber-500",
+      text: "AVAILABLE IN 2H",
+    },
+    away: {
+      color: "bg-neutral-400",
+      text: "AWAY",
+    },
   };
 
   const config = statusConfig[status];
 
+  const initials = name
+    .split(" ")
+    .map((n) => n[0])
+    .join("");
+
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white overflow-hidden transition-all hover:shadow-md dark:border-neutral-700 dark:bg-neutral-800">
+    <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white transition-all hover:shadow-md dark:border-neutral-700 dark:bg-neutral-800">
       {/* Header with status */}
       <div className="relative h-32 bg-gradient-to-br from-emerald-300 to-teal-400">
-        <div className={`absolute top-3 right-3 rounded-full px-2 py-1 text-xs font-bold text-white ${config.color}`}>
+        <div
+          className={`absolute top-3 right-3 rounded-full px-2 py-1 text-xs font-bold text-white ${config.color}`}
+        >
           {config.text}
         </div>
       </div>
@@ -46,34 +67,42 @@ export function ExpertCard({
       {/* Content */}
       <div className="px-4 pb-4">
         {/* Avatar */}
-        <div className="flex justify-center -mt-16 mb-4">
-          <Avatar size="lg" initials={name.split(" ").map(n => n[0]).join("")} />
+        <div className="mb-4 -mt-16 flex justify-center">
+          <Avatar size="lg" initials={initials} />
         </div>
 
         {/* Name and Title */}
-        <div className="text-center mb-4">
-          <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{name}</h3>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">{title}</p>
-          <p className="text-xs text-neutral-500 dark:text-neutral-500">at {company}</p>
+        <div className="mb-4 text-center">
+          <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
+            {name}
+          </h3>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            {title}
+          </p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-500">
+            at {company}
+          </p>
         </div>
 
         {/* Rating */}
-        <div className="flex items-center justify-center gap-1 mb-4">
-          {[...Array(5)].map((_, i) => (
+        <div className="mb-4 flex items-center justify-center gap-1">
+          {Array.from({ length: 5 }).map((_, index) => (
             <Star
-              key={i}
+              key={index}
               className={`h-4 w-4 ${
-                i < Math.floor(rating)
+                index < Math.floor(rating)
                   ? "fill-amber-400 text-amber-400"
                   : "text-neutral-300 dark:text-neutral-600"
               }`}
             />
           ))}
-          <span className="ml-2 text-sm font-semibold text-neutral-900 dark:text-white">{rating}</span>
+          <span className="ml-2 text-sm font-semibold text-neutral-900 dark:text-white">
+            {rating}
+          </span>
         </div>
 
         {/* Skills */}
-        <div className="mb-4 flex flex-wrap gap-2 justify-center">
+        <div className="mb-4 flex flex-wrap justify-center gap-2">
           {skills.map((skill) => (
             <Badge key={skill} variant="info">
               {skill.toUpperCase()}
@@ -83,11 +112,16 @@ export function ExpertCard({
 
         {/* Action Buttons */}
         <div className="flex gap-2">
-          <Button variant="primary" className="flex-1" onClick={onConsult}>
+          <Button
+            variant="primary"
+            className="flex-1"
+            onClick={onConsult}
+          >
             Consult
           </Button>
+
           <button className="flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-50 dark:hover:bg-neutral-700">
-            <MessageSquare className="h-4 w-4 inline mr-2" />
+            <MessageSquare className="mr-2 inline h-4 w-4" />
           </button>
         </div>
       </div>
