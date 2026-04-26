@@ -22,7 +22,34 @@ router.get("/", requireAuth, async (req: AuthRequest, res, next) => {
       .sort({ updatedAt: -1 })
       .limit(50)
       .populate("createdBy", "name avatarUrl");
-    res.json({ threads });
+    const threadIds = threads.map((t) => t._id);
+    const counts = await Message.aggregate([
+      { $match: { thread: { $in: threadIds } } },
+      { $group: { _id: "$thread", count: { $sum: 1 } } },
+    ]);
+    const countMap = new Map<string, number>(
+      counts.map((c) => [String(c._id), c.count as number])
+    );
+
+    const previews = await Message.find({ thread: { $in: threadIds } })
+      .sort({ createdAt: -1 })
+      .select("thread body createdAt")
+      .lean();
+    const previewMap = new Map<string, string>();
+    for (const m of previews) {
+      const key = String(m.thread);
+      if (!previewMap.has(key)) {
+        previewMap.set(key, String(m.body || "").slice(0, 160));
+      }
+    }
+
+    res.json({
+      threads: threads.map((t) => ({
+        ...t.toObject(),
+        messageCount: countMap.get(String(t._id)) || 0,
+        preview: previewMap.get(String(t._id)) || "",
+      })),
+    });
   } catch (err) {
     next(err);
   }

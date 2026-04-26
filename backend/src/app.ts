@@ -11,6 +11,9 @@ import { threadRouter } from "./routes/threads";
 import { gamificationRouter } from "./routes/gamification";
 import { analyticsRouter } from "./routes/analytics";
 import { aiRouter } from "./routes/ai";
+import { matchingRouter } from "./routes/matching";
+import swaggerUi from "swagger-ui-express";
+import { createOpenApiSpec } from "./swagger";
 
 export const createApp = () => {
   const app = express();
@@ -38,12 +41,15 @@ export const createApp = () => {
     res.json({ status: "ok" });
   });
 
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(createOpenApiSpec()));
+
   app.use("/api/auth", authRouter);
   app.use("/api/users", userRouter);
   app.use("/api/threads", threadRouter);
   app.use("/api/gamification", gamificationRouter);
   app.use("/api/analytics", analyticsRouter);
   app.use("/api/ai", aiRouter);
+  app.use("/api/matching", matchingRouter);
 
   app.use(errorHandler);
 

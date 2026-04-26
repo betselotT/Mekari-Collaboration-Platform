@@ -4,12 +4,18 @@ import { Search } from "lucide-react";
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   icon?: React.ComponentType<{ className?: string }>;
   error?: string;
+  label?: string;
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className = "", icon: Icon, error, ...props }, ref) => {
+  ({ className = "", icon: Icon, error, label, ...props }, ref) => {
     return (
       <div className="flex flex-col gap-2">
+        {label && (
+          <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+            {label}
+          </label>
+        )}
         <div className="relative">
           {Icon && (
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500">

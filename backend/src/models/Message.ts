@@ -6,6 +6,8 @@ export interface IMessage extends Document {
   body: string;
   attachmentUrl?: string;
   isFromAi: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const MessageSchema = new Schema<IMessage>(

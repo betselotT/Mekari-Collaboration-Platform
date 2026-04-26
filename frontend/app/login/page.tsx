@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Button } from "@/components/ui/Button";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { LoginForm } from "@/components/auth/LoginForm";
 
 export default function LoginPage() {
   return (
@@ -28,50 +28,7 @@ export default function LoginPage() {
             Access your technical community
           </p>
 
-          <form className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-neutral-900 dark:text-white mb-2">
-                EMAIL ADDRESS
-              </label>
-              <input
-                type="email"
-                placeholder="name@company.com"
-                className="input"
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-neutral-900 dark:text-white">
-                  PASSWORD
-                </label>
-                <a href="#" className="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400">
-                  Forgot?
-                </a>
-              </div>
-              <input
-                type="password"
-                placeholder="••••••••"
-                className="input"
-              />
-            </div>
-
-            <Link href="/dashboard/threads" className="block">
-              <Button variant="primary" size="lg" className="w-full">
-                Sign in
-              </Button>
-            </Link>
-
-            <div className="relative flex items-center gap-4">
-              <div className="flex-1 border-t border-neutral-200 dark:border-neutral-700" />
-              <span className="text-xs text-neutral-500">OR</span>
-              <div className="flex-1 border-t border-neutral-200 dark:border-neutral-700" />
-            </div>
-
-            <Button variant="secondary" size="lg" className="w-full">
-              Continue with Google
-            </Button>
-          </form>
+          <LoginForm />
 
           <p className="mt-6 text-center text-sm text-neutral-600 dark:text-neutral-400">
             Don't have an account?{" "}

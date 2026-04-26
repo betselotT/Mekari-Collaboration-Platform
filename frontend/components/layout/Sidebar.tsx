@@ -23,6 +23,7 @@ export interface NavItem {
 
 const mainMenu: NavItem[] = [
   { icon: MessageSquare, label: "Threads", href: "/dashboard/threads" },
+  { icon: Zap, label: "Match with Expert", href: "/dashboard/match" },
   { icon: Users, label: "Experts", href: "/dashboard/experts" },
   { icon: BarChart3, label: "Leaderboard", href: "/dashboard/leaderboard" },
   { icon: User, label: "Profile", href: "/dashboard/profile" },

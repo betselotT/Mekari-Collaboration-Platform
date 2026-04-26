@@ -1,4 +1,4 @@
-// File: D:\Code Folders\Capstone\Capstone\frontend\app\layout.tsx
+// File: D:\Code Folders\Capstone\Capstone-v1\Mekari-Collaboration-Platform\frontend\app\layout.tsx
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Button } from "@/components/ui/Button";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { RegisterForm } from "@/components/auth/RegisterForm";
 
 export default function RegisterPage() {
   return (
@@ -28,74 +28,7 @@ export default function RegisterPage() {
             Join our technical community
           </p>
 
-          <form className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-neutral-900 dark:text-white mb-2">
-                FULL NAME
-              </label>
-              <input
-                type="text"
-                placeholder="Your name"
-                className="input"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-neutral-900 dark:text-white mb-2">
-                EMAIL ADDRESS
-              </label>
-              <input
-                type="email"
-                placeholder="name@company.com"
-                className="input"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-neutral-900 dark:text-white mb-2">
-                PASSWORD
-              </label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                className="input"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-neutral-900 dark:text-white mb-2">
-                CONFIRM PASSWORD
-              </label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                className="input"
-              />
-            </div>
-
-            <div className="flex items-start gap-2">
-              <input type="checkbox" id="terms" className="mt-1" />
-              <label htmlFor="terms" className="text-xs text-neutral-600 dark:text-neutral-400">
-                I agree to the Terms of Service and Privacy Policy
-              </label>
-            </div>
-
-            <Link href="/dashboard/threads" className="block">
-              <Button variant="primary" size="lg" className="w-full">
-                Create Account
-              </Button>
-            </Link>
-
-            <div className="relative flex items-center gap-4">
-              <div className="flex-1 border-t border-neutral-200 dark:border-neutral-700" />
-              <span className="text-xs text-neutral-500">OR</span>
-              <div className="flex-1 border-t border-neutral-200 dark:border-neutral-700" />
-            </div>
-
-            <Button variant="secondary" size="lg" className="w-full">
-              Sign up with Google
-            </Button>
-          </form>
+          <RegisterForm />
 
           <p className="mt-6 text-center text-sm text-neutral-600 dark:text-neutral-400">
             Already have an account?{" "}
