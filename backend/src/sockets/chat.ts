@@ -3,7 +3,10 @@ import { RedisClientType } from "redis";
 import { Message } from "../models/Message";
 import { Thread } from "../models/Thread";
 
-export function registerChatHandlers(io: Server, _redis: RedisClientType<any, any, any>) {
+export function registerChatHandlers(
+  io: Server,
+  _redis?: RedisClientType<any, any, any> | null
+) {
   io.on("connection", (socket) => {
     socket.on("join-thread", (threadId: string) => {
       socket.join(`thread:${threadId}`);

@@ -7,19 +7,29 @@ import { registerChatHandlers } from "./sockets/chat";
 
 const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/mekari";
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+const REDIS_URL = process.env.REDIS_URL;
 
 async function bootstrap() {
   try {
     await mongoose.connect(MONGO_URI);
     console.log("Connected to MongoDB");
 
-    const redisClient = createClient({ url: REDIS_URL });
-    redisClient.on("error", (err) =>
-      console.error("Redis client error:", err.message)
-    );
-    await redisClient.connect();
-    console.log("Connected to Redis");
+    let redisClient: ReturnType<typeof createClient> | null = null;
+    if (REDIS_URL) {
+      try {
+        redisClient = createClient({ url: REDIS_URL });
+        redisClient.on("error", (err) =>
+          console.error("Redis client error:", err.message)
+        );
+        await redisClient.connect();
+        console.log("Connected to Redis");
+      } catch (err) {
+        console.error("Failed to connect to Redis. Continuing without Redis.", err);
+        redisClient = null;
+      }
+    } else {
+      console.warn("REDIS_URL not set. Continuing without Redis.");
+    }
 
     const app = createApp();
     const server = http.createServer(app);
