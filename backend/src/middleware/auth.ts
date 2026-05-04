@@ -1,9 +1,11 @@
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 
+export type UserRole = "user" | "admin" | "learner" | "expert" | "mod";
+
 export interface AuthRequest extends Request {
   userId?: string;
-  userRole?: "user" | "admin";
+  userRole?: UserRole;
 }
 
 export function requireAuth(
@@ -20,7 +22,7 @@ export function requireAuth(
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "dev-secret") as {
       sub: string;
-      role: "user" | "admin";
+      role: UserRole;
     };
     req.userId = decoded.sub;
     req.userRole = decoded.role;
@@ -29,4 +31,3 @@ export function requireAuth(
     return res.status(401).json({ error: { message: "Invalid token" } });
   }
 }
-
