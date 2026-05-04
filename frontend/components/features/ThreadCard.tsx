@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { MessageCircle } from "lucide-react";
 import { Avatar } from "../ui/Avatar";
 import { Badge } from "../ui/Badge";
@@ -13,7 +14,17 @@ export interface ThreadCardProps {
   replyCount: number;
   avatars?: string[];
   tags?: string[];
+  href?: string;
+  status?: string;
 }
+
+const STATUS_BADGE: Record<string, { label: string; variant: "success" | "warning" | "info" | "default" | "error" | "primary" }> = {
+  SOLVED: { label: "Solved", variant: "success" },
+  AI_RESOLVED: { label: "AI Resolved", variant: "info" },
+  PENDING_EXPERT: { label: "Needs Expert", variant: "warning" },
+  OPEN: { label: "Open", variant: "default" },
+  CLOSED: { label: "Closed", variant: "error" },
+};
 
 export function ThreadCard({
   title,
@@ -23,18 +34,31 @@ export function ThreadCard({
   timestamp,
   replyCount,
   tags = [],
+  href,
+  status,
 }: ThreadCardProps) {
+  const statusMeta = status ? STATUS_BADGE[status] : null;
+
   return (
     <div className="rounded-lg border border-neutral-200 bg-white p-4 transition-all hover:shadow-md dark:border-neutral-700 dark:bg-neutral-800">
-      {/* Category Badge */}
-      <div className="mb-3">
+      {/* Category + Status Badges */}
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
         <Badge variant="info">{category}</Badge>
+        {statusMeta && <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>}
       </div>
 
       {/* Title */}
-      <h3 className="mb-2 text-base font-bold text-neutral-900 hover:text-primary-600 dark:text-white dark:hover:text-primary-400 cursor-pointer">
-        {title}
-      </h3>
+      {href ? (
+        <Link href={href}>
+          <h3 className="mb-2 text-base font-bold text-neutral-900 hover:text-primary-600 dark:text-white dark:hover:text-primary-400 cursor-pointer">
+            {title}
+          </h3>
+        </Link>
+      ) : (
+        <h3 className="mb-2 text-base font-bold text-neutral-900 dark:text-white">
+          {title}
+        </h3>
+      )}
 
       {/* Description */}
       <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400 line-clamp-2">
