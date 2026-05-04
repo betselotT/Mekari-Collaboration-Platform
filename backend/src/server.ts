@@ -3,6 +3,7 @@ import { Server } from "socket.io";
 import mongoose from "mongoose";
 import { createClient } from "redis";
 import { createApp } from "./app";
+import { setIo } from "./sockets/ioInstance";
 import { registerChatHandlers } from "./sockets/chat";
 
 const PORT = process.env.PORT || 4000;
@@ -41,6 +42,8 @@ async function bootstrap() {
       },
     });
 
+    // Make io available to route handlers via the singleton
+    setIo(io);
     registerChatHandlers(io, redisClient);
 
     server.listen(PORT, () => {
