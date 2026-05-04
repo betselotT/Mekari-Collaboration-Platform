@@ -12,6 +12,11 @@ import { gamificationRouter } from "./routes/gamification";
 import { analyticsRouter } from "./routes/analytics";
 import { aiRouter } from "./routes/ai";
 import { matchingRouter } from "./routes/matching";
+import { notificationRouter } from "./routes/notifications";
+import { searchRouter } from "./routes/search";
+import { reportRouter } from "./routes/reports";
+import { adminRouter } from "./routes/admin";
+import { intelligenceRouter } from "./routes/intelligence";
 import swaggerUi from "swagger-ui-express";
 import { createOpenApiSpec } from "./swagger";
 
@@ -50,6 +55,11 @@ export const createApp = () => {
   app.use("/api/analytics", analyticsRouter);
   app.use("/api/ai", aiRouter);
   app.use("/api/matching", matchingRouter);
+  app.use("/api/notifications", notificationRouter);
+  app.use("/api/search", searchRouter);
+  app.use("/api/reports", reportRouter);
+  app.use("/api/admin", adminRouter);
+  app.use("/api/intelligence", intelligenceRouter);
 
   app.use(errorHandler);
 
