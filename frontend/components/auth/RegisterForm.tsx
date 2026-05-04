@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import axios from "axios";
+import { apiClient } from "../../lib/api";
 
 export function RegisterForm() {
   const [name, setName] = useState("");
@@ -15,7 +15,7 @@ export function RegisterForm() {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post("http://localhost:4000/api/auth/register", {
+      const res = await apiClient.post("/api/auth/register", {
         name,
         email,
         password,
