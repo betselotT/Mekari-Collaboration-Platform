@@ -7,4 +7,4 @@ frontend/.env
 dist/
 **/__pycache__/
 **/.pytest_cache__/
-.venv/
+.venv/frontend/.next
