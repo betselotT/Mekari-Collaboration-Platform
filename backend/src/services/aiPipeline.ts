@@ -1,0 +1,123 @@
+import { Thread, IThread } from "../models/Thread";
+import { Notification } from "../models/Notification";
+import { getIo } from "../sockets/ioInstance";
+import * as intelligence from "../intelligence/client";
+
+async function escalateFromAnalysis(
+  thread: IThread,
+  experts: intelligence.ExpertMatch[],
+): Promise<void> {
+  const io = getIo();
+  if (!experts.length) return;
+
+  const expertIds = experts.map((e) => e.expert_id);
+  await Thread.findByIdAndUpdate(thread._id, {
+    $set: { matchedExperts: expertIds },
+  });
+
+  if (!io) return;
+
+  io.to(`room:${String(thread._id)}`).emit("expert_matched", {
+    threadId: String(thread._id),
+    threadTitle: thread.title,
+    subject: thread.subject,
+    tags: thread.tags,
+    experts,
+  });
+
+  for (const expert of experts) {
+    const notif = await Notification.create({
+      userId: expert.expert_id,
+      type: "expert_matched",
+      message: `You've been matched to help with: "${thread.title}"`,
+      link: `/dashboard/threads/${String(thread._id)}`,
+      read: false,
+    });
+    io.to(`user:${expert.expert_id}`).emit("notification", {
+      id: String(notif._id),
+      type: notif.type,
+      message: notif.message,
+      link: notif.link,
+      read: false,
+      createdAt: notif.createdAt,
+    });
+  }
+}
+
+export async function runAIPipeline(threadId: string): Promise<void> {
+  const io = getIo();
+  let thread: IThread | null = null;
+
+  try {
+    thread = await Thread.findById(threadId);
+    if (!thread) return;
+
+    const result = await intelligence.analyze({
+      thread_id: threadId,
+      title: thread.title,
+      body: thread.body ?? "",
+      subject: thread.subject,
+      tags: thread.tags,
+    });
+
+    const { ai_response, escalation, suggested_tags, new_status } = result;
+
+    await Thread.findByIdAndUpdate(threadId, {
+      $set: {
+        aiResponse: {
+          explanation: ai_response.explanation,
+          steps: ai_response.steps,
+          suggestedSolution: ai_response.suggested_solution,
+          confidence: ai_response.confidence,
+          resolved: ai_response.resolved,
+        },
+        status: new_status,
+        tags: [...new Set([...thread.tags, ...suggested_tags])],
+      },
+    });
+
+    if (io) {
+      io.to(`room:${threadId}`).emit("ai_response_ready", {
+        threadId,
+        aiResponse: {
+          explanation: ai_response.explanation,
+          steps: ai_response.steps,
+          suggestedSolution: ai_response.suggested_solution,
+          confidence: ai_response.confidence,
+          resolved: ai_response.resolved,
+        },
+        status: new_status,
+      });
+    }
+
+    if (escalation.should_escalate) {
+      await escalateFromAnalysis(thread, result.similar_problems.length > 0 ? [] : []);
+      // Fetch matched experts from the analysis result
+      if (result.similar_problems.length >= 0) {
+        const experts = await intelligence.matchExperts({
+          subject: thread.subject,
+          tags: [...new Set([...thread.tags, ...suggested_tags])],
+          requester_id: String(thread.createdBy),
+          limit: 3,
+        });
+        await escalateFromAnalysis(thread, experts);
+      }
+    }
+  } catch (err) {
+    console.error("[aiPipeline] intelligence service error for thread", threadId, err);
+
+    // Fallback: mark thread for expert review without AI response
+    await Thread.findByIdAndUpdate(threadId, {
+      $set: { status: "PENDING_EXPERT" },
+    });
+
+    if (io) {
+      io.to(`room:${threadId}`).emit("ai_response_ready", {
+        threadId,
+        aiResponse: null,
+        status: "PENDING_EXPERT",
+        error: "Intelligence service unavailable",
+      });
+    }
+  }
+}
