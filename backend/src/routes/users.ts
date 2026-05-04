@@ -17,7 +17,8 @@ const profileUpdateSchema = z.object({
       })
     )
     .optional(),
-  availabilityStatus: z.enum(["online", "busy", "offline"]).optional(),
+  skillTags: z.array(z.string().min(1)).optional(),
+  availabilityStatus: z.enum(["online", "busy", "offline", "in_session"]).optional(),
 });
 
 router.get("/me", requireAuth, async (req: AuthRequest, res, next) => {
@@ -46,9 +47,62 @@ router.put("/me", requireAuth, async (req: AuthRequest, res, next) => {
 router.get("/experts", requireAuth, async (_req: AuthRequest, res, next) => {
   try {
     const experts = await User.find({ "expertise.0": { $exists: true } })
-      .select("name avatarUrl expertise availabilityStatus points badges")
+      .select("name avatarUrl expertise skillTags availabilityStatus points badges")
       .sort({ points: -1 });
     res.json({ experts });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/users/:id — public profile
+router.get("/:id", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const user = await User.findById(req.params.id).select("-passwordHash");
+    if (!user) return res.status(404).json({ error: { message: "User not found" } });
+    res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/users/:id — update own profile (admin can update anyone)
+router.patch("/:id", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    if (req.params.id !== req.userId && req.userRole !== "admin") {
+      return res.status(403).json({ error: { message: "Forbidden" } });
+    }
+    const parsed = profileUpdateSchema.parse(req.body);
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: parsed },
+      { new: true }
+    ).select("-passwordHash");
+    if (!user) return res.status(404).json({ error: { message: "User not found" } });
+    res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/users/:id/availability — update availability (own only or admin)
+router.patch("/:id/availability", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    if (req.params.id !== req.userId && req.userRole !== "admin") {
+      return res.status(403).json({ error: { message: "Forbidden" } });
+    }
+    const { status } = req.body as { status: string };
+    const valid = ["online", "busy", "offline", "in_session"];
+    if (!valid.includes(status)) {
+      return res.status(400).json({ error: { message: "Invalid status" } });
+    }
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: { availabilityStatus: status } },
+      { new: true }
+    ).select("-passwordHash");
+    if (!user) return res.status(404).json({ error: { message: "User not found" } });
+    res.json({ user });
   } catch (err) {
     next(err);
   }
