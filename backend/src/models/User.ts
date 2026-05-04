@@ -9,13 +9,15 @@ export interface IUser extends Document {
   name: string;
   email: string;
   passwordHash: string;
+  oauthProvider?: string;
   bio?: string;
   avatarUrl?: string;
   expertise: ExpertiseArea[];
-  availabilityStatus: "online" | "busy" | "offline";
+  skillTags: string[];
+  availabilityStatus: "online" | "busy" | "offline" | "in_session";
   points: number;
   badges: string[];
-  role: "user" | "admin";
+  role: "user" | "admin" | "learner" | "expert" | "mod";
 }
 
 const ExpertiseSchema = new Schema<ExpertiseArea>(
@@ -35,19 +37,21 @@ const UserSchema = new Schema<IUser>(
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, index: true },
     passwordHash: { type: String, required: true },
+    oauthProvider: { type: String },
     bio: { type: String },
     avatarUrl: { type: String },
     expertise: { type: [ExpertiseSchema], default: [] },
+    skillTags: { type: [String], default: [] },
     availabilityStatus: {
       type: String,
-      enum: ["online", "busy", "offline"],
+      enum: ["online", "busy", "offline", "in_session"],
       default: "offline",
     },
     points: { type: Number, default: 0 },
     badges: { type: [String], default: [] },
     role: {
       type: String,
-      enum: ["user", "admin"],
+      enum: ["user", "admin", "learner", "expert", "mod"],
       default: "user",
     },
   },
@@ -55,4 +59,3 @@ const UserSchema = new Schema<IUser>(
 );
 
 export const User = mongoose.model<IUser>("User", UserSchema);
-
