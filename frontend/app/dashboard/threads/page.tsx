@@ -148,7 +148,9 @@ export default function ThreadsPage() {
               author={t.createdBy?.name || "Unknown"}
               timestamp={new Date(t.updatedAt || t.createdAt || Date.now()).toLocaleString()}
               replyCount={Math.max(0, (t.messageCount || 1) - 1)}
-              tags={[]}
+              tags={t.tags || []}
+              status={t.status}
+              href={`/dashboard/threads/${t._id || t.id}`}
             />
           ))
         )}
