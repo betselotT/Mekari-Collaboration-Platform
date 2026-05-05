@@ -8,8 +8,10 @@ This repository contains a production-ready implementation scaffold for the MEKA
 - MongoDB via Mongoose
 - Redis client for real-time messaging infrastructure
 - JWT-based authentication
-- Core domain models: users, threads, messages
+- Core domain models: users, threads, messages, intelligence (FeedbackEvent, KnowledgeDoc, PointEvent, Report, Notification)
 - REST APIs under `/api/*` and Socket.IO for real-time chat
+- Intelligence Module (AI Pipeline, Knowledge Capture, Points System)
+- Docker support via `docker-compose.yml` for easy deployment
 
 #### Backend setup
 
@@ -27,6 +29,7 @@ The backend will run on `http://localhost:4000` by default.
 - Next.js 14 (App Router) + React 18
 - Tailwind CSS for styling
 - Basic onboarding (login/register) and dashboard pages
+- Core modules: auth hooks, socket context, responsive dynamic dashboard and thread views
 
 #### Frontend setup
 
