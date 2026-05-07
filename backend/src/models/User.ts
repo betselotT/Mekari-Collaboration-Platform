@@ -8,7 +8,8 @@ export type ExpertiseArea = {
 export interface IUser extends Document {
   name: string;
   email: string;
-  passwordHash: string;
+  passwordHash?: string;
+  googleId?: string;
   oauthProvider?: string;
   bio?: string;
   avatarUrl?: string;
@@ -36,7 +37,8 @@ const UserSchema = new Schema<IUser>(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, index: true },
-    passwordHash: { type: String, required: true },
+    passwordHash: { type: String },
+    googleId: { type: String, index: true },
     oauthProvider: { type: String },
     bio: { type: String },
     avatarUrl: { type: String },

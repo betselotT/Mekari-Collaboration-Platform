@@ -88,6 +88,32 @@ export function createOpenApiSpec() {
             },
           },
         },
+        "/api/auth/google": {
+          post: {
+            tags: ["Auth"],
+            summary: "Sign in / sign up with Google credential",
+            security: [],
+            requestBody: {
+              required: true,
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    required: ["credential"],
+                    properties: {
+                      credential: { type: "string" },
+                    },
+                  },
+                },
+              },
+            },
+            responses: {
+              "200": { description: "Authenticated with Google" },
+              "401": { description: "Invalid Google token" },
+              "500": { description: "Google auth not configured" },
+            },
+          },
+        },
         "/api/users/me": {
           get: {
             tags: ["Users"],
