@@ -90,6 +90,7 @@ export function registerChatHandlers(
           const populated = await message.populate("sender", "name avatarUrl");
 
           io.to(`room:${payload.threadId}`).emit("new_message", {
+            _id: message.id,
             id: message.id,
             thread: payload.threadId,
             sender: populated.sender,
@@ -159,6 +160,7 @@ export function registerChatHandlers(
           });
 
           io.to(`thread:${payload.threadId}`).emit("new-message", {
+            _id: message.id,
             id: message.id,
             thread: message.thread,
             sender: message.sender,

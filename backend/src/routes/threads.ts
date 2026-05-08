@@ -183,6 +183,7 @@ router.post("/:threadId/messages", requireAuth, async (req: AuthRequest, res, ne
     const io = getIo();
     if (io) {
       io.to(`room:${threadId}`).emit("new_message", {
+        _id: message.id,
         id: message.id,
         thread: threadId,
         sender: populated.sender,
@@ -213,6 +214,63 @@ router.post("/:threadId/messages", requireAuth, async (req: AuthRequest, res, ne
     }
 
     res.status(201).json({ message: populated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /:threadId/messages/:messageId/upvote - toggle an upvote on a message
+router.post("/:threadId/messages/:messageId/upvote", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const { threadId, messageId } = req.params;
+
+    const message = await Message.findOne({ _id: messageId, thread: threadId });
+    if (!message) {
+      return res.status(404).json({ error: { message: "Message not found" } });
+    }
+
+    if (message.isFromAi || message.type === "SYSTEM_EVENT") {
+      return res.status(400).json({ error: { message: "This message cannot be upvoted" } });
+    }
+
+    if (String(message.sender) === String(req.userId)) {
+      return res.status(403).json({ error: { message: "You cannot upvote your own message" } });
+    }
+
+    const hasUpvoted = message.upvotes.some((id) => String(id) === String(req.userId));
+    const updated = await Message.findByIdAndUpdate(
+      messageId,
+      hasUpvoted
+        ? { $pull: { upvotes: req.userId } }
+        : { $addToSet: { upvotes: req.userId } },
+      { new: true }
+    ).populate("sender", "name avatarUrl");
+
+    if (!updated) {
+      return res.status(404).json({ error: { message: "Message not found" } });
+    }
+
+    if (!hasUpvoted) {
+      const alreadyAwarded = await PointEvent.exists({
+        userId: message.sender,
+        eventType: "RECEIVED_UPVOTE",
+        refId: message._id,
+      });
+      if (!alreadyAwarded) {
+        await awardPoints(String(message.sender), "RECEIVED_UPVOTE", String(message._id));
+      }
+    }
+
+    const io = getIo();
+    if (io) {
+      io.to(`room:${threadId}`).emit("message_upvoted", {
+        threadId,
+        messageId,
+        upvotes: updated.upvotes,
+      });
+    }
+
+    res.json({ message: updated, upvoted: !hasUpvoted });
   } catch (err) {
     next(err);
   }
@@ -337,6 +395,7 @@ router.post("/:threadId/session", requireAuth, async (req: AuthRequest, res, nex
     const io = getIo();
     if (io) {
       io.to(`room:${threadId}`).emit("new_message", {
+        _id: systemMsg.id,
         id: systemMsg.id,
         thread: threadId,
         sender: req.userId,
@@ -348,6 +407,51 @@ router.post("/:threadId/session", requireAuth, async (req: AuthRequest, res, nex
     }
 
     res.json({ meetLink, message: systemMsg });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /:threadId/messages/:messageId - delete own message, or any message as admin/mod
+router.delete("/:threadId/messages/:messageId", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const { threadId, messageId } = req.params;
+
+    const message = await Message.findOne({ _id: messageId, thread: threadId });
+    if (!message) {
+      return res.status(404).json({ error: { message: "Message not found" } });
+    }
+
+    const isOwner = String(message.sender) === String(req.userId);
+    const isModerator = req.userRole === "admin" || req.userRole === "mod";
+    if (!isOwner && !isModerator) {
+      return res.status(403).json({ error: { message: "You can only delete your own messages" } });
+    }
+
+    const thread = await Thread.findById(threadId).select("solutionMsgId");
+    if (!thread) {
+      return res.status(404).json({ error: { message: "Thread not found" } });
+    }
+
+    if (thread.solutionMsgId && String(thread.solutionMsgId) === String(message._id)) {
+      return res.status(409).json({
+        error: { message: "Cannot delete the message marked as the solution" },
+      });
+    }
+
+    await Message.findByIdAndDelete(message._id);
+    await Thread.findByIdAndUpdate(threadId, { $set: { updatedAt: new Date() } });
+
+    const io = getIo();
+    if (io) {
+      io.to(`room:${threadId}`).emit("message_deleted", {
+        threadId,
+        messageId,
+        deletedBy: req.userId,
+      });
+    }
+
+    res.json({ deleted: true, messageId });
   } catch (err) {
     next(err);
   }

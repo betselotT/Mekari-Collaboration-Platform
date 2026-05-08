@@ -18,7 +18,11 @@ import {
   ChevronDown,
   ChevronUp,
   Zap,
-} from "lucide-react";
+  Trash2,
+  Reply,
+  ArrowUp,
+  X,
+  } from "lucide-react";
 import type { Socket } from "socket.io-client";
 
 interface Sender {
@@ -28,6 +32,7 @@ interface Sender {
 }
 
 interface ChatMessage {
+  id?: string;
   _id: string;
   thread: string;
   sender: Sender | string;
@@ -36,6 +41,7 @@ interface ChatMessage {
   isFromAi: boolean;
   createdAt: string;
   upvotes?: string[];
+  parentMessageId?: string;
 }
 
 interface AIResponse {
@@ -66,6 +72,7 @@ interface Thread {
   googleMeetLink?: string;
   createdBy: Sender;
   isSolved: boolean;
+  solutionMsgId?: string;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -91,6 +98,10 @@ function senderInitials(sender: Sender | string): string {
     .slice(0, 2);
 }
 
+function getMessageId(message: ChatMessage): string {
+  return message._id || message.id || "";
+}
+
 export default function ThreadDetailPage() {
   const params = useParams<{ id: string }>();
   const threadId = params?.id ?? "";
@@ -105,9 +116,15 @@ export default function ThreadDetailPage() {
   const [aiPanel, setAiPanel] = useState(true);
   const [expertPanel, setExpertPanel] = useState(true);
   const [solveError, setSolveError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  const [upvotingMessageId, setUpvotingMessageId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [sessionStarting, setSessionStarting] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
@@ -177,6 +194,23 @@ export default function ThreadDetailPage() {
         setThread((prev) => (prev ? { ...prev, status: "SOLVED", isSolved: true } : prev));
       });
 
+      socket.on("message_deleted", (data: { threadId: string; messageId: string }) => {
+        if (data.threadId !== threadId) return;
+        setMessages((prev) => prev.filter((msg) => getMessageId(msg) !== data.messageId));
+      });
+
+      socket.on(
+        "message_upvoted",
+        (data: { threadId: string; messageId: string; upvotes: string[] }) => {
+          if (data.threadId !== threadId) return;
+          setMessages((prev) =>
+            prev.map((msg) =>
+              getMessageId(msg) === data.messageId ? { ...msg, upvotes: data.upvotes } : msg
+            )
+          );
+        }
+      );
+
       socket.on("user_typing", ({ userId }: { userId: string; threadId: string }) => {
         setTypingUsers((prev) => (prev.includes(userId) ? prev : [...prev, userId]));
       });
@@ -195,6 +229,8 @@ export default function ThreadDetailPage() {
         socket.off("ai_response_ready");
         socket.off("expert_matched");
         socket.off("thread_solved");
+        socket.off("message_deleted");
+        socket.off("message_upvoted");
         socket.off("user_typing");
         socket.off("user_stopped_typing");
       }
@@ -231,16 +267,18 @@ export default function ThreadDetailPage() {
 
     setSending(true);
     setInput("");
+    const parentMessageId = replyTo ? getMessageId(replyTo) : undefined;
+    setReplyTo(null);
 
     const socket = socketRef.current;
     if (socket?.connected) {
       socket.emit("typing_stop", threadId);
       isTypingRef.current = false;
-      socket.emit("send_message", { threadId, body: text, type: "TEXT" });
+      socket.emit("send_message", { threadId, body: text, type: "TEXT", parentMessageId });
       setSending(false);
     } else {
       try {
-        await apiClient.post(`/api/threads/${threadId}/messages`, { body: text });
+        await apiClient.post(`/api/threads/${threadId}/messages`, { body: text, parentMessageId });
       } catch (err) {
         console.error(err);
       } finally {
@@ -273,6 +311,54 @@ export default function ThreadDetailPage() {
       console.error(err);
     } finally {
       setSessionStarting(false);
+    }
+  }
+
+  const getParentMessage = (parentId?: string) => {
+  if (!parentId) return null;
+  return messages.find((m) => getMessageId(m) === parentId);
+  };
+
+  function startReply(message: ChatMessage) {
+    setReplyTo(message);
+    setActionError(null);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
+  async function upvoteMessage(msgId: string) {
+    if (!msgId || upvotingMessageId) return;
+
+    setActionError(null);
+    setUpvotingMessageId(msgId);
+    try {
+      const res = await apiClient.post<{ message: ChatMessage; upvoted: boolean }>(
+        `/api/threads/${threadId}/messages/${msgId}/upvote`
+      );
+      setMessages((prev) =>
+        prev.map((msg) => (getMessageId(msg) === msgId ? { ...msg, ...res.data.message } : msg))
+      );
+    } catch (err: any) {
+      setActionError(err?.response?.data?.error?.message || "Failed to update upvote");
+    } finally {
+      setUpvotingMessageId(null);
+    }
+  }
+
+  async function deleteMessage(msgId: string) {
+    if (!msgId || deletingMessageId) return;
+
+    const confirmed = window.confirm("Delete this message?");
+    if (!confirmed) return;
+
+    setDeleteError(null);
+    setDeletingMessageId(msgId);
+    try {
+      await apiClient.delete(`/api/threads/${threadId}/messages/${msgId}`);
+      setMessages((prev) => prev.filter((msg) => getMessageId(msg) !== msgId));
+    } catch (err: any) {
+      setDeleteError(err?.response?.data?.error?.message || "Failed to delete message");
+    } finally {
+      setDeletingMessageId(null);
     }
   }
 
@@ -349,15 +435,23 @@ export default function ThreadDetailPage() {
           {/* Messages */}
           <div className="flex flex-col gap-3 min-h-[400px] max-h-[60vh] overflow-y-auto rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-700 dark:bg-neutral-800/50">
             {messages.map((msg) => {
+              const msgId = getMessageId(msg);
               const isMe = user && (typeof msg.sender === "object"
                 ? msg.sender._id === user._id
                 : msg.sender === user._id);
+              const canDelete = !!user && (
+                !!isMe ||
+                user.role === "admin" ||
+                user.role === "mod"
+              );
+              const isSolutionMessage = thread.solutionMsgId === msgId;
               const isSys = msg.type === "SYSTEM_EVENT";
               const isAiMsg = msg.isFromAi;
+              const hasUpvoted = !!user && (msg.upvotes || []).some((id) => String(id) === user._id);
 
               if (isSys) {
                 return (
-                  <div key={msg._id} className="flex justify-center">
+                  <div key={msgId} className="flex justify-center">
                     <div className="flex items-center gap-2 rounded-full bg-blue-50 px-4 py-1.5 text-xs text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
                       <Video className="h-3.5 w-3.5" />
                       {msg.body}
@@ -368,7 +462,7 @@ export default function ThreadDetailPage() {
 
               return (
                 <div
-                  key={msg._id}
+                  key={msgId}
                   className={`flex gap-3 ${isMe ? "flex-row-reverse" : ""}`}
                 >
                   {isAiMsg ? (
@@ -391,21 +485,83 @@ export default function ThreadDetailPage() {
                         {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
-                    <div
-                      className={`rounded-xl px-4 py-2.5 text-sm ${
-                        isMe
-                          ? "bg-primary-600 text-white"
-                          : isAiMsg
-                          ? "border border-primary-200 bg-primary-50 text-neutral-900 dark:border-primary-800 dark:bg-primary-950/30 dark:text-neutral-100"
-                          : "border border-neutral-200 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap break-words">{msg.body}</p>
-                    </div>
+                   <div className="group relative">
+  <div
+    className={`rounded-xl px-4 py-2.5 text-sm ${
+      isMe
+        ? "bg-primary-600 text-white"
+        : isAiMsg
+        ? "border border-primary-200 bg-primary-50 text-neutral-900 dark:border-primary-800 dark:bg-primary-950/30 dark:text-neutral-100"
+        : "border border-neutral-200 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+    }`}
+  >
+    {msg.parentMessageId && (
+  <div className="mb-2 rounded-lg border-l-4 border-primary-500 bg-neutral-100 px-3 py-2 dark:bg-neutral-900/60">
+    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-primary-500">
+      Replying to
+    </p>
+
+    <p className="line-clamp-2 text-xs text-neutral-600 dark:text-neutral-400">
+      {getParentMessage(msg.parentMessageId)?.body ?? "Original message"}
+    </p>
+  </div>
+)}
+    <p className="whitespace-pre-wrap break-words">
+      {msg.body}
+    </p>
+  </div>
+
+  
+  {!isAiMsg && (
+    <div className="absolute -top-3 right-2 hidden items-center gap-2 rounded-lg border border-neutral-200 bg-white px-2 py-1 shadow-md group-hover:flex dark:border-neutral-700 dark:bg-neutral-900">
+      
+      
+      <button
+        type="button"
+        onClick={() => startReply(msg)}
+        className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-primary-500 hover:underline"
+      >
+        <Reply className="h-3 w-3" />
+        Reply
+      </button>
+
+      <button
+        type="button"
+        onClick={() => upvoteMessage(msgId)}
+        disabled={!!isMe || upvotingMessageId === msgId}
+        className={`flex items-center gap-1 text-xs disabled:cursor-not-allowed disabled:opacity-50 ${
+          hasUpvoted
+            ? "text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
+            : "text-neutral-500 hover:text-green-400"
+        }`}
+        title={isMe ? "You cannot upvote your own message" : "Upvote message"}
+      >
+        <ArrowUp className="h-3.5 w-3.5" />
+        {upvotingMessageId === msgId ? "..." : msg.upvotes?.length || 0}
+      </button>
+
+   
+      {canDelete && !isSolutionMessage && (
+        <button
+          type="button"
+          onClick={() => deleteMessage(msgId)}
+          disabled={deletingMessageId === msgId}
+          className="text-xs text-neutral-500 hover:text-red-500 hover:underline"
+          title="Delete message"
+        >
+          <span className="inline-flex items-center gap-1">
+            <Trash2 className="h-3 w-3" />
+            {deletingMessageId === msgId ? "Deleting..." : "Delete"}
+          </span>
+        </button>
+      )}
+    </div>
+  )}
+</div>
                     {/* Mark as solution button — only thread author, only non-AI, only unsolved */}
                     {isAuthor && !msg.isFromAi && thread.status !== "SOLVED" && !isMe && (
                       <button
-                        onClick={() => markSolved(msg._id)}
+                        onClick={() => markSolved(msgId)}
                         className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
                       >
                         <CheckCircle className="h-3.5 w-3.5" />
@@ -432,38 +588,61 @@ export default function ThreadDetailPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {solveError && (
+          {(solveError || deleteError || actionError) && (
             <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300">
-              {solveError}
+              {solveError || deleteError || actionError}
             </p>
           )}
 
           {/* Input bar */}
           {thread.status !== "SOLVED" && thread.status !== "CLOSED" && (
-            <div className="flex gap-2">
-              <input
-                type="text"
-                className="flex-1 rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder-neutral-500"
-                placeholder="Type your message…"
-                value={input}
-                onChange={(e) => handleInputChange(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                  }
-                }}
-                disabled={sending}
-              />
-              <Button
-                variant="primary"
-                size="md"
-                onClick={sendMessage}
-                disabled={!input.trim() || sending}
-                isLoading={sending}
-              >
-                <Send className="h-4 w-4" />
-              </Button>
+            <div className="flex flex-col gap-2">
+              {replyTo && (
+                <div className="flex items-start justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm dark:border-primary-900/50 dark:bg-primary-950/30">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-primary-700 dark:text-primary-300">
+                      Replying to {senderName(replyTo.sender)}
+                    </p>
+                    <p className="truncate text-xs text-neutral-600 dark:text-neutral-400">
+                      {replyTo.body}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReplyTo(null)}
+                    className="rounded p-1 text-neutral-500 hover:bg-white hover:text-neutral-800 dark:hover:bg-neutral-900 dark:hover:text-neutral-100"
+                    aria-label="Cancel reply"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  className="flex-1 rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder-neutral-500"
+                  placeholder={replyTo ? "Write a reply..." : "Type your message..."}
+                  value={input}
+                  onChange={(e) => handleInputChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage();
+                    }
+                  }}
+                  disabled={sending}
+                />
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={sendMessage}
+                  disabled={!input.trim() || sending}
+                  isLoading={sending}
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           )}
 
