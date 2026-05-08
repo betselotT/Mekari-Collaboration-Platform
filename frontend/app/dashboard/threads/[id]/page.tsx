@@ -28,7 +28,7 @@ interface Sender {
 }
 
 interface ChatMessage {
-  id: string;
+  _id: string;
   thread: string;
   sender: Sender | string;
   body: string;
@@ -143,7 +143,7 @@ export default function ThreadDetailPage() {
       socket.on("new_message", (msg: ChatMessage) => {
         if (msg.thread !== threadId) return;
         setMessages((prev) => {
-          if (prev.some((m) => m.id === msg.id)) return prev;
+          if (prev.some((m) => m._id === msg._id)) return prev;
           return [...prev, msg];
         });
       });
@@ -357,7 +357,7 @@ export default function ThreadDetailPage() {
 
               if (isSys) {
                 return (
-                  <div key={msg.id} className="flex justify-center">
+                  <div key={msg._id} className="flex justify-center">
                     <div className="flex items-center gap-2 rounded-full bg-blue-50 px-4 py-1.5 text-xs text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
                       <Video className="h-3.5 w-3.5" />
                       {msg.body}
@@ -368,7 +368,7 @@ export default function ThreadDetailPage() {
 
               return (
                 <div
-                  key={msg.id}
+                  key={msg._id}
                   className={`flex gap-3 ${isMe ? "flex-row-reverse" : ""}`}
                 >
                   {isAiMsg ? (
@@ -405,7 +405,7 @@ export default function ThreadDetailPage() {
                     {/* Mark as solution button — only thread author, only non-AI, only unsolved */}
                     {isAuthor && !msg.isFromAi && thread.status !== "SOLVED" && !isMe && (
                       <button
-                        onClick={() => markSolved(msg.id)}
+                        onClick={() => markSolved(msg._id)}
                         className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
                       >
                         <CheckCircle className="h-3.5 w-3.5" />
