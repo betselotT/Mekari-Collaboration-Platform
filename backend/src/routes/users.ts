@@ -23,8 +23,13 @@ const profileUpdateSchema = z.object({
 
 router.get("/me", requireAuth, async (req: AuthRequest, res, next) => {
   try {
-    const user = await User.findById(req.userId).select("-passwordHash");
-    res.json({ user });
+    const user = await User.findById(req.userId).select("-passwordHash").lean();
+    if (!user) return res.status(404).json({ error: { message: "User not found" } });
+
+    // Calculate global rank (count users with more points + 1)
+    const rank = await User.countDocuments({ points: { $gt: user.points || 0 } }) + 1;
+
+    res.json({ user: { ...user, rank } });
   } catch (err) {
     next(err);
   }

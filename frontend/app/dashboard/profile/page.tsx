@@ -8,7 +8,7 @@ import { Button } from "../../../components/ui/Button";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Badge } from "../../../components/ui/Badge";
 import { Input } from "../../../components/ui/Input";
-import { Edit, Lock, Globe, Bell, Save, X, Plus, CheckCircle2, Clock, Moon, Video } from "lucide-react";
+import { Edit, Lock, Globe, Bell, Save, X, Plus, CheckCircle2, Clock, Moon, Video, Award, Zap, Bot, Trophy, Star, TrendingUp } from "lucide-react";
 
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
@@ -594,26 +594,93 @@ export default function ProfilePage() {
         {/* Right Column - Quick Info */}
         <div className="space-y-6">
           {/* Stats */}
+          {/* Gamification & Badges */}
+          <Card className="overflow-hidden">
+            <div className="mb-6 flex items-center justify-between">
+              <h4 className="font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-amber-500" />
+                Reputation & Awards
+              </h4>
+              <Badge variant="primary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                Level {Math.floor((user.points || 0) / 100) + 1}
+              </Badge>
+            </div>
+
+            {/* Progress Bar to next level */}
+            <div className="mb-8">
+              <div className="mb-2 flex justify-between text-xs">
+                <span className="text-neutral-500">Next Level Progress</span>
+                <span className="font-bold text-neutral-900 dark:text-white">{(user.points || 0) % 100}%</span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-1000"
+                  style={{ width: `${(user.points || 0) % 100}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Badges Grid */}
+            <div>
+              <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                Earned Badges ({user.badges?.length || 0})
+              </p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-1">
+                {user.badges && user.badges.length > 0 ? (
+                  user.badges.map((badgeName: string) => {
+                    const config = {
+                      "First Blood": { icon: Zap, color: "from-rose-500 to-orange-500", desc: "First answer" },
+                      "Reliable": { icon: CheckCircle2, color: "from-emerald-500 to-teal-600", desc: "10+ solutions" },
+                      "Top Expert": { icon: Star, color: "from-amber-400 to-yellow-600", desc: "Top 10 rank" },
+                      "AI Beater": { icon: Bot, color: "from-purple-600 to-indigo-600", desc: "Outsmarted AI" },
+                      "Speed Demon": { icon: Clock, color: "from-cyan-500 to-blue-600", desc: "Instant solution" },
+                    }[badgeName] || { icon: Award, color: "from-neutral-500 to-neutral-700", desc: "Special achievement" };
+
+                    const Icon = config.icon;
+
+                    return (
+                      <div 
+                        key={badgeName}
+                        className="group relative flex items-center gap-3 rounded-xl border border-neutral-100 bg-neutral-50/50 p-3 transition-all hover:border-amber-200 hover:bg-white dark:border-neutral-800 dark:bg-neutral-900/50 dark:hover:border-amber-900/50"
+                      >
+                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${config.color} text-white shadow-lg`}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-neutral-900 dark:text-white">{badgeName}</p>
+                          <p className="truncate text-[10px] text-neutral-500">{config.desc}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="rounded-xl border border-dashed border-neutral-200 p-4 text-center dark:border-neutral-800">
+                    <p className="text-xs text-neutral-500 italic">No badges earned yet. Solve threads to unlock!</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+
           <Card>
-            <h4 className="mb-4 font-semibold text-neutral-900 dark:text-white">
+            <h4 className="mb-4 font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary-500" />
               Your Activity
             </h4>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-sm text-neutral-600 dark:text-neutral-400">Threads Started</span>
-                <span className="font-bold text-neutral-900 dark:text-white">24</span>
+                <span className="text-sm text-neutral-600 dark:text-neutral-400">Total Points</span>
+                <span className="font-bold text-neutral-900 dark:text-white">{user.points?.toLocaleString() || 0}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-neutral-600 dark:text-neutral-400">Replies Given</span>
-                <span className="font-bold text-neutral-900 dark:text-white">156</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-neutral-600 dark:text-neutral-400">Consultations</span>
-                <span className="font-bold text-neutral-900 dark:text-white">12</span>
+                <span className="text-sm text-neutral-600 dark:text-neutral-400">Badges Collected</span>
+                <span className="font-bold text-neutral-900 dark:text-white">{user.badges?.length || 0}</span>
               </div>
               <div className="flex justify-between pt-3 border-t border-neutral-200 dark:border-neutral-700">
-                <span className="text-sm text-neutral-600 dark:text-neutral-400">Reputation</span>
-                <span className="font-bold text-primary-600 dark:text-primary-400">2.5K pts</span>
+                <span className="text-sm text-neutral-600 dark:text-neutral-400 font-medium">Global Rank</span>
+                <span className="font-bold text-primary-600 dark:text-primary-400">
+                  {user.rank ? `#${user.rank}` : "Unranked"}
+                </span>
               </div>
             </div>
           </Card>
