@@ -14,36 +14,16 @@ export interface ExpertCardProps {
   skills: string[];
   status: "available" | "available_in_2h" | "away";
   onConsult?: () => void;
+  onDm?: () => void;
 }
 
 export function ExpertCard(props: ExpertCardProps) {
-  const {
-    name,
-    title,
-    company,
-    rating,
-    image,
-    skills,
-    status,
-    onConsult,
-  } = props;
+  const { name, title, company, rating, image, skills, status, onConsult, onDm } = props;
 
-  const statusConfig: Record<
-    ExpertCardProps["status"],
-    { color: string; text: string }
-  > = {
-    available: {
-      color: "bg-emerald-500",
-      text: "AVAILABLE NOW",
-    },
-    available_in_2h: {
-      color: "bg-amber-500",
-      text: "AVAILABLE IN 2H",
-    },
-    away: {
-      color: "bg-neutral-400",
-      text: "AWAY",
-    },
+  const statusConfig: Record<ExpertCardProps["status"], { color: string; text: string }> = {
+    available: { color: "bg-emerald-500", text: "AVAILABLE NOW" },
+    available_in_2h: { color: "bg-amber-500", text: "AVAILABLE SOON" },
+    away: { color: "bg-neutral-400", text: "AWAY" },
   };
 
   const config = statusConfig[status];
@@ -51,7 +31,9 @@ export function ExpertCard(props: ExpertCardProps) {
   const initials = name
     .split(" ")
     .map((n) => n[0])
-    .join("");
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white transition-all hover:shadow-md dark:border-neutral-700 dark:bg-neutral-800">
@@ -68,42 +50,38 @@ export function ExpertCard(props: ExpertCardProps) {
       <div className="px-4 pb-4">
         {/* Avatar */}
         <div className="mb-4 -mt-16 flex justify-center">
-          <Avatar size="lg" initials={initials} />
+          <Avatar size="lg" initials={initials} src={image} />
         </div>
 
         {/* Name and Title */}
         <div className="mb-4 text-center">
-          <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
-            {name}
-          </h3>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            {title}
-          </p>
-          <p className="text-xs text-neutral-500 dark:text-neutral-500">
-            at {company}
-          </p>
+          <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{name}</h3>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">{title}</p>
+          {company && (
+            <p className="text-xs text-neutral-500 dark:text-neutral-500">at {company}</p>
+          )}
         </div>
 
         {/* Rating */}
         <div className="mb-4 flex items-center justify-center gap-1">
-          {Array.from({ length: 5 }).map((_, index) => (
+          {Array.from({ length: 5 }).map((_, i) => (
             <Star
-              key={index}
+              key={i}
               className={`h-4 w-4 ${
-                index < Math.floor(rating)
+                i < Math.floor(rating)
                   ? "fill-amber-400 text-amber-400"
                   : "text-neutral-300 dark:text-neutral-600"
               }`}
             />
           ))}
           <span className="ml-2 text-sm font-semibold text-neutral-900 dark:text-white">
-            {rating}
+            {rating.toFixed(1)}
           </span>
         </div>
 
         {/* Skills */}
         <div className="mb-4 flex flex-wrap justify-center gap-2">
-          {skills.map((skill) => (
+          {skills.slice(0, 4).map((skill) => (
             <Badge key={skill} variant="info">
               {skill.toUpperCase()}
             </Badge>
@@ -112,17 +90,13 @@ export function ExpertCard(props: ExpertCardProps) {
 
         {/* Action Buttons */}
         <div className="flex gap-2">
-          <Button
-            variant="primary"
-            className="flex-1"
-            onClick={onConsult}
-          >
+          <Button variant="primary" className="flex-1" onClick={onConsult}>
             Consult
           </Button>
-
-          <button className="flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-50 dark:hover:bg-neutral-700">
-            <MessageSquare className="mr-2 inline h-4 w-4" />
-          </button>
+          <Button variant="secondary" className="flex-1" onClick={onDm}>
+            <MessageSquare className="mr-1.5 inline h-4 w-4" />
+            DM
+          </Button>
         </div>
       </div>
     </div>

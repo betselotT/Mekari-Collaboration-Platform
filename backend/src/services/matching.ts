@@ -11,6 +11,7 @@ const PROFICIENCY_WEIGHT: Record<ExpertiseArea["proficiency"], number> = {
 function availabilityFactor(status: IUser["availabilityStatus"]) {
   if (status === "online") return 1;
   if (status === "busy") return 0.6;
+  if (status === "in_session") return 0.3;
   return 0;
 }
 
@@ -19,12 +20,12 @@ function allowedByAvailabilityPreference(
   pref: MatchAvailabilityPreference
 ) {
   if (pref === "any") return true;
-  if (pref === "online_or_busy") return status === "online" || status === "busy";
+  if (pref === "online_or_busy")
+    return status === "online" || status === "busy" || status === "in_session";
   return status === "online";
 }
 
 function normalizePoints(points: number) {
-  // Cap to keep outliers from dominating
   const capped = Math.max(0, Math.min(points, 1000));
   return capped / 1000;
 }
@@ -43,26 +44,54 @@ export async function recommendExperts(params: {
   limit?: number;
 }): Promise<ExpertRecommendation[]> {
   const { requesterId, subject, tags, availabilityPreference, limit = 5 } = params;
-  const tagSet = new Set([subject, ...tags].map((t) => t.trim()).filter(Boolean));
-  const tagList = Array.from(tagSet);
+  const rawTerms = [subject, ...tags].map((t) => t.trim()).filter(Boolean);
+  const tagSet = new Set(rawTerms.map((t) => t.toLowerCase()));
+  // Case-insensitive regex for each term
+  const tagRegexes = rawTerms.map((t) => new RegExp(`^${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"));
 
-  // Pull candidates that match at least one tag in expertise.
-  const candidates = await User.find({
-    "expertise.subject": { $in: tagList },
-    ...(requesterId ? { _id: { $ne: requesterId } } : {}),
-  }).select("name avatarUrl expertise availabilityStatus points badges");
+  const baseFilter = requesterId ? { _id: { $ne: requesterId } } : {};
+
+  // Try tag-matched experts first
+  let candidates = await User.find({
+    $or: [
+      { "expertise.subject": { $in: tagRegexes } },
+      { skillTags: { $in: tagRegexes } },
+    ],
+    ...baseFilter,
+  }).select("name avatarUrl expertise skillTags availabilityStatus points badges");
+
+  // Fallback: if no tag match, return any expert/user with expertise or role=expert
+  if (candidates.length === 0) {
+    candidates = (await User.find({
+      $or: [
+        { role: { $in: ["expert", "admin"] } },
+        { "expertise.0": { $exists: true } },
+        { skillTags: { $exists: true, $ne: [] } },
+      ],
+      ...baseFilter,
+    }).select("name avatarUrl expertise skillTags availabilityStatus points badges")) as typeof candidates;
+  }
 
   const scored = candidates
     .filter((c) => allowedByAvailabilityPreference(c.availabilityStatus, availabilityPreference))
     .map((c) => {
-      const matchedAreas = c.expertise.filter((e) => tagSet.has(e.subject));
-      const tagMatchCount = matchedAreas.length;
-      const tagMatchRatio = tagList.length === 0 ? 0 : tagMatchCount / tagList.length;
+      // Check expertise match case-insensitively
+      const matchedAreas = c.expertise.filter((e) =>
+        tagSet.has(e.subject.toLowerCase())
+      );
+      // Also check skillTags
+      const matchedTags = c.skillTags.filter((s) => tagSet.has(s.toLowerCase()));
+      const tagMatchCount = matchedAreas.length + matchedTags.length;
+      const tagMatchRatio =
+        rawTerms.length === 0 ? 0 : Math.min(1, tagMatchCount / rawTerms.length);
+
       const avgProf =
         matchedAreas.length === 0
-          ? 0
-          : matchedAreas.reduce((sum, e) => sum + PROFICIENCY_WEIGHT[e.proficiency], 0) /
-            matchedAreas.length;
+          ? 1
+          : matchedAreas.reduce(
+              (sum, e) => sum + PROFICIENCY_WEIGHT[e.proficiency],
+              0
+            ) / matchedAreas.length;
 
       const tagScore = 50 * tagMatchRatio;
       const proficiencyScore = 25 * (avgProf / 4);
@@ -72,10 +101,13 @@ export async function recommendExperts(params: {
       const score = tagScore + proficiencyScore + pointsScore + availScore;
 
       const reasons: string[] = [];
-      if (tagMatchCount > 0) reasons.push(`Matches ${tagMatchCount} topic tag(s)`);
-      if (avgProf > 0) reasons.push(`Expertise proficiency ~ ${avgProf.toFixed(1)}/4`);
-      if (c.points > 0) reasons.push(`Reputation points: ${c.points}`);
-      reasons.push(`Availability: ${c.availabilityStatus}`);
+      if (tagMatchCount > 0)
+        reasons.push(`Matches ${tagMatchCount} topic tag(s)`);
+      else
+        reasons.push(`General expert available`);
+      if (avgProf > 1) reasons.push(`Expertise level ~ ${avgProf.toFixed(1)}/4`);
+      if (c.points > 0) reasons.push(`${c.points} reputation points`);
+      reasons.push(`Status: ${c.availabilityStatus}`);
 
       return {
         expertId: c.id,
@@ -86,6 +118,10 @@ export async function recommendExperts(params: {
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 
+  // Second fallback: if preference filtered everything out, try with "any"
+  if (scored.length === 0 && availabilityPreference !== "any") {
+    return recommendExperts({ ...params, availabilityPreference: "any" });
+  }
+
   return scored;
 }
-

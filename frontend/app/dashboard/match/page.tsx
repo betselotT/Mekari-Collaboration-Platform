@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { DashboardLayout } from "../../../components/layout/DashboardLayout";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
@@ -31,9 +32,18 @@ type MatchRequestResponse = {
 };
 
 export default function MatchPage() {
+  const searchParams = useSearchParams();
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
   const [tags, setTags] = useState("");
+
+  // Pre-fill from URL params when navigating from experts page
+  useEffect(() => {
+    const s = searchParams?.get("subject");
+    const t = searchParams?.get("tags");
+    if (s) setSubject(s);
+    if (t) setTags(t);
+  }, [searchParams]);
   const [initialMessage, setInitialMessage] = useState("");
   const [availabilityPreference, setAvailabilityPreference] = useState<
     "online_only" | "online_or_busy" | "any"

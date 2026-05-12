@@ -1,7 +1,9 @@
 import axios from "axios";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000";
+// When NEXT_PUBLIC_API_BASE_URL is set (e.g. in production), use it directly.
+// Otherwise use same-origin "" so Next.js rewrites proxy the requests to the
+// backend — this eliminates CORS in development.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 export function getAuthToken() {
   if (typeof window === "undefined") return null;
@@ -20,4 +22,3 @@ apiClient.interceptors.request.use((config) => {
   }
   return config;
 });
-

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { DashboardLayout } from "../../../components/layout";
 import { ThreadCard } from "../../../components/features/ThreadCard";
 import { Button } from "../../../components/ui/Button";
@@ -9,6 +10,7 @@ import { MessageCircle, Plus } from "lucide-react";
 import { apiClient } from "../../../lib/api";
 
 export default function ThreadsPage() {
+  const searchParams = useSearchParams();
   const [threads, setThreads] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,6 +20,15 @@ export default function ThreadsPage() {
   const [subject, setSubject] = useState("");
   const [initialMessage, setInitialMessage] = useState("");
   const [creating, setCreating] = useState(false);
+
+  // Open new-thread modal pre-filled when navigating via DM from experts page
+  useEffect(() => {
+    const expertName = searchParams?.get("expert");
+    if (expertName) {
+      setInitialMessage(`Hi ${expertName}, I'd like to get your help with...`);
+      setShowNewThread(true);
+    }
+  }, [searchParams]);
 
   const canCreate = useMemo(
     () => title.trim().length >= 5 && subject.trim().length >= 1 && initialMessage.trim().length >= 1,

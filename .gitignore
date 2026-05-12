@@ -11,4 +11,4 @@ dist/
 .venv/
 .claude/
 frontend/tsconfig.tsbuildinfo
-
+**/venv/
