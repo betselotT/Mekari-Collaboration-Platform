@@ -1,0 +1,15 @@
+services:
+  redis:
+    image: redis:alpine
+    ports:
+      - "6380:6379"
+
+  mongodb:
+    image: mongo:6
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
