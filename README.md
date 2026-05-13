@@ -1,7 +1,17 @@
 ## MEKARI: Collaboration Platform
 
-This repository contains a production-ready implementation scaffold for the MEKARI senior research project, with a `backend` (Node.js/Express, MongoDB, Redis) and a `frontend` (Next.js, Tailwind CSS).
+Project Overview
+Mekari is a lightweight, full-stack, real-time collaboration platform designed to connect students, developers, engineers, and technical professionals across disciplines with domain experts for instant peer support.
+It solves the fragmentation problem of existing tools (Stack Overflow, Discord, Teams, ChatGPT, etc.) by combining:
 
+- Real-time voice + interactive whiteboard sessions
+- AI-powered context-aware chatbot with human escalation
+- Intelligent subject-based expert matching & availability indicators
+- Threaded chat with attachments and notifications
+- Gamification (points, badges, leaderboards)
+- Evolving knowledge repository from solved issues
+
+Mekari was developed as a Capstone Project for Student Collaboration following agile (Scrum) methodology, user-centered design, and industry best practices.
 ### Backend (`/backend`)
 
 - Node.js + Express + TypeScript
