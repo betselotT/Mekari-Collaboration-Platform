@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { DashboardLayout } from "../../../components/layout";
 import { ThreadCard } from "../../../components/features/ThreadCard";
@@ -10,6 +10,14 @@ import { MessageCircle, Plus } from "lucide-react";
 import { apiClient } from "../../../lib/api";
 
 export default function ThreadsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ThreadsContent />
+    </Suspense>
+  );
+}
+
+function ThreadsContent() {
   const searchParams = useSearchParams();
   const [threads, setThreads] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);

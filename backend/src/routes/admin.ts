@@ -26,6 +26,11 @@ const updateReportSchema = z.object({
   status: z.enum(["pending", "resolved", "dismissed"]),
 });
 
+const reviewVerificationSchema = z.object({
+  status: z.enum(["approved", "rejected"]),
+  reviewNote: z.string().max(500).optional(),
+});
+
 router.get("/reports", requireAuth, requireMod, async (_req, res, next) => {
   try {
     const reports = await Report.find()
@@ -77,6 +82,52 @@ router.get("/analytics", requireAuth, requireAdmin, async (_req, res, next) => {
         aiResolvedCount,
       },
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/expert-verifications", requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const status = z
+      .enum(["pending", "approved", "rejected"])
+      .optional()
+      .parse(req.query.status);
+    const filter = status
+      ? { role: "expert", "expertVerification.status": status }
+      : { role: "expert", "expertVerification.status": { $in: ["pending", "approved", "rejected"] } };
+
+    const users = await User.find(filter)
+      .select("name email primaryTechnicalField roleOrStatus yearsOfExperience expertise skillTags expertVerification createdAt")
+      .sort({ "expertVerification.submittedAt": -1, createdAt: -1 });
+
+    res.json({ verifications: users });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch("/expert-verifications/:userId", requireAuth, requireAdmin, async (req: AuthRequest, res, next) => {
+  try {
+    const parsed = reviewVerificationSchema.parse(req.body);
+    const user = await User.findOneAndUpdate(
+      { _id: req.params.userId, role: "expert" },
+      {
+        $set: {
+          "expertVerification.status": parsed.status,
+          "expertVerification.reviewNote": parsed.reviewNote,
+          "expertVerification.reviewedAt": new Date(),
+          "expertVerification.reviewedBy": req.userId,
+        },
+      },
+      { new: true }
+    ).select("-passwordHash");
+
+    if (!user) {
+      return res.status(404).json({ error: { message: "Mentor verification request not found" } });
+    }
+
+    res.json({ user });
   } catch (err) {
     next(err);
   }

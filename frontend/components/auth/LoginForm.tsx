@@ -4,7 +4,10 @@ import { FormEvent, useState } from "react";
 import { apiClient } from "../../lib/api";
 import { GoogleAuthButton } from "./GoogleAuthButton";
 
+type AccountType = "learner" | "mentor";
+
 export function LoginForm() {
+  const [accountType, setAccountType] = useState<AccountType>("learner");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,6 +21,7 @@ export function LoginForm() {
       const res = await apiClient.post("/api/auth/login", {
         email,
         password,
+        accountType,
       });
       localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
@@ -32,7 +36,7 @@ export function LoginForm() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiClient.post("/api/auth/google", { credential });
+      const res = await apiClient.post("/api/auth/google", { credential, accountType });
       localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
     } catch (err: any) {
@@ -49,6 +53,22 @@ export function LoginForm() {
           {error}
         </p>
       )}
+      <div className="grid grid-cols-2 gap-2 rounded bg-neutral-100 p-1 dark:bg-neutral-900">
+        {(["learner", "mentor"] as AccountType[]).map((type) => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => setAccountType(type)}
+            className={`rounded px-3 py-2 text-sm font-medium transition ${
+              accountType === type
+                ? "bg-white text-primary-700 shadow-sm dark:bg-neutral-800 dark:text-primary-300"
+                : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+            }`}
+          >
+            {type === "mentor" ? "Sign in as mentor" : "Sign in as learner"}
+          </button>
+        ))}
+      </div>
       <div className="space-y-1">
         <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">
           Email
