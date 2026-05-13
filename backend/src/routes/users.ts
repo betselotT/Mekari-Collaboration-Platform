@@ -9,6 +9,11 @@ const profileUpdateSchema = z.object({
   name: z.string().min(2).optional(),
   bio: z.string().max(500).optional(),
   avatarUrl: z.string().url().optional(),
+  primaryTechnicalField: z.string().min(1).optional(),
+  roleOrStatus: z.string().min(1).optional(),
+  yearsOfExperience: z.string().min(1).optional(),
+  devicesUsed: z.array(z.string().min(1)).optional(),
+  collaborationGoals: z.string().max(500).optional(),
   expertise: z
     .array(
       z.object({
@@ -51,8 +56,15 @@ router.put("/me", requireAuth, async (req: AuthRequest, res, next) => {
 
 router.get("/experts", requireAuth, async (_req: AuthRequest, res, next) => {
   try {
-    const experts = await User.find({ "expertise.0": { $exists: true } })
-      .select("name avatarUrl expertise skillTags availabilityStatus points badges")
+    const experts = await User.find({
+      role: { $in: ["expert", "admin"] },
+      "expertise.0": { $exists: true },
+      $or: [
+        { "expertVerification.status": "approved" },
+        { expertVerification: { $exists: false } },
+      ],
+    })
+      .select("name avatarUrl expertise skillTags availabilityStatus points badges expertVerification")
       .sort({ points: -1 });
     res.json({ experts });
   } catch (err) {

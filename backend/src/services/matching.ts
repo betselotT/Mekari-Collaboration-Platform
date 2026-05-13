@@ -49,26 +49,40 @@ export async function recommendExperts(params: {
   // Case-insensitive regex for each term
   const tagRegexes = rawTerms.map((t) => new RegExp(`^${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"));
 
-  const baseFilter = requesterId ? { _id: { $ne: requesterId } } : {};
+  const baseFilter = {
+    ...(requesterId ? { _id: { $ne: requesterId } } : {}),
+    role: { $in: ["expert", "admin"] },
+    $or: [
+      { "expertVerification.status": "approved" },
+      { expertVerification: { $exists: false } },
+    ],
+  };
 
   // Try tag-matched experts first
   let candidates = await User.find({
-    $or: [
+    $and: [
+      baseFilter,
+      {
+        $or: [
       { "expertise.subject": { $in: tagRegexes } },
       { skillTags: { $in: tagRegexes } },
+        ],
+      },
     ],
-    ...baseFilter,
   }).select("name avatarUrl expertise skillTags availabilityStatus points badges");
 
-  // Fallback: if no tag match, return any expert/user with expertise or role=expert
+  // Fallback: if no tag match, return approved mentors with expertise or skill tags.
   if (candidates.length === 0) {
     candidates = (await User.find({
-      $or: [
-        { role: { $in: ["expert", "admin"] } },
-        { "expertise.0": { $exists: true } },
-        { skillTags: { $exists: true, $ne: [] } },
+      $and: [
+        baseFilter,
+        {
+          $or: [
+            { "expertise.0": { $exists: true } },
+            { skillTags: { $exists: true, $ne: [] } },
+          ],
+        },
       ],
-      ...baseFilter,
     }).select("name avatarUrl expertise skillTags availabilityStatus points badges")) as typeof candidates;
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { Suspense, useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { DashboardLayout } from "../../../components/layout/DashboardLayout";
 import { Button } from "../../../components/ui/Button";
@@ -32,6 +32,14 @@ type MatchRequestResponse = {
 };
 
 export default function MatchPage() {
+  return (
+    <Suspense fallback={null}>
+      <MatchContent />
+    </Suspense>
+  );
+}
+
+function MatchContent() {
   const searchParams = useSearchParams();
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");

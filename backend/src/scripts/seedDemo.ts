@@ -28,6 +28,8 @@ async function run() {
       name: "Betselot Tesfa",
       email: "betselot@example.com",
       passwordHash,
+      role: "expert",
+      expertVerification: { status: "approved", reviewedAt: new Date() },
       bio: "Senior software engineering student focusing on backend systems.",
       expertise: [
         { subject: "Software Engineering", proficiency: "expert" },
@@ -41,6 +43,8 @@ async function run() {
       name: "Edom Mulugeta",
       email: "edom@example.com",
       passwordHash,
+      role: "expert",
+      expertVerification: { status: "approved", reviewedAt: new Date() },
       bio: "Enjoys frontend engineering and UI/UX.",
       expertise: [
         { subject: "Web Development", proficiency: "advanced" },
@@ -54,6 +58,8 @@ async function run() {
       name: "Mechanical Mentor",
       email: "mech@example.com",
       passwordHash,
+      role: "expert",
+      expertVerification: { status: "approved", reviewedAt: new Date() },
       bio: "Helps with dynamics, thermodynamics and design projects.",
       expertise: [
         { subject: "Mechanical Engineering", proficiency: "expert" },
@@ -67,6 +73,8 @@ async function run() {
       name: "Electrical Guide",
       email: "ee@example.com",
       passwordHash,
+      role: "expert",
+      expertVerification: { status: "approved", reviewedAt: new Date() },
       bio: "Passionate about power systems, electronics and embedded design.",
       expertise: [
         { subject: "Electrical Engineering", proficiency: "expert" },
@@ -80,6 +88,8 @@ async function run() {
       name: "Database Mentor",
       email: "db@example.com",
       passwordHash,
+      role: "expert",
+      expertVerification: { status: "approved", reviewedAt: new Date() },
       bio: "Helps with MongoDB schema design, indexing, and performance tuning.",
       expertise: [
         { subject: "Databases", proficiency: "expert" },
@@ -93,6 +103,8 @@ async function run() {
       name: "DevOps Helper",
       email: "devops@example.com",
       passwordHash,
+      role: "expert",
+      expertVerification: { status: "approved", reviewedAt: new Date() },
       bio: "CI/CD, Docker, monitoring, and practical deployment advice.",
       expertise: [
         { subject: "DevOps", proficiency: "expert" },
@@ -106,6 +118,8 @@ async function run() {
       name: "DSA Coach",
       email: "dsa@example.com",
       passwordHash,
+      role: "expert",
+      expertVerification: { status: "approved", reviewedAt: new Date() },
       bio: "Helps with algorithms, complexity, and interview-style problems.",
       expertise: [
         { subject: "Data Structures & Algorithms", proficiency: "expert" },
@@ -119,6 +133,8 @@ async function run() {
       name: "System Design Mentor",
       email: "systemdesign@example.com",
       passwordHash,
+      role: "expert",
+      expertVerification: { status: "approved", reviewedAt: new Date() },
       bio: "Distributed systems, scalability, and architecture reviews.",
       expertise: [
         { subject: "System Design", proficiency: "expert" },
@@ -132,6 +148,8 @@ async function run() {
       name: "Web Security Guide",
       email: "security@example.com",
       passwordHash,
+      role: "expert",
+      expertVerification: { status: "approved", reviewedAt: new Date() },
       bio: "OWASP, auth flows, and secure backend patterns.",
       expertise: [
         { subject: "Software Engineering", proficiency: "advanced" },

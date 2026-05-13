@@ -16,7 +16,7 @@ type GoogleAuthButtonProps = {
 
 export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProps) {
   const [scriptReady, setScriptReady] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string>("");
+  const [canUseGoogle, setCanUseGoogle] = useState(false);
   const mountedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -28,13 +28,34 @@ export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProp
   }, []);
 
   useEffect(() => {
-    if (window.google?.accounts?.id) {
-      setScriptReady(true);
+    const rawClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+    const clientId = rawClientId.trim().replace(/^"(.*)"$/, "$1");
+    if (!clientId) return;
+
+    const origin = window.location.origin;
+    const configuredOrigins = (process.env.NEXT_PUBLIC_GOOGLE_ALLOWED_ORIGINS || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const isLocalOrigin = origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1");
+
+    if (configuredOrigins.length > 0) {
+      setCanUseGoogle(configuredOrigins.includes(origin));
+      return;
     }
+
+    setCanUseGoogle(!isLocalOrigin);
   }, []);
 
   useEffect(() => {
-    if (!scriptReady) return;
+    if (!canUseGoogle) return;
+    if (window.google?.accounts?.id) {
+      setScriptReady(true);
+    }
+  }, [canUseGoogle]);
+
+  useEffect(() => {
+    if (!scriptReady || !canUseGoogle) return;
     const rawClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
     const clientId = rawClientId.trim().replace(/^"(.*)"$/, "$1");
     if (!clientId) {
@@ -64,17 +85,7 @@ export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProp
       shape: "rectangular",
       width: "320",
     });
-    const currentOrigin = window.location.origin;
-    setDebugInfo(`origin=${currentOrigin} | clientId=${clientId}`);
-    console.log("[GoogleAuthButton] initialized", {
-      origin: currentOrigin,
-      clientId,
-    });
-    console.info("[GoogleAuthButton] initialized", {
-      origin: currentOrigin,
-      clientId,
-    });
-  }, [scriptReady, onCredential, onError]);
+  }, [scriptReady, canUseGoogle, onCredential, onError]);
 
   useEffect(() => {
     const onGlobalError = (event: ErrorEvent) => {
@@ -94,16 +105,18 @@ export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProp
 
   return (
     <div className="space-y-2">
-      <Script
-        src="https://accounts.google.com/gsi/client"
-        strategy="afterInteractive"
-        onReady={() => {
-          if (mountedRef.current) setScriptReady(true);
-        }}
-        onLoad={() => {
-          if (mountedRef.current) setScriptReady(true);
-        }}
-      />
+      {canUseGoogle && (
+        <Script
+          src="https://accounts.google.com/gsi/client"
+          strategy="afterInteractive"
+          onReady={() => {
+            if (mountedRef.current) setScriptReady(true);
+          }}
+          onLoad={() => {
+            if (mountedRef.current) setScriptReady(true);
+          }}
+        />
+      )}
       <div ref={containerRef} />
     </div>
   );

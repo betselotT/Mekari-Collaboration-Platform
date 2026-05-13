@@ -25,9 +25,26 @@ export const createApp = () => {
 
   app.set("trust proxy", 1);
 
+  const allowedOrigins = new Set(
+    [
+      process.env.FRONTEND_ORIGIN,
+      ...(process.env.FRONTEND_ORIGINS || "").split(","),
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+    ]
+      .map((origin) => origin?.trim())
+      .filter(Boolean)
+  );
+
   app.use(
     cors({
-      origin: process.env.FRONTEND_ORIGIN || "http://localhost:3000",
+      origin(origin, callback) {
+        if (!origin || allowedOrigins.has(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error(`Origin ${origin} is not allowed by CORS`));
+      },
       credentials: true,
     })
   );
