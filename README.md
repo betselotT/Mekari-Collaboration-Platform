@@ -53,16 +53,16 @@ The frontend will run on `http://localhost:3000` by default and expects the back
 
 #### Contributing (For Future Student Teams / Open Source)
 
-Fork the repository
-Create a feature branch (git checkout -b feature/amazing-feature)
-Commit using Conventional Commits
-Push and open a Pull Request
+- Fork the repository
+- Create a feature branch (git checkout -b feature/amazing-feature)
+- Commit using Conventional Commits
+- Push and open a Pull Request
 
 See CONTRIBUTING.md (to be added) for detailed guidelines.
 
 #### Documentation
 
-Full Senior Research Project Document (DOCX/PDF) in /docs
+- Full Senior Research Project Document (DOCX/PDF) in /docs
 
 #### License
 This project is developed as part of an academic capstone.
