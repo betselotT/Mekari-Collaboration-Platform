@@ -51,6 +51,22 @@ npm run dev
 
 The frontend will run on `http://localhost:3000` by default and expects the backend on `http://localhost:4000`.
 
+#### Contributing (For Future Student Teams / Open Source)
+
+Fork the repository
+Create a feature branch (git checkout -b feature/amazing-feature)
+Commit using Conventional Commits
+Push and open a Pull Request
+
+See CONTRIBUTING.md (to be added) for detailed guidelines.
+
+#### Documentation
+
+Full Senior Research Project Document (DOCX/PDF) in /docs
+
+#### License
+This project is developed as part of an academic capstone.
+
 ### Team Members
 1.  Betselot Tesfa (ETS0327/14)
 2.	Edom Mulugeta	(ETS0503/14)
