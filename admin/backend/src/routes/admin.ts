@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { AuditLog } from "../models/AuditLog";
 import { Message } from "../models/Message";
 import { Report } from "../models/Report";
 import { Thread } from "../models/Thread";
@@ -13,6 +14,9 @@ const reportStatusSchema = z.enum(["pending", "resolved", "dismissed"]);
 const reviewVerificationSchema = z.object({
   status: z.enum(["approved", "rejected"]),
   reviewNote: z.string().max(500).optional(),
+}).refine((value) => value.status === "approved" || Boolean(value.reviewNote?.trim()), {
+  message: "Rejection reason is required",
+  path: ["reviewNote"],
 });
 
 const reviewReportSchema = z.object({
@@ -103,7 +107,7 @@ router.get("/mentor-verifications", async (req, res, next) => {
     };
     const [users, total] = await Promise.all([
       User.find(filter)
-      .select("name email primaryTechnicalField roleOrStatus yearsOfExperience expertise skillTags expertVerification points createdAt")
+      .select("name email bio primaryTechnicalField roleOrStatus yearsOfExperience devicesUsed collaborationGoals availabilityStatus expertise skillTags expertVerification points createdAt")
       .sort({ "expertVerification.submittedAt": -1, createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -136,6 +140,16 @@ router.patch("/mentor-verifications/:userId", async (req, res, next) => {
       res.status(404).json({ error: { message: "Mentor verification request not found" } });
       return;
     }
+
+    await AuditLog.create({
+      actorName: "Admin",
+      actionType: "mentor_verification_reviewed",
+      action: `${user.name} mentor verification was ${parsed.status}`,
+      targetType: "mentor",
+      targetId: user.id,
+      status: parsed.status,
+      metadata: { reviewNote: parsed.reviewNote },
+    });
 
     res.json({ user });
   } catch (err) {
@@ -206,6 +220,15 @@ router.patch("/reports/:reportId", async (req, res, next) => {
       return;
     }
 
+    await AuditLog.create({
+      actorName: "Admin",
+      actionType: "report_reviewed",
+      action: `Report ${report.id} marked ${parsed.status}`,
+      targetType: "report",
+      targetId: report.id,
+      status: parsed.status,
+    });
+
     res.json({ report });
   } catch (err) {
     next(err);
@@ -215,108 +238,30 @@ router.patch("/reports/:reportId", async (req, res, next) => {
 router.get("/action-logs", async (req, res, next) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
-    const sourceLimit = Math.min(300, skip + limit);
-    const [users, verifications, reports, threads, messages] = await Promise.all([
-      User.find().sort({ createdAt: -1 }).limit(sourceLimit).select("name email role createdAt").lean(),
-      User.find({ "expertVerification.submittedAt": { $exists: true } })
-        .sort({ "expertVerification.submittedAt": -1 })
-        .limit(sourceLimit)
-        .select("name email expertVerification")
-        .lean(),
-      Report.find()
+    const [auditLogs, total] = await Promise.all([
+      AuditLog.find()
         .sort({ createdAt: -1 })
-        .limit(sourceLimit)
-        .populate("reporterId", "name email")
+        .skip(skip)
+        .limit(limit)
         .lean(),
-      Thread.find()
-        .sort({ createdAt: -1 })
-        .limit(sourceLimit)
-        .populate("createdBy", "name email")
-        .select("title subject status createdBy createdAt")
-        .lean(),
-      Message.find()
-        .sort({ createdAt: -1 })
-        .limit(sourceLimit)
-        .populate("sender", "name email")
-        .populate("thread", "title")
-        .select("body type isFromAi sender thread createdAt")
-        .lean(),
+      AuditLog.countDocuments(),
     ]);
 
-    const logs: ActivityLog[] = [
-      ...users.map((user) => ({
-        id: `user:${stringifyId(user)}`,
-        date: user.createdAt,
-        actionType: "user_registered",
-        action: `${user.name} registered as ${user.role}`,
-        actor: user.name,
-        actorEmail: user.email,
-        targetType: "user",
-        target: user.email,
-        status: user.role,
-      })),
-      ...verifications.map((user) => ({
-        id: `verification:${stringifyId(user)}`,
-        date: user.expertVerification.submittedAt || user.createdAt,
-        actionType: "mentor_verification_submitted",
-        action: `${user.name} submitted mentor verification`,
-        actor: user.name,
-        actorEmail: user.email,
-        targetType: "mentor",
-        target: user.email,
-        status: user.expertVerification.status,
-      })),
-      ...verifications
-        .filter((user) => user.expertVerification.reviewedAt)
-        .map((user) => ({
-          id: `verification-review:${stringifyId(user)}`,
-          date: user.expertVerification.reviewedAt || user.updatedAt,
-          actionType: "mentor_verification_reviewed",
-          action: `${user.name} verification was ${user.expertVerification.status}`,
-          actor: "Admin",
-          targetType: "mentor",
-          target: user.email,
-          status: user.expertVerification.status,
-        })),
-      ...reports.map((report) => ({
-        id: `report:${stringifyId(report)}`,
-        date: report.createdAt,
-        actionType: "report_submitted",
-        action: `Reported ${report.targetType}: ${report.reason}`,
-        actor: userName(report.reporterId),
-        actorEmail: userEmail(report.reporterId),
-        targetType: report.targetType,
-        target: String(report.targetId),
-        status: report.status,
-      })),
-      ...threads.map((thread) => ({
-        id: `thread:${stringifyId(thread)}`,
-        date: thread.createdAt,
-        actionType: "thread_created",
-        action: `Created thread "${thread.title}" in ${thread.subject}`,
-        actor: userName(thread.createdBy),
-        actorEmail: userEmail(thread.createdBy),
-        targetType: "thread",
-        target: thread.title,
-        status: thread.status,
-      })),
-      ...messages.map((message) => ({
-        id: `message:${stringifyId(message)}`,
-        date: message.createdAt,
-        actionType: message.isFromAi ? "ai_message_created" : "message_sent",
-        action: `${message.type} message: ${message.body.slice(0, 120)}`,
-        actor: message.isFromAi ? "AI assistant" : userName(message.sender),
-        actorEmail: message.isFromAi ? undefined : userEmail(message.sender),
-        targetType: "message",
-        target: stringifyId(message.thread),
-        status: message.type,
-      })),
-    ];
+    const logs: ActivityLog[] = auditLogs.map((log) => ({
+      id: String(log._id),
+      date: log.createdAt,
+      actionType: log.actionType,
+      action: log.action,
+      actor: log.actorName,
+      actorEmail: log.actorEmail,
+      targetType: log.targetType,
+      target: log.targetId,
+      status: log.status,
+    }));
 
-    logs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     res.json({
-      logs: logs.slice(skip, skip + limit),
-      pagination: pagination(page, limit, logs.length),
+      logs,
+      pagination: pagination(page, limit, total),
     });
   } catch (err) {
     next(err);

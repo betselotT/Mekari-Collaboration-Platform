@@ -110,6 +110,8 @@ export default function ProfilePage() {
     !user?.roleOrStatus ||
     !user?.yearsOfExperience ||
     !user?.devicesUsed?.length;
+  const isMentor = user?.role === "expert";
+  const verificationStatus = user?.expertVerification?.status;
 
   function toggleSetupDevice(device: string) {
     setSetupForm((current) => ({
@@ -382,6 +384,39 @@ export default function ProfilePage() {
         >
           {error || message}
         </div>
+      )}
+
+      {isMentor && (
+        <Card className="mb-8">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Mentor verification</h3>
+              <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                {verificationStatus === "approved"
+                  ? "Approved. Your mentor profile is visible to learners."
+                  : verificationStatus === "rejected"
+                    ? "Rejected. Review the reason below and upload a new document from Finish setting up."
+                    : "Pending. An admin still needs to review your uploaded document."}
+              </p>
+              {verificationStatus === "rejected" && user.expertVerification?.reviewNote && (
+                <p className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+                  Rejection reason: {user.expertVerification.reviewNote}
+                </p>
+              )}
+            </div>
+            <Badge
+              variant={
+                verificationStatus === "approved"
+                  ? "success"
+                  : verificationStatus === "rejected"
+                    ? "error"
+                    : "warning"
+              }
+            >
+              {verificationStatus || "pending"}
+            </Badge>
+          </div>
+        </Card>
       )}
 
       {(needsSetup || showSetup) && (

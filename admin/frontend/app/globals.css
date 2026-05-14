@@ -203,6 +203,48 @@ textarea {
   margin-top: 12px;
 }
 
+.detail-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.detail-grid div,
+.document-box {
+  background: var(--surface-soft);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.detail-grid strong,
+.detail-grid span,
+.document-box strong,
+.document-box span {
+  display: block;
+}
+
+.detail-grid strong,
+.document-box strong {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.detail-grid span,
+.document-box span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.document-box {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
 .chip,
 .status {
   border-radius: 999px;
@@ -408,6 +450,15 @@ th {
 
   .actions {
     align-items: stretch;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .document-box {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .pager {
