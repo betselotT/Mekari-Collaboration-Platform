@@ -29,7 +29,122 @@ const solveSchema = z.object({
   solutionMsgId: z.string().min(1),
 });
 
+async function getThreadReadStats(threadIds: unknown[]) {
+  const [messageCounts, upvoteCounts] = await Promise.all([
+    Message.aggregate([
+      { $match: { thread: { $in: threadIds } } },
+      { $group: { _id: "$thread", count: { $sum: 1 } } },
+    ]),
+    Message.aggregate([
+      { $match: { thread: { $in: threadIds } } },
+      { $project: { thread: 1, upvoteCount: { $size: { $ifNull: ["$upvotes", []] } } } },
+      { $group: { _id: "$thread", count: { $sum: "$upvoteCount" } } },
+    ]),
+  ]);
+
+  return {
+    messageCountMap: new Map<string, number>(
+      messageCounts.map((count) => [String(count._id), count.count as number])
+    ),
+    upvoteCountMap: new Map<string, number>(
+      upvoteCounts.map((count) => [String(count._id), count.count as number])
+    ),
+  };
+}
+
+// Public GET /public - list threads without authentication
+router.get("/public", async (req, res, next) => {
+  try {
+    const subject = req.query.subject as string | undefined;
+    const status = req.query.status as string | undefined;
+    const tags = req.query.tags as string | undefined;
+    const page = Math.max(1, parseInt(String(req.query.page || "1")));
+    const limit = 20;
+    const skip = (page - 1) * limit;
+
+    const filter: Record<string, unknown> = {};
+    if (subject) filter.subject = subject;
+    if (status) filter.status = status;
+    if (tags) {
+      const tagList = tags.split(",").map((t) => t.trim()).filter(Boolean);
+      if (tagList.length > 0) filter.tags = { $in: tagList };
+    }
+
+    const [total, threads] = await Promise.all([
+      Thread.countDocuments(filter),
+      Thread.find(filter)
+        .sort({ updatedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("createdBy", "name avatarUrl"),
+    ]);
+
+    const threadIds = threads.map((thread) => thread._id);
+    const { messageCountMap, upvoteCountMap } = await getThreadReadStats(threadIds);
+
+    res.json({
+      threads: threads.map((thread) => {
+        const messageCount = messageCountMap.get(String(thread._id)) || 0;
+        return {
+          ...thread.toObject(),
+          messageCount,
+          repliesCount: Math.max(0, messageCount - 1),
+          upvoteCount: upvoteCountMap.get(String(thread._id)) || 0,
+        };
+      }),
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Public GET /public/:threadId - view one thread without authentication
+router.get("/public/:threadId", async (req, res, next) => {
+  try {
+    const thread = await Thread.findById(req.params.threadId)
+      .populate("createdBy", "name avatarUrl")
+      .populate("matchedExperts", "name avatarUrl expertise availabilityStatus points badges");
+
+    if (!thread) return res.status(404).json({ error: { message: "Thread not found" } });
+
+    const { messageCountMap, upvoteCountMap } = await getThreadReadStats([thread._id]);
+    const messageCount = messageCountMap.get(String(thread._id)) || 0;
+
+    res.json({
+      thread: {
+        ...thread.toObject(),
+        messageCount,
+        repliesCount: Math.max(0, messageCount - 1),
+        upvoteCount: upvoteCountMap.get(String(thread._id)) || 0,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET / — list threads with filters + pagination
+// Public GET /public/:threadId/messages - view replies without authentication
+router.get("/public/:threadId/messages", async (req, res, next) => {
+  try {
+    const threadExists = await Thread.exists({ _id: req.params.threadId });
+    if (!threadExists) {
+      return res.status(404).json({ error: { message: "Thread not found" } });
+    }
+
+    const messages = await Message.find({ thread: req.params.threadId })
+      .sort({ createdAt: 1 })
+      .populate("sender", "name avatarUrl");
+
+    res.json({ messages });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const subject = req.query.subject as string | undefined;

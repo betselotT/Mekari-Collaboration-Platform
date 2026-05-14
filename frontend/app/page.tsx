@@ -58,9 +58,11 @@ export default function LandingPage() {
                 Get Started Free
               </Button>
             </Link>
-            <Button variant="secondary" size="lg">
-              View Solutions
-            </Button>
+            <Link href="/threads">
+              <Button variant="secondary" size="lg">
+                Browse Threads
+              </Button>
+            </Link>
           </div>
 
           {/* Placeholder for illustration */}
