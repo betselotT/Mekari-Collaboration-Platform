@@ -5,6 +5,7 @@ import { z } from "zod";
 import { OAuth2Client } from "google-auth-library";
 import { IUser, User } from "../models/User";
 import { verifyCaptchaToken } from "../services/captcha";
+import { logAuditEvent } from "../services/auditLog";
 
 const router = Router();
 const googleClient = new OAuth2Client();
@@ -166,6 +167,16 @@ router.post("/register", async (req, res, next) => {
     });
 
     const token = signAuthToken(user.id, user.role);
+    await logAuditEvent({
+      actorId: user.id,
+      actorName: user.name,
+      actorEmail: user.email,
+      actionType: "user_registered",
+      action: `${user.name} registered as ${user.role}`,
+      targetType: "user",
+      targetId: user.id,
+      status: user.role,
+    });
 
     res.json({
       user: serializeUser(user),
@@ -212,6 +223,16 @@ router.post("/login", async (req, res, next) => {
     }
 
     const token = signAuthToken(user.id, user.role);
+    await logAuditEvent({
+      actorId: user.id,
+      actorName: user.name,
+      actorEmail: user.email,
+      actionType: "user_signed_in",
+      action: `${user.name} signed in`,
+      targetType: "user",
+      targetId: user.id,
+      status: user.role,
+    });
 
     res.json({
       user: serializeUser(user),
@@ -291,6 +312,16 @@ router.post("/google", async (req, res, next) => {
     }
 
     const token = signAuthToken(user.id, user.role);
+    await logAuditEvent({
+      actorId: user.id,
+      actorName: user.name,
+      actorEmail: user.email,
+      actionType: isNewUser ? "user_registered" : "user_signed_in",
+      action: `${user.name} ${isNewUser ? "registered with Google" : "signed in with Google"}`,
+      targetType: "user",
+      targetId: user.id,
+      status: user.role,
+    });
 
     res.json({
       user: serializeUser(user),
@@ -450,6 +481,16 @@ router.get("/github/callback", async (req, res, next) => {
     }
 
     const token = signAuthToken(user.id, user.role);
+    await logAuditEvent({
+      actorId: user.id,
+      actorName: user.name,
+      actorEmail: user.email,
+      actionType: isNewUser ? "user_registered" : "user_signed_in",
+      action: `${user.name} ${isNewUser ? "registered with GitHub" : "signed in with GitHub"}`,
+      targetType: "user",
+      targetId: user.id,
+      status: user.role,
+    });
     res.redirect(frontendUrl("/oauth/callback", { token }));
   } catch (err) {
     next(err);

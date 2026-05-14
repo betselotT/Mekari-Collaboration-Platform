@@ -14,9 +14,13 @@ type Verification = {
   _id: string;
   name: string;
   email: string;
+  bio?: string;
   primaryTechnicalField?: string;
   roleOrStatus?: string;
   yearsOfExperience?: string;
+  devicesUsed?: string[];
+  collaborationGoals?: string;
+  availabilityStatus?: string;
   expertise: Array<{ subject: string; proficiency: string }>;
   skillTags: string[];
   points: number;
@@ -182,6 +186,10 @@ export default function AdminDashboard() {
   }, [verificationFilter, reportFilter, verificationPage, reportPage, logPage]);
 
   async function reviewMentor(userId: string, status: "approved" | "rejected") {
+    if (status === "rejected" && !reviewNotes[userId]?.trim()) {
+      setError("Rejection reason is required.");
+      return;
+    }
     setSavingId(userId);
     setError(null);
     try {
@@ -286,8 +294,23 @@ export default function AdminDashboard() {
                     <span>{item.primaryTechnicalField || "No field"}</span>
                     <span>{item.roleOrStatus || "No status"}</span>
                     <span>{item.yearsOfExperience || "No experience"}</span>
+                    <span>Availability: {item.availabilityStatus || "offline"}</span>
                     <span>Submitted {formatDate(item.expertVerification.submittedAt)}</span>
                     <span className={`status ${item.expertVerification.status}`}>{item.expertVerification.status}</span>
+                  </div>
+                  <div className="detail-grid">
+                    <div>
+                      <strong>Bio</strong>
+                      <span>{item.bio || "No bio provided."}</span>
+                    </div>
+                    <div>
+                      <strong>Devices</strong>
+                      <span>{item.devicesUsed?.length ? item.devicesUsed.join(", ") : "No devices listed."}</span>
+                    </div>
+                    <div>
+                      <strong>Collaboration goals</strong>
+                      <span>{item.collaborationGoals || "No goals provided."}</span>
+                    </div>
                   </div>
                   <div className="chips">
                     {item.expertise.map((expertise) => (
@@ -300,13 +323,17 @@ export default function AdminDashboard() {
                     ))}
                   </div>
                   {item.expertVerification.document ? (
-                    <p className="muted">
-                      Document:{" "}
-                      <a href={item.expertVerification.document.dataUrl} target="_blank" rel="noreferrer">
-                        {item.expertVerification.document.fileName}
-                      </a>{" "}
-                      ({item.expertVerification.document.fileType}, {formatBytes(item.expertVerification.document.fileSize)})
-                    </p>
+                    <div className="document-box">
+                      <div>
+                        <strong>{item.expertVerification.document.fileName}</strong>
+                        <span>
+                          {item.expertVerification.document.fileType} · {formatBytes(item.expertVerification.document.fileSize)}
+                        </span>
+                      </div>
+                      <a className="button secondary" href={item.expertVerification.document.dataUrl} target="_blank" rel="noreferrer">
+                        Open file
+                      </a>
+                    </div>
                   ) : (
                     <p className="muted">No document attached.</p>
                   )}
@@ -317,7 +344,7 @@ export default function AdminDashboard() {
                 <div className="actions">
                   <textarea
                     className="input note"
-                    placeholder="Review note"
+                    placeholder="Review note. Required when rejecting."
                     value={reviewNotes[item._id] || ""}
                     onChange={(event) => setReviewNotes((current) => ({ ...current, [item._id]: event.target.value }))}
                   />

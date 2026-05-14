@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { User } from "../models/User";
+import { logAuditEvent } from "../services/auditLog";
 
 const router = Router();
 
@@ -126,6 +127,21 @@ router.post("/me/setup", requireAuth, async (req: AuthRequest, res, next) => {
       },
       { new: true }
     ).select("-passwordHash");
+
+    if (user) {
+      await logAuditEvent({
+        actorId: user.id,
+        actorName: user.name,
+        actorEmail: user.email,
+        actionType: isMentor ? "mentor_verification_submitted" : "profile_setup_completed",
+        action: isMentor
+          ? `${user.name} submitted mentor verification`
+          : `${user.name} completed learner profile setup`,
+        targetType: isMentor ? "mentor" : "user",
+        targetId: user.id,
+        status: isMentor ? "pending" : "completed",
+      });
+    }
 
     res.json({ user });
   } catch (err) {

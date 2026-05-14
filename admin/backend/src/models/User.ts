@@ -29,6 +29,10 @@ export interface IUser extends Document {
   primaryTechnicalField?: string;
   roleOrStatus?: string;
   yearsOfExperience?: string;
+  devicesUsed: string[];
+  collaborationGoals?: string;
+  bio?: string;
+  availabilityStatus: string;
   expertise: ExpertiseArea[];
   skillTags: string[];
   expertVerification: ExpertVerification;
@@ -88,6 +92,10 @@ const UserSchema = new Schema<IUser>(
     primaryTechnicalField: { type: String },
     roleOrStatus: { type: String },
     yearsOfExperience: { type: String },
+    devicesUsed: { type: [String], default: [] },
+    collaborationGoals: { type: String },
+    bio: { type: String },
+    availabilityStatus: { type: String, default: "offline" },
     expertise: { type: [ExpertiseSchema], default: [] },
     skillTags: { type: [String], default: [] },
     expertVerification: {
