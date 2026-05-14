@@ -5,6 +5,10 @@ import axios from "axios";
 // backend — this eliminates CORS in development.
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
+export function getApiBaseUrl() {
+  return API_BASE_URL;
+}
+
 export function getAuthToken() {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem("mekari_token");

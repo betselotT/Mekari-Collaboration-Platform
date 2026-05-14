@@ -16,7 +16,8 @@ type GoogleAuthButtonProps = {
 
 export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProps) {
   const [scriptReady, setScriptReady] = useState(false);
-  const [canUseGoogle, setCanUseGoogle] = useState(false);
+  const [hasClientId, setHasClientId] = useState(false);
+  const [canUseGoogle, setCanUseGoogle] = useState(true);
   const mountedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -33,8 +34,21 @@ export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProp
     if (!clientId || clientId === "your-google-oauth-client-id.apps.googleusercontent.com") {
       return;
     }
+    setHasClientId(true);
 
-    setCanUseGoogle(true);
+    const origin = window.location.origin;
+    const allowedOrigins = (process.env.NEXT_PUBLIC_GOOGLE_ALLOWED_ORIGINS || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const isLocalOrigin = origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1");
+
+    if (allowedOrigins.length > 0) {
+      setCanUseGoogle(allowedOrigins.includes(origin));
+      return;
+    }
+
+    setCanUseGoogle(!isLocalOrigin);
   }, []);
 
   useEffect(() => {
@@ -95,7 +109,21 @@ export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProp
 
   return (
     <div className="space-y-2">
-      {canUseGoogle && (
+      {hasClientId && !canUseGoogle && (
+        <button
+          type="button"
+          onClick={() => {
+            const currentOrigin = window.location.origin;
+            onError?.(
+              `Google is configured, but this origin is not allowed: ${currentOrigin}. Add it to Authorized JavaScript origins in Google Cloud or set NEXT_PUBLIC_GOOGLE_ALLOWED_ORIGINS.`
+            );
+          }}
+          className="flex w-full items-center justify-center rounded border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+        >
+          Continue with Google
+        </button>
+      )}
+      {hasClientId && canUseGoogle && (
         <Script
           src="https://accounts.google.com/gsi/client"
           strategy="afterInteractive"

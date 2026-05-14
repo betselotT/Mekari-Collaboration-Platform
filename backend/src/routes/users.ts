@@ -26,6 +26,33 @@ const profileUpdateSchema = z.object({
   availabilityStatus: z.enum(["online", "busy", "offline", "in_session"]).optional(),
 });
 
+const verificationDocumentSchema = z.object({
+  fileName: z.string().min(1),
+  fileType: z.string().min(1),
+  fileSize: z.number().int().positive().max(5 * 1024 * 1024),
+  dataUrl: z.string().startsWith("data:").max(7_000_000),
+});
+
+const profileSetupSchema = z.object({
+  accountType: z.enum(["learner", "mentor"]),
+  primaryTechnicalField: z.string().min(1),
+  roleOrStatus: z.string().min(1),
+  yearsOfExperience: z.string().min(1),
+  devicesUsed: z.array(z.string().min(1)).min(1),
+  collaborationGoals: z.string().max(500).optional(),
+  expertise: z
+    .array(
+      z.object({
+        subject: z.string().min(1),
+        proficiency: z.enum(["beginner", "intermediate", "advanced", "expert"]),
+      })
+    )
+    .default([]),
+  skillTags: z.array(z.string().min(1)).default([]),
+  availabilityStatus: z.enum(["online", "busy", "offline", "in_session"]).default("offline"),
+  verificationDocument: verificationDocumentSchema.optional(),
+});
+
 router.get("/me", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const user = await User.findById(req.userId).select("-passwordHash").lean();
@@ -48,6 +75,58 @@ router.put("/me", requireAuth, async (req: AuthRequest, res, next) => {
       { $set: parsed },
       { new: true }
     ).select("-passwordHash");
+    res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/me/setup", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const parsed = profileSetupSchema.parse(req.body);
+    const isMentor = parsed.accountType === "mentor";
+
+    if (isMentor && parsed.expertise.length === 0) {
+      return res
+        .status(400)
+        .json({ error: { message: "Mentors must add at least one expertise area" } });
+    }
+
+    if (isMentor && !parsed.verificationDocument) {
+      return res
+        .status(400)
+        .json({ error: { message: "Mentors must upload a verification document" } });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      {
+        $set: {
+          role: isMentor ? "expert" : "learner",
+          primaryTechnicalField: parsed.primaryTechnicalField,
+          roleOrStatus: parsed.roleOrStatus,
+          yearsOfExperience: parsed.yearsOfExperience,
+          devicesUsed: parsed.devicesUsed,
+          collaborationGoals: parsed.collaborationGoals,
+          expertise: isMentor ? parsed.expertise : [],
+          skillTags: isMentor ? parsed.skillTags : [],
+          availabilityStatus: isMentor ? parsed.availabilityStatus : "offline",
+          expertVerification: isMentor
+            ? {
+                status: "pending",
+                document: {
+                  ...parsed.verificationDocument,
+                  uploadedAt: new Date(),
+                },
+                submittedAt: new Date(),
+              }
+            : { status: "not_required" },
+          profileSetupCompleted: true,
+        },
+      },
+      { new: true }
+    ).select("-passwordHash");
+
     res.json({ user });
   } catch (err) {
     next(err);

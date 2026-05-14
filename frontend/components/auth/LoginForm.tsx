@@ -3,6 +3,7 @@
 import { FormEvent, useState, useRef } from "react";
 import { apiClient } from "../../lib/api";
 import { GoogleAuthButton } from "./GoogleAuthButton";
+import { GithubAuthButton } from "./GithubAuthButton";
 import { Captcha, CaptchaRef } from "./Captcha";
 
 type AccountType = "learner" | "mentor";
@@ -122,8 +123,9 @@ export function LoginForm() {
       >
         {loading ? "Signing in..." : "Sign in"}
       </button>
-      <div className="pt-2">
+      <div className="space-y-2 pt-2">
         <GoogleAuthButton onCredential={onGoogleSignIn} onError={setError} />
+        <GithubAuthButton accountType={accountType} mode="login" />
       </div>
     </form>
   );

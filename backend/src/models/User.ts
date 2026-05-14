@@ -27,6 +27,7 @@ export interface IUser extends Document {
   email: string;
   passwordHash?: string;
   googleId?: string;
+  githubId?: string;
   oauthProvider?: string;
   bio?: string;
   avatarUrl?: string;
@@ -35,6 +36,7 @@ export interface IUser extends Document {
   yearsOfExperience?: string;
   devicesUsed: string[];
   collaborationGoals?: string;
+  profileSetupCompleted: boolean;
   expertise: ExpertiseArea[];
   skillTags: string[];
   availabilityStatus: "online" | "busy" | "offline" | "in_session";
@@ -89,6 +91,7 @@ const UserSchema = new Schema<IUser>(
     email: { type: String, required: true, unique: true, index: true },
     passwordHash: { type: String },
     googleId: { type: String, index: true },
+    githubId: { type: String, index: true },
     oauthProvider: { type: String },
     bio: { type: String },
     avatarUrl: { type: String },
@@ -97,6 +100,7 @@ const UserSchema = new Schema<IUser>(
     yearsOfExperience: { type: String },
     devicesUsed: { type: [String], default: [] },
     collaborationGoals: { type: String },
+    profileSetupCompleted: { type: Boolean, default: false },
     expertise: { type: [ExpertiseSchema], default: [] },
     skillTags: { type: [String], default: [] },
     availabilityStatus: {

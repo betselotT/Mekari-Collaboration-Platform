@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, ReactNode, useState, useRef } from "react";
 import { apiClient } from "../../lib/api";
 import { GoogleAuthButton } from "./GoogleAuthButton";
+import { GithubAuthButton } from "./GithubAuthButton";
 import { Captcha, CaptchaRef } from "./Captcha";
 
 type AccountType = "learner" | "mentor";
@@ -101,7 +102,7 @@ export function RegisterForm() {
 
     try {
       const isMentor = accountType === "mentor";
-      const res = await apiClient.post("/api/auth/register", {
+      await apiClient.post("/api/auth/register", {
         name,
         email,
         password,
@@ -124,8 +125,7 @@ export function RegisterForm() {
         verificationDocument: isMentor ? verificationDocument : undefined,
         captchaToken,
       });
-      localStorage.setItem("mekari_token", res.data.token);
-      window.location.href = "/dashboard";
+      window.location.href = "/login?registered=1";
     } catch (err: any) {
       setError(err.response?.data?.error?.message || "Failed to sign up");
       // Reset CAPTCHA on error
@@ -145,6 +145,10 @@ export function RegisterForm() {
     setError(null);
     try {
       const res = await apiClient.post("/api/auth/google", { credential, accountType });
+      if (res.data.isNewUser) {
+        window.location.href = "/login?registered=google";
+        return;
+      }
       localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
     } catch (err: any) {
@@ -286,8 +290,15 @@ export function RegisterForm() {
       >
         {loading ? "Creating account..." : accountType === "mentor" ? "Create mentor account" : "Create learner account"}
       </button>
-      <div className="pt-2">
+      <div className="space-y-2 pt-2">
         <GoogleAuthButton onCredential={onGoogleSignIn} onError={setError} />
+        {accountType === "learner" ? (
+          <GithubAuthButton accountType={accountType} mode="register" />
+        ) : (
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            GitHub mentor sign-up is unavailable because mentor verification requires a document upload.
+          </p>
+        )}
       </div>
     </form>
   );

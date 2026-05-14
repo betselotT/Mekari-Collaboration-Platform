@@ -2,6 +2,7 @@
 
 import { Bell, MessageCircle, User, Search } from "lucide-react";
 import { ThemeToggle } from "../theme/ThemeToggle";
+import { useAuth } from "../../lib/useAuth";
 
 interface HeaderProps {
   title?: string;
@@ -9,6 +10,23 @@ interface HeaderProps {
 }
 
 export function Header({ title = "Dashboard", searchPlaceholder = "Search..." }: HeaderProps) {
+  const { user } = useAuth(false);
+  const displayName = user?.name || "Mekari User";
+  const displayRole =
+    user?.role === "expert"
+      ? "Mentor"
+      : user?.role === "learner"
+        ? "Learner"
+        : user?.role
+          ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
+          : "Member";
+  const initials = displayName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "M";
+
   return (
     <header className="fixed right-0 top-0 z-30 flex h-16 w-[calc(100%-240px)] items-center justify-between border-b border-neutral-200 bg-white px-8 dark:border-neutral-700 dark:bg-neutral-900">
       {/* Left side - Title and Search */}
@@ -40,12 +58,20 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search..." }:
 
         <div className="ml-2 flex items-center gap-3 border-l border-neutral-200 pl-4 dark:border-neutral-700">
           <div className="text-right">
-            <p className="text-sm font-medium text-neutral-900 dark:text-white">Alex Mekari</p>
-            <p className="text-xs text-neutral-600 dark:text-neutral-400">Administrator</p>
+            <p className="text-sm font-medium text-neutral-900 dark:text-white">{displayName}</p>
+            <p className="text-xs text-neutral-600 dark:text-neutral-400">{displayRole}</p>
           </div>
-          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-pink-400 to-red-500 flex items-center justify-center text-white font-bold">
-            A
-          </div>
+          {user?.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              alt={displayName}
+              className="h-10 w-10 rounded-full object-cover"
+            />
+          ) : (
+            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-pink-400 to-red-500 flex items-center justify-center text-white font-bold">
+              {initials}
+            </div>
+          )}
         </div>
       </div>
     </header>

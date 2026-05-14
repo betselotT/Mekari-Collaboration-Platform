@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { ChangeEvent, useState, useEffect } from "react";
 import { apiClient } from "../../../lib/api";
 import { DashboardLayout } from "../../../components/layout/DashboardLayout";
 import { Card } from "../../../components/ui/Card";
@@ -9,6 +9,31 @@ import { Avatar } from "../../../components/ui/Avatar";
 import { Badge } from "../../../components/ui/Badge";
 import { Input } from "../../../components/ui/Input";
 import { Edit, Lock, Globe, Bell, Save, X, Plus, CheckCircle2, Clock, Moon, Video, Award, Zap, Bot, Trophy, Star, TrendingUp } from "lucide-react";
+
+type AccountType = "learner" | "mentor";
+
+type VerificationDocument = {
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  dataUrl: string;
+};
+
+const technicalFields = [
+  "Software Engineering",
+  "Web Development",
+  "Data Structures & Algorithms",
+  "Databases",
+  "DevOps",
+  "Web Security",
+  "Mechanical Engineering",
+  "Electrical Engineering",
+  "Health Technology",
+  "Other",
+];
+const experienceOptions = ["None", "<1 year", "1-3 years", "4-7 years", "8-10 years", ">10 years"];
+const roleOptions = ["Student", "Professional", "Educator", "Researcher", "Other"];
+const deviceOptions = ["Desktop/Laptop", "Smartphone", "Tablet"];
 
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
@@ -28,6 +53,20 @@ export default function ProfilePage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [showSetup, setShowSetup] = useState(false);
+  const [setupForm, setSetupForm] = useState({
+    accountType: "learner" as AccountType,
+    primaryTechnicalField: technicalFields[0],
+    roleOrStatus: roleOptions[0],
+    yearsOfExperience: experienceOptions[2],
+    devicesUsed: ["Desktop/Laptop"],
+    collaborationGoals: "",
+    expertiseSubject: "Software Engineering",
+    expertiseLevel: "advanced" as "intermediate" | "advanced" | "expert",
+    skillTags: "",
+    availabilityStatus: "online" as "online" | "busy" | "offline",
+  });
+  const [verificationDocument, setVerificationDocument] = useState<VerificationDocument | null>(null);
 
   const availabilityConfig: Record<string, {
     label: string;
@@ -65,6 +104,81 @@ export default function ProfilePage() {
     availabilityConfig[user?.availabilityStatus || formData.availabilityStatus] ||
     availabilityConfig.offline;
   const AvailabilityIcon = currentAvailability.Icon;
+  const needsSetup =
+    !user?.profileSetupCompleted ||
+    !user?.primaryTechnicalField ||
+    !user?.roleOrStatus ||
+    !user?.yearsOfExperience ||
+    !user?.devicesUsed?.length;
+
+  function toggleSetupDevice(device: string) {
+    setSetupForm((current) => ({
+      ...current,
+      devicesUsed: current.devicesUsed.includes(device)
+        ? current.devicesUsed.filter((item) => item !== device)
+        : [...current.devicesUsed, device],
+    }));
+  }
+
+  function onSetupDocumentChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setVerificationDocument(null);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Verification document must be 5MB or smaller.");
+      e.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setVerificationDocument({
+        fileName: file.name,
+        fileType: file.type || "application/octet-stream",
+        fileSize: file.size,
+        dataUrl: String(reader.result),
+      });
+      setError("");
+    };
+    reader.onerror = () => setError("Could not read the selected document.");
+    reader.readAsDataURL(file);
+  }
+
+  async function handleFinishSetup(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setMessage("");
+
+    try {
+      const isMentor = setupForm.accountType === "mentor";
+      const res = await apiClient.post("/api/users/me/setup", {
+        accountType: setupForm.accountType,
+        primaryTechnicalField: setupForm.primaryTechnicalField,
+        roleOrStatus: setupForm.roleOrStatus,
+        yearsOfExperience: setupForm.yearsOfExperience,
+        devicesUsed: setupForm.devicesUsed,
+        collaborationGoals: setupForm.collaborationGoals || undefined,
+        expertise: isMentor
+          ? [{ subject: setupForm.expertiseSubject, proficiency: setupForm.expertiseLevel }]
+          : [],
+        skillTags: isMentor
+          ? setupForm.skillTags
+              .split(",")
+              .map((tag) => tag.trim())
+              .filter(Boolean)
+          : [],
+        availabilityStatus: isMentor ? setupForm.availabilityStatus : "offline",
+        verificationDocument: isMentor ? verificationDocument : undefined,
+      });
+      setUser(res.data.user);
+      setShowSetup(false);
+      setMessage(isMentor ? "Profile setup complete. Your mentor verification is pending review." : "Profile setup complete.");
+    } catch (err: any) {
+      setError(err.response?.data?.error?.message || "Failed to finish setup.");
+    }
+  }
 
   const handleAddSkill = async () => {
     if (!newSkill.trim()) return;
@@ -231,25 +345,31 @@ export default function ProfilePage() {
       {/* Edit Profile Button */}
       <div className="mb-8 flex items-center justify-between">
         <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">Profile</h2>
-        {!isEditing && (
-          <Button
-            type="button"
-            variant="primary"
-            size="md"
-            onClick={() => {
-              setFormData({
-                name: user.name || "",
-                bio: user.bio || "",
-                avatarUrl: user.avatarUrl || "",
-                availabilityStatus: user.availabilityStatus || "online",
-              });
-              setIsEditing(true);
-            }}
-          >
-            <Edit className="h-4 w-4 mr-2" />
-            Edit Profile
+        <div className="flex gap-2">
+          <Button type="button" variant={needsSetup ? "primary" : "secondary"} size="md" onClick={() => setShowSetup((value) => !value)}>
+            <CheckCircle2 className="h-4 w-4 mr-2" />
+            Finish setting up
           </Button>
-        )}
+          {!isEditing && (
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              onClick={() => {
+                setFormData({
+                  name: user.name || "",
+                  bio: user.bio || "",
+                  avatarUrl: user.avatarUrl || "",
+                  availabilityStatus: user.availabilityStatus || "online",
+                });
+                setIsEditing(true);
+              }}
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Edit Profile
+            </Button>
+          )}
+        </div>
       </div>
 
       {(message || error) && (
@@ -262,6 +382,125 @@ export default function ProfilePage() {
         >
           {error || message}
         </div>
+      )}
+
+      {(needsSetup || showSetup) && (
+        <Card className="mb-8">
+          <div className="mb-5">
+            <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Finish setting up</h3>
+            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+              Complete your learner or mentor profile so Mekari can personalize matching and verification.
+            </p>
+          </div>
+
+          <form onSubmit={handleFinishSetup} className="space-y-5">
+            <div className="grid grid-cols-2 gap-2 rounded bg-neutral-100 p-1 dark:bg-neutral-900">
+              {(["learner", "mentor"] as AccountType[]).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setSetupForm((current) => ({ ...current, accountType: type }))}
+                  className={`rounded px-3 py-2 text-sm font-medium transition ${
+                    setupForm.accountType === type
+                      ? "bg-white text-primary-700 shadow-sm dark:bg-neutral-800 dark:text-primary-300"
+                      : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+                  }`}
+                >
+                  {type === "mentor" ? "Set up as mentor" : "Set up as learner"}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className="space-y-1">
+                <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Primary technical field</span>
+                <select className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white" value={setupForm.primaryTechnicalField} onChange={(e) => setSetupForm({ ...setupForm, primaryTechnicalField: e.target.value })}>
+                  {technicalFields.map((field) => <option key={field}>{field}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Current role or status</span>
+                <select className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white" value={setupForm.roleOrStatus} onChange={(e) => setSetupForm({ ...setupForm, roleOrStatus: e.target.value })}>
+                  {roleOptions.map((role) => <option key={role}>{role}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Years of experience</span>
+                <select className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white" value={setupForm.yearsOfExperience} onChange={(e) => setSetupForm({ ...setupForm, yearsOfExperience: e.target.value })}>
+                  {experienceOptions.map((years) => <option key={years}>{years}</option>)}
+                </select>
+              </label>
+            </div>
+
+            <div>
+              <span className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">Devices used</span>
+              <div className="flex flex-wrap gap-2">
+                {deviceOptions.map((device) => (
+                  <label key={device} className="flex items-center gap-2 rounded border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800">
+                    <input type="checkbox" checked={setupForm.devicesUsed.includes(device)} onChange={() => toggleSetupDevice(device)} />
+                    {device}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <label className="block space-y-1">
+              <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">How do you want to use Mekari?</span>
+              <textarea
+                className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                rows={3}
+                value={setupForm.collaborationGoals}
+                onChange={(e) => setSetupForm({ ...setupForm, collaborationGoals: e.target.value })}
+                placeholder="Quick questions, in-depth troubleshooting, mentorship..."
+              />
+            </label>
+
+            {setupForm.accountType === "mentor" && (
+              <div className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="space-y-1">
+                    <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Expertise area</span>
+                    <select className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white" value={setupForm.expertiseSubject} onChange={(e) => setSetupForm({ ...setupForm, expertiseSubject: e.target.value })}>
+                      {technicalFields.map((field) => <option key={field}>{field}</option>)}
+                    </select>
+                  </label>
+                  <label className="space-y-1">
+                    <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Expertise level</span>
+                    <select className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white" value={setupForm.expertiseLevel} onChange={(e) => setSetupForm({ ...setupForm, expertiseLevel: e.target.value as typeof setupForm.expertiseLevel })}>
+                      <option value="intermediate">Intermediate</option>
+                      <option value="advanced">Advanced</option>
+                      <option value="expert">Expert</option>
+                    </select>
+                  </label>
+                  <label className="space-y-1">
+                    <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Skill tags</span>
+                    <Input value={setupForm.skillTags} onChange={(e) => setSetupForm({ ...setupForm, skillTags: e.target.value })} placeholder="React, MongoDB, auth" />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Verification document</span>
+                    <input type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white" onChange={onSetupDocumentChange} required />
+                  </label>
+                </div>
+                {verificationDocument && (
+                  <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">
+                    Ready for admin review: {verificationDocument.fileName}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button type="submit" variant="primary">
+                Save setup
+              </Button>
+              {!needsSetup && (
+                <Button type="button" variant="secondary" onClick={() => setShowSetup(false)}>
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </form>
+        </Card>
       )}
 
       {/* Profile Header */}

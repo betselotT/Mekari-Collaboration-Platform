@@ -14,6 +14,16 @@ const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/mekari";
 const REDIS_URL = process.env.REDIS_URL;
 
+async function connectRedisWithTimeout(redisClient: ReturnType<typeof createClient>) {
+  const timeoutMs = Number(process.env.REDIS_CONNECT_TIMEOUT_MS || 3000);
+  await Promise.race([
+    redisClient.connect(),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`Redis connection timed out after ${timeoutMs}ms`)), timeoutMs)
+    ),
+  ]);
+}
+
 async function bootstrap() {
   try {
     await mongoose.connect(MONGO_URI);
@@ -26,10 +36,13 @@ async function bootstrap() {
         redisClient.on("error", (err) =>
           console.error("Redis client error:", err.message)
         );
-        await redisClient.connect();
+        await connectRedisWithTimeout(redisClient);
         console.log("Connected to Redis");
       } catch (err) {
         console.error("Failed to connect to Redis. Continuing without Redis.", err);
+        if (redisClient?.isOpen) {
+          await redisClient.quit().catch(() => undefined);
+        }
         redisClient = null;
       }
     } else {
