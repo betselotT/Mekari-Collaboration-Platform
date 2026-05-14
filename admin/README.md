@@ -33,4 +33,11 @@ npm.cmd run dev
 
 Open `http://localhost:3100`.
 
+Seeded admin credential:
+
+```text
+Username: admin
+Password: MekariAdmin2026!
+```
+
 The admin backend reads `admin/backend/.env` when present and falls back to the main `backend/.env` for `MONGO_URI`.

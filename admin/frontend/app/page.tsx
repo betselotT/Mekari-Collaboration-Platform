@@ -59,8 +59,16 @@ type ActivityLog = {
   status?: string;
 };
 
+type Pagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
 type StatusFilter = "all" | "pending" | "approved" | "rejected";
 type ReportFilter = "all" | "pending" | "resolved" | "dismissed";
+const PAGE_SIZE = 10;
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
   year: "numeric",
@@ -99,6 +107,12 @@ export default function AdminDashboard() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [verificationFilter, setVerificationFilter] = useState<StatusFilter>("pending");
   const [reportFilter, setReportFilter] = useState<ReportFilter>("pending");
+  const [verificationPage, setVerificationPage] = useState(1);
+  const [reportPage, setReportPage] = useState(1);
+  const [logPage, setLogPage] = useState(1);
+  const [verificationPagination, setVerificationPagination] = useState<Pagination | null>(null);
+  const [reportPagination, setReportPagination] = useState<Pagination | null>(null);
+  const [logPagination, setLogPagination] = useState<Pagination | null>(null);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -118,19 +132,43 @@ export default function AdminDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const verificationQuery = verificationFilter === "all" ? "" : `?status=${verificationFilter}`;
-      const reportQuery = reportFilter === "all" ? "" : `?status=${reportFilter}`;
+      const verificationParams = new URLSearchParams({
+        page: String(verificationPage),
+        limit: String(PAGE_SIZE),
+      });
+      if (verificationFilter !== "all") verificationParams.set("status", verificationFilter);
+
+      const reportParams = new URLSearchParams({
+        page: String(reportPage),
+        limit: String(PAGE_SIZE),
+      });
+      if (reportFilter !== "all") reportParams.set("status", reportFilter);
+
+      const logParams = new URLSearchParams({
+        page: String(logPage),
+        limit: String(PAGE_SIZE),
+      });
+
       const [summaryRes, verificationRes, reportRes, logRes] = await Promise.all([
         adminFetch<{ summary: Summary }>("/api/admin/summary"),
-        adminFetch<{ verifications: Verification[] }>(`/api/admin/mentor-verifications${verificationQuery}`),
-        adminFetch<{ reports: ReportItem[] }>(`/api/admin/reports${reportQuery}`),
-        adminFetch<{ logs: ActivityLog[] }>("/api/admin/action-logs?limit=120"),
+        adminFetch<{ verifications: Verification[]; pagination: Pagination }>(
+          `/api/admin/mentor-verifications?${verificationParams.toString()}`
+        ),
+        adminFetch<{ reports: ReportItem[]; pagination: Pagination }>(
+          `/api/admin/reports?${reportParams.toString()}`
+        ),
+        adminFetch<{ logs: ActivityLog[]; pagination: Pagination }>(
+          `/api/admin/action-logs?${logParams.toString()}`
+        ),
       ]);
 
       setSummary(summaryRes.summary);
       setVerifications(verificationRes.verifications);
       setReports(reportRes.reports);
       setLogs(logRes.logs);
+      setVerificationPagination(verificationRes.pagination);
+      setReportPagination(reportRes.pagination);
+      setLogPagination(logRes.pagination);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load admin dashboard");
     } finally {
@@ -141,7 +179,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     loadDashboard();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [verificationFilter, reportFilter]);
+  }, [verificationFilter, reportFilter, verificationPage, reportPage, logPage]);
 
   async function reviewMentor(userId: string, status: "approved" | "rejected") {
     setSavingId(userId);
@@ -178,6 +216,11 @@ export default function AdminDashboard() {
     }
   }
 
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/login";
+  }
+
   return (
     <main className="page">
       <header className="topbar">
@@ -189,7 +232,10 @@ export default function AdminDashboard() {
               <p>Verification, moderation, and system activity</p>
             </div>
           </div>
-          <div className="topbar-meta">{loading ? "Syncing data" : "Live admin workspace"}</div>
+          <div className="topbar-actions">
+            <div className="topbar-meta">{loading ? "Syncing data" : "Live admin workspace"}</div>
+            <button className="button secondary" onClick={logout}>Sign out</button>
+          </div>
         </div>
       </header>
 
@@ -215,7 +261,10 @@ export default function AdminDashboard() {
               <select
                 className="select"
                 value={verificationFilter}
-                onChange={(event) => setVerificationFilter(event.target.value as StatusFilter)}
+                onChange={(event) => {
+                  setVerificationFilter(event.target.value as StatusFilter);
+                  setVerificationPage(1);
+                }}
               >
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
@@ -290,6 +339,12 @@ export default function AdminDashboard() {
               </article>
             ))}
           </div>
+          <Pager
+            label="mentor verification requests"
+            pagination={verificationPagination}
+            onPrev={() => setVerificationPage((page) => Math.max(1, page - 1))}
+            onNext={() => setVerificationPage((page) => page + 1)}
+          />
         </section>
 
         <section className="panel">
@@ -302,7 +357,10 @@ export default function AdminDashboard() {
               <select
                 className="select"
                 value={reportFilter}
-                onChange={(event) => setReportFilter(event.target.value as ReportFilter)}
+                onChange={(event) => {
+                  setReportFilter(event.target.value as ReportFilter);
+                  setReportPage(1);
+                }}
               >
                 <option value="pending">Pending</option>
                 <option value="resolved">Resolved</option>
@@ -345,6 +403,12 @@ export default function AdminDashboard() {
               </article>
             ))}
           </div>
+          <Pager
+            label="reports"
+            pagination={reportPagination}
+            onPrev={() => setReportPage((page) => Math.max(1, page - 1))}
+            onNext={() => setReportPage((page) => page + 1)}
+          />
         </section>
 
         <section className="panel">
@@ -386,8 +450,46 @@ export default function AdminDashboard() {
               </tbody>
             </table>
           </div>
+          <Pager
+            label="activity records"
+            pagination={logPagination}
+            onPrev={() => setLogPage((page) => Math.max(1, page - 1))}
+            onNext={() => setLogPage((page) => page + 1)}
+          />
         </section>
       </div>
     </main>
+  );
+}
+
+function Pager({
+  label,
+  pagination,
+  onPrev,
+  onNext,
+}: {
+  label: string;
+  pagination: Pagination | null;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  const page = pagination?.page || 1;
+  const totalPages = pagination?.totalPages || 1;
+  const total = pagination?.total || 0;
+
+  return (
+    <div className="pager">
+      <span>
+        Page {page} of {totalPages} · {total} {label}
+      </span>
+      <div className="pager-actions">
+        <button className="button secondary" disabled={page <= 1} onClick={onPrev}>
+          Previous
+        </button>
+        <button className="button secondary" disabled={page >= totalPages} onClick={onNext}>
+          Next
+        </button>
+      </div>
+    </div>
   );
 }

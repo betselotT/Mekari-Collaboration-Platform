@@ -31,6 +31,21 @@ type ActivityLog = {
   status?: string;
 };
 
+function parsePagination(query: { page?: unknown; limit?: unknown }) {
+  const page = Math.max(1, Number(query.page || 1));
+  const limit = Math.min(50, Math.max(1, Number(query.limit || 10)));
+  return { page, limit, skip: (page - 1) * limit };
+}
+
+function pagination(page: number, limit: number, total: number) {
+  return {
+    page,
+    limit,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+  };
+}
+
 function stringifyId(value: unknown) {
   if (value && typeof value === "object" && "_id" in value) {
     return String((value as { _id: unknown })._id);
@@ -79,17 +94,24 @@ router.get("/summary", async (_req, res, next) => {
 router.get("/mentor-verifications", async (req, res, next) => {
   try {
     const status = verificationStatusSchema.optional().parse(req.query.status);
-    const users = await User.find({
+    const { page, limit, skip } = parsePagination(req.query);
+    const filter = {
       role: "expert",
       ...(status
         ? { "expertVerification.status": status }
         : { "expertVerification.status": { $in: ["pending", "approved", "rejected"] } }),
-    })
+    };
+    const [users, total] = await Promise.all([
+      User.find(filter)
       .select("name email primaryTechnicalField roleOrStatus yearsOfExperience expertise skillTags expertVerification points createdAt")
       .sort({ "expertVerification.submittedAt": -1, createdAt: -1 })
-      .lean();
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      User.countDocuments(filter),
+    ]);
 
-    res.json({ verifications: users });
+    res.json({ verifications: users, pagination: pagination(page, limit, total) });
   } catch (err) {
     next(err);
   }
@@ -124,11 +146,17 @@ router.patch("/mentor-verifications/:userId", async (req, res, next) => {
 router.get("/reports", async (req, res, next) => {
   try {
     const status = reportStatusSchema.optional().parse(req.query.status);
-    const reports = await Report.find(status ? { status } : {})
+    const { page, limit, skip } = parsePagination(req.query);
+    const filter = status ? { status } : {};
+    const [reports, total] = await Promise.all([
+      Report.find(filter)
       .sort({ createdAt: -1 })
-      .limit(200)
+        .skip(skip)
+        .limit(limit)
       .populate("reporterId", "name email")
-      .lean();
+        .lean(),
+      Report.countDocuments(filter),
+    ]);
 
     const targetIds = {
       user: reports.filter((r) => r.targetType === "user").map((r) => r.targetId),
@@ -158,7 +186,7 @@ router.get("/reports", async (req, res, next) => {
       return { ...report, target };
     });
 
-    res.json({ reports: enriched });
+    res.json({ reports: enriched, pagination: pagination(page, limit, total) });
   } catch (err) {
     next(err);
   }
@@ -186,28 +214,29 @@ router.patch("/reports/:reportId", async (req, res, next) => {
 
 router.get("/action-logs", async (req, res, next) => {
   try {
-    const limit = Math.min(Number(req.query.limit || 100), 300);
+    const { page, limit, skip } = parsePagination(req.query);
+    const sourceLimit = Math.min(300, skip + limit);
     const [users, verifications, reports, threads, messages] = await Promise.all([
-      User.find().sort({ createdAt: -1 }).limit(limit).select("name email role createdAt").lean(),
+      User.find().sort({ createdAt: -1 }).limit(sourceLimit).select("name email role createdAt").lean(),
       User.find({ "expertVerification.submittedAt": { $exists: true } })
         .sort({ "expertVerification.submittedAt": -1 })
-        .limit(limit)
+        .limit(sourceLimit)
         .select("name email expertVerification")
         .lean(),
       Report.find()
         .sort({ createdAt: -1 })
-        .limit(limit)
+        .limit(sourceLimit)
         .populate("reporterId", "name email")
         .lean(),
       Thread.find()
         .sort({ createdAt: -1 })
-        .limit(limit)
+        .limit(sourceLimit)
         .populate("createdBy", "name email")
         .select("title subject status createdBy createdAt")
         .lean(),
       Message.find()
         .sort({ createdAt: -1 })
-        .limit(limit)
+        .limit(sourceLimit)
         .populate("sender", "name email")
         .populate("thread", "title")
         .select("body type isFromAi sender thread createdAt")
@@ -285,7 +314,10 @@ router.get("/action-logs", async (req, res, next) => {
     ];
 
     logs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    res.json({ logs: logs.slice(0, limit) });
+    res.json({
+      logs: logs.slice(skip, skip + limit),
+      pagination: pagination(page, limit, logs.length),
+    });
   } catch (err) {
     next(err);
   }

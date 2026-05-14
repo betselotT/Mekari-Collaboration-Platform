@@ -6,12 +6,14 @@ import mongoose from "mongoose";
 import morgan from "morgan";
 import path from "path";
 import { connectDb } from "./db";
+import { requireAdminSession } from "./auth";
 import { adminRouter } from "./routes/admin";
+import { authRouter } from "./routes/auth";
 import { requireAdminKey } from "./middleware/adminAuth";
 import { errorHandler } from "./middleware/errorHandler";
 
-dotenv.config({ path: path.resolve(__dirname, "../../../backend/.env") });
 dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, "../../../backend/.env") });
 
 const port = Number(process.env.ADMIN_PORT || 4100);
 
@@ -56,6 +58,8 @@ async function bootstrap() {
     });
   });
 
+  app.use("/api/auth", authRouter);
+  app.use("/api/admin", requireAdminSession);
   app.use("/api/admin", (_req, res, next) => {
     if (mongoose.connection.readyState !== 1) {
       res.status(503).json({
