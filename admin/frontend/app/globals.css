@@ -87,6 +87,12 @@ textarea {
   font-size: 13px;
 }
 
+.topbar-actions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
 .content {
   margin: 0 auto;
   max-width: 1320px;
@@ -249,6 +255,11 @@ textarea {
   background: var(--primary-dark);
 }
 
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .button.secondary {
   background: white;
   border-color: var(--border);
@@ -266,6 +277,21 @@ textarea {
 
 .table-wrap {
   overflow-x: auto;
+}
+
+.pager {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  display: flex;
+  font-size: 13px;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+
+.pager-actions {
+  display: flex;
+  gap: 8px;
 }
 
 table {
@@ -299,6 +325,77 @@ th {
   color: var(--danger);
 }
 
+.login-page {
+  align-items: center;
+  display: flex;
+  min-height: 100vh;
+  justify-content: center;
+  padding: 24px;
+}
+
+.login-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-width: 420px;
+  padding: 28px;
+  width: 100%;
+}
+
+.login-brand {
+  margin-bottom: 24px;
+}
+
+.login-form {
+  display: grid;
+  gap: 14px;
+}
+
+.login-form label {
+  display: grid;
+  gap: 7px;
+}
+
+.login-form span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.login-button {
+  margin-top: 6px;
+  width: 100%;
+}
+
+.login-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  color: var(--danger);
+  font-size: 13px;
+  margin-bottom: 16px;
+  padding: 10px;
+}
+
+.seeded-credential {
+  background: var(--surface-soft);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 18px;
+  padding: 12px;
+}
+
+.seeded-credential span,
+.seeded-credential strong {
+  display: block;
+}
+
+.seeded-credential strong {
+  color: var(--text);
+  margin-top: 4px;
+}
+
 @media (max-width: 900px) {
   .metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -311,5 +408,11 @@ th {
 
   .actions {
     align-items: stretch;
+  }
+
+  .pager {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
   }
 }
