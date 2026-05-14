@@ -30,21 +30,11 @@ export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProp
   useEffect(() => {
     const rawClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
     const clientId = rawClientId.trim().replace(/^"(.*)"$/, "$1");
-    if (!clientId) return;
-
-    const origin = window.location.origin;
-    const configuredOrigins = (process.env.NEXT_PUBLIC_GOOGLE_ALLOWED_ORIGINS || "")
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
-    const isLocalOrigin = origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1");
-
-    if (configuredOrigins.length > 0) {
-      setCanUseGoogle(configuredOrigins.includes(origin));
+    if (!clientId || clientId === "your-google-oauth-client-id.apps.googleusercontent.com") {
       return;
     }
 
-    setCanUseGoogle(!isLocalOrigin);
+    setCanUseGoogle(true);
   }, []);
 
   useEffect(() => {
