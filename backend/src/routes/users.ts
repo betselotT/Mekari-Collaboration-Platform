@@ -136,14 +136,9 @@ router.post("/me/setup", requireAuth, async (req: AuthRequest, res, next) => {
 router.get("/experts", requireAuth, async (_req: AuthRequest, res, next) => {
   try {
     const experts = await User.find({
-      role: { $in: ["expert", "admin"] },
-      "expertise.0": { $exists: true },
-      $or: [
-        { "expertVerification.status": "approved" },
-        { expertVerification: { $exists: false } },
-      ],
+      role: "expert",
     })
-      .select("name avatarUrl expertise skillTags availabilityStatus points badges expertVerification")
+      .select("name avatarUrl bio expertise skillTags availabilityStatus points badges role expertVerification")
       .sort({ points: -1 });
     res.json({ experts });
   } catch (err) {
