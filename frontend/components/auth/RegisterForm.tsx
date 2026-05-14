@@ -1,8 +1,9 @@
 "use client";
 
-import { ChangeEvent, FormEvent, ReactNode, useState } from "react";
+import { ChangeEvent, FormEvent, ReactNode, useState, useRef } from "react";
 import { apiClient } from "../../lib/api";
 import { GoogleAuthButton } from "./GoogleAuthButton";
+import { Captcha, CaptchaRef } from "./Captcha";
 
 type AccountType = "learner" | "mentor";
 
@@ -50,6 +51,8 @@ export function RegisterForm() {
   const [verificationDocument, setVerificationDocument] = useState<VerificationDocument | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<CaptchaRef>(null);
 
   function toggleDevice(device: string) {
     setDevicesUsed((current) =>
@@ -89,6 +92,13 @@ export function RegisterForm() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    if (!captchaToken) {
+      setError("Please complete the CAPTCHA verification.");
+      setLoading(false);
+      return;
+    }
+
     try {
       const isMentor = accountType === "mentor";
       const res = await apiClient.post("/api/auth/register", {
@@ -112,11 +122,15 @@ export function RegisterForm() {
           : [],
         availabilityStatus: isMentor ? availabilityStatus : "offline",
         verificationDocument: isMentor ? verificationDocument : undefined,
+        captchaToken,
       });
       localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
     } catch (err: any) {
       setError(err.response?.data?.error?.message || "Failed to sign up");
+      // Reset CAPTCHA on error
+      captchaRef.current?.reset();
+      setCaptchaToken(null);
     } finally {
       setLoading(false);
     }
@@ -255,6 +269,15 @@ export function RegisterForm() {
           )}
         </div>
       )}
+
+      <div className="space-y-2">
+        <Captcha
+          ref={captchaRef}
+          onChange={setCaptchaToken}
+          onExpired={() => setCaptchaToken(null)}
+          onError={() => setError("CAPTCHA verification failed. Please try again.")}
+        />
+      </div>
 
       <button
         type="submit"
