@@ -1,8 +1,9 @@
 "use client";
 
-import { Bell, MessageCircle, User, Search } from "lucide-react";
+import { Bell, LogOut, MessageCircle, Search } from "lucide-react";
 import { ThemeToggle } from "../theme/ThemeToggle";
 import { useAuth } from "../../lib/useAuth";
+import { apiClient, clearAuthToken } from "../../lib/api";
 
 interface HeaderProps {
   title?: string;
@@ -26,6 +27,17 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search..." }:
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("") || "M";
+
+  async function handleLogout() {
+    try {
+      await apiClient.post("/api/auth/logout");
+    } catch {
+      // JWT auth is client-held, so local cleanup is enough even if the network call fails.
+    } finally {
+      clearAuthToken();
+      window.location.href = "/login";
+    }
+  }
 
   return (
     <header className="fixed right-0 top-0 z-30 flex h-16 w-[calc(100%-240px)] items-center justify-between border-b border-neutral-200 bg-white px-8 dark:border-neutral-700 dark:bg-neutral-900">
@@ -55,6 +67,16 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search..." }:
         </button>
 
         <ThemeToggle />
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          title="Sign out"
+          aria-label="Sign out"
+          className="p-2 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors dark:text-neutral-400 dark:hover:bg-neutral-800"
+        >
+          <LogOut className="h-5 w-5" />
+        </button>
 
         <div className="ml-2 flex items-center gap-3 border-l border-neutral-200 pl-4 dark:border-neutral-700">
           <div className="text-right">

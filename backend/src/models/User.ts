@@ -44,6 +44,8 @@ export interface IUser extends Document {
   points: number;
   badges: string[];
   role: "user" | "admin" | "learner" | "expert" | "mod";
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const ExpertiseSchema = new Schema<ExpertiseArea>(

@@ -14,6 +14,11 @@ export function getAuthToken() {
   return window.localStorage.getItem("mekari_token");
 }
 
+export function clearAuthToken() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem("mekari_token");
+}
+
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
 });

@@ -222,6 +222,10 @@ router.post("/login", async (req, res, next) => {
   }
 });
 
+router.post("/logout", (_req, res) => {
+  res.json({ ok: true });
+});
+
 router.post("/google", async (req, res, next) => {
   try {
     const parsed = googleAuthSchema.parse(req.body);

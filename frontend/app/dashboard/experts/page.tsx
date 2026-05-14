@@ -44,7 +44,7 @@ function buildTitle(expert: DBExpert): string {
       : top.proficiency === "intermediate"
       ? "Intermediate"
       : "Junior";
-  return `${level} — ${top.subject}`;
+  return `${level} - ${top.subject}`;
 }
 
 function buildSkills(expert: DBExpert): string[] {
@@ -149,7 +149,7 @@ export default function ExpertsPage() {
       ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed border-neutral-300 p-8 text-center text-sm text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
           {experts.length === 0
-            ? "No experts found. Run the seed script to populate demo data."
+            ? "No experts found."
             : `No experts match "${selectedFilter}".`}
         </div>
       ) : (
