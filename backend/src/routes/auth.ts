@@ -6,6 +6,7 @@ import { OAuth2Client } from "google-auth-library";
 import { IUser, User } from "../models/User";
 import { verifyCaptchaToken } from "../services/captcha";
 import { logAuditEvent } from "../services/auditLog";
+import { loginRateLimiter } from "../middleware/loginRateLimiter";
 
 const router = Router();
 const googleClient = new OAuth2Client();
@@ -187,7 +188,7 @@ router.post("/register", async (req, res, next) => {
   }
 });
 
-router.post("/login", async (req, res, next) => {
+router.post("/login", loginRateLimiter, async (req, res, next) => {
   try {
     const parsed = loginSchema.parse(req.body);
 
@@ -247,7 +248,7 @@ router.post("/logout", (_req, res) => {
   res.json({ ok: true });
 });
 
-router.post("/google", async (req, res, next) => {
+router.post("/google", loginRateLimiter, async (req, res, next) => {
   try {
     const parsed = googleAuthSchema.parse(req.body);
     const allowedAudiences = (process.env.GOOGLE_CLIENT_ID || "")
@@ -333,7 +334,7 @@ router.post("/google", async (req, res, next) => {
   }
 });
 
-router.get("/github/start", (req, res, next) => {
+router.get("/github/start", loginRateLimiter, (req, res, next) => {
   try {
     const parsed = githubStartSchema.parse(req.query);
     if (parsed.accountType === "mentor" && parsed.mode === "register") {
