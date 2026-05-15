@@ -8,6 +8,7 @@ import {
   BarChart3,
   User,
   Bot,
+  ShieldAlert,
   Code2,
   Database,
   Layers,
@@ -28,6 +29,7 @@ const mainMenu: NavItem[] = [
   { icon: BarChart3, label: "Leaderboard", href: "/dashboard/leaderboard" },
   { icon: User, label: "Profile", href: "/dashboard/profile" },
   { icon: Bot, label: "AI Assistant", href: "/dashboard/ai-assistant" },
+  { icon: ShieldAlert, label: "Report User", href: "/dashboard/reports" },
 ];
 
 const subjectsMenu: NavItem[] = [

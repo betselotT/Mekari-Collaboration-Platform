@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import mongoose from "mongoose";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { Report } from "../models/Report";
 import { User } from "../models/User";
@@ -16,6 +17,21 @@ const createReportSchema = z.object({
 router.post("/", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const parsed = createReportSchema.parse(req.body);
+    if (!mongoose.Types.ObjectId.isValid(parsed.targetId)) {
+      return res.status(400).json({ error: { message: "Invalid report target." } });
+    }
+
+    if (parsed.targetType === "user") {
+      if (parsed.targetId === req.userId) {
+        return res.status(400).json({ error: { message: "You cannot report yourself." } });
+      }
+
+      const targetUser = await User.findById(parsed.targetId).select("_id");
+      if (!targetUser) {
+        return res.status(404).json({ error: { message: "Reported user not found." } });
+      }
+    }
+
     const report = await Report.create({ reporterId: req.userId, ...parsed });
     const reporter = await User.findById(req.userId).select("name email");
     await logAuditEvent({

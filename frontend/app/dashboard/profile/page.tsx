@@ -52,6 +52,7 @@ export default function ProfilePage() {
   const [newExpertiseProficiency, setNewExpertiseProficiency] = useState("beginner");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [resubmittingVerification, setResubmittingVerification] = useState(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const [setupForm, setSetupForm] = useState({
@@ -179,6 +180,32 @@ export default function ProfilePage() {
       setMessage(isMentor ? "Profile setup complete. Your mentor verification is pending review." : "Profile setup complete.");
     } catch (err: any) {
       setError(err.response?.data?.error?.message || "Failed to finish setup.");
+    }
+  }
+
+  async function handleResubmitVerification(e: React.FormEvent) {
+    e.preventDefault();
+    if (!verificationDocument) {
+      setError("Choose a new verification document first.");
+      setMessage("");
+      return;
+    }
+
+    setResubmittingVerification(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const res = await apiClient.post("/api/users/me/mentor-verification-document", {
+        verificationDocument,
+      });
+      setUser(res.data.user);
+      setVerificationDocument(null);
+      setMessage("New verification document uploaded. Your mentor verification is pending review.");
+    } catch (err: any) {
+      setError(err.response?.data?.error?.message || "Failed to upload verification document.");
+    } finally {
+      setResubmittingVerification(false);
     }
   }
 
@@ -402,6 +429,34 @@ export default function ProfilePage() {
                 <p className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
                   Rejection reason: {user.expertVerification.reviewNote}
                 </p>
+              )}
+              {verificationStatus === "rejected" && (
+                <form onSubmit={handleResubmitVerification} className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-700 dark:bg-neutral-900">
+                  <label className="space-y-1">
+                    <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Upload a new verification document</span>
+                    <input
+                      type="file"
+                      accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                      onChange={onSetupDocumentChange}
+                    />
+                  </label>
+                  {verificationDocument && (
+                    <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                      Ready for admin review: {verificationDocument.fileName}
+                    </p>
+                  )}
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    className="mt-3"
+                    isLoading={resubmittingVerification}
+                    disabled={!verificationDocument}
+                  >
+                    Upload new document
+                  </Button>
+                </form>
               )}
             </div>
             <Badge
