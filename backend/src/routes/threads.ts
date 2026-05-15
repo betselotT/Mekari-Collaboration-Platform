@@ -7,7 +7,8 @@ import { PointEvent } from "../models/PointEvent";
 import { awardPoints } from "../services/awardPoints";
 import { captureKnowledge } from "../services/knowledgeCapture";
 import { runAIPipeline } from "../services/aiPipeline";
-import { getIo } from "../sockets/ioInstance";
+import { broadcastToRoom, roomName } from "../services/realtime";
+import { createThreadMessage, threadMessageSchema } from "../services/threadMessages";
 
 const router = Router();
 
@@ -17,12 +18,6 @@ const createThreadSchema = z.object({
   body: z.string().optional(),
   tags: z.array(z.string().min(1)).default([]),
   initialMessage: z.string().min(1),
-});
-
-const sendMessageSchema = z.object({
-  body: z.string().min(1),
-  type: z.enum(["TEXT", "CODE", "IMAGE", "FILE", "SYSTEM_EVENT"]).optional(),
-  parentMessageId: z.string().optional(),
 });
 
 const solveSchema = z.object({
@@ -274,61 +269,16 @@ router.get("/:threadId/messages", requireAuth, async (req: AuthRequest, res, nex
 router.post("/:threadId/messages", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const { threadId } = req.params;
-    const parsed = sendMessageSchema.parse(req.body);
-
-    const thread = await Thread.findById(threadId);
-    if (!thread) return res.status(404).json({ error: { message: "Thread not found" } });
-
-    const message = await Message.create({
-      thread: threadId,
-      sender: req.userId,
+    const parsed = threadMessageSchema.parse(req.body);
+    const { message } = await createThreadMessage({
+      threadId,
+      userId: String(req.userId),
       body: parsed.body,
-      type: parsed.type || "TEXT",
-      parentMessageId: parsed.parentMessageId || undefined,
-      isFromAi: false,
+      type: parsed.type,
+      parentMessageId: parsed.parentMessageId,
     });
 
-    await Thread.findByIdAndUpdate(threadId, {
-      $addToSet: { participants: req.userId },
-      $set: { updatedAt: new Date() },
-    });
-
-    const populated = await message.populate("sender", "name avatarUrl");
-
-    const io = getIo();
-    if (io) {
-      io.to(`room:${threadId}`).emit("new_message", {
-        _id: message.id,
-        id: message.id,
-        thread: threadId,
-        sender: populated.sender,
-        body: message.body,
-        type: message.type,
-        parentMessageId: message.parentMessageId,
-        upvotes: [],
-        isFromAi: false,
-        createdAt: message.createdAt,
-      });
-    }
-
-    // Award ANSWERED_QUESTION to first responders (not the thread author)
-    if (String(thread.createdBy) !== String(req.userId)) {
-      await awardPoints(String(req.userId), "ANSWERED_QUESTION", String(message._id));
-
-      // Bonus: first answer of the day
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const todayAnswers = await PointEvent.countDocuments({
-        userId: req.userId,
-        eventType: "ANSWERED_QUESTION",
-        createdAt: { $gte: todayStart },
-      });
-      if (todayAnswers === 1) {
-        await awardPoints(String(req.userId), "FIRST_ANSWER_OF_DAY", String(message._id));
-      }
-    }
-
-    res.status(201).json({ message: populated });
+    res.status(201).json({ message });
   } catch (err) {
     next(err);
   }
@@ -376,14 +326,11 @@ router.post("/:threadId/messages/:messageId/upvote", requireAuth, async (req: Au
       }
     }
 
-    const io = getIo();
-    if (io) {
-      io.to(`room:${threadId}`).emit("message_upvoted", {
-        threadId,
-        messageId,
-        upvotes: updated.upvotes,
-      });
-    }
+    await broadcastToRoom(roomName("thread", threadId), "message_upvoted", {
+      threadId,
+      messageId,
+      upvotes: updated.upvotes,
+    });
 
     res.json({ message: updated, upvoted: !hasUpvoted });
   } catch (err) {
@@ -450,14 +397,11 @@ router.patch("/:threadId/solve", requireAuth, async (req: AuthRequest, res, next
       }
     }
 
-    const io = getIo();
-    if (io) {
-      io.to(`room:${threadId}`).emit("thread_solved", {
-        threadId,
-        solutionMsgId: parsed.solutionMsgId,
-        solvedBy: solutionMsg.sender,
-      });
-    }
+    await broadcastToRoom(roomName("thread", threadId), "thread_solved", {
+      threadId,
+      solutionMsgId: parsed.solutionMsgId,
+      solvedBy: solutionMsg.sender,
+    });
 
     // Capture knowledge asynchronously (CRITICAL BEHAVIOR #5)
     setImmediate(() => {
@@ -507,19 +451,16 @@ router.post("/:threadId/session", requireAuth, async (req: AuthRequest, res, nex
       isFromAi: false,
     });
 
-    const io = getIo();
-    if (io) {
-      io.to(`room:${threadId}`).emit("new_message", {
-        _id: systemMsg.id,
-        id: systemMsg.id,
-        thread: threadId,
-        sender: req.userId,
-        body: systemMsg.body,
-        type: "SYSTEM_EVENT",
-        isFromAi: false,
-        createdAt: systemMsg.createdAt,
-      });
-    }
+    await broadcastToRoom(roomName("thread", threadId), "new_message", {
+      _id: systemMsg.id,
+      id: systemMsg.id,
+      thread: threadId,
+      sender: req.userId,
+      body: systemMsg.body,
+      type: "SYSTEM_EVENT",
+      isFromAi: false,
+      createdAt: systemMsg.createdAt,
+    });
 
     res.json({ meetLink, message: systemMsg });
   } catch (err) {
@@ -557,14 +498,11 @@ router.delete("/:threadId/messages/:messageId", requireAuth, async (req: AuthReq
     await Message.findByIdAndDelete(message._id);
     await Thread.findByIdAndUpdate(threadId, { $set: { updatedAt: new Date() } });
 
-    const io = getIo();
-    if (io) {
-      io.to(`room:${threadId}`).emit("message_deleted", {
-        threadId,
-        messageId,
-        deletedBy: req.userId,
-      });
-    }
+    await broadcastToRoom(roomName("thread", threadId), "message_deleted", {
+      threadId,
+      messageId,
+      deletedBy: req.userId,
+    });
 
     res.json({ deleted: true, messageId });
   } catch (err) {

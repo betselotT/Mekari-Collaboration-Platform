@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell, LogOut, MessageCircle, Search } from "lucide-react";
+import Link from "next/link";
 import { ThemeToggle } from "../theme/ThemeToggle";
 import { useAuth } from "../../lib/useAuth";
 import { apiClient, clearAuthToken } from "../../lib/api";
@@ -62,9 +63,14 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search..." }:
           <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />
         </button>
         
-        <button className="relative p-2 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors dark:text-neutral-400 dark:hover:bg-neutral-800">
+        <Link
+          href="/dashboard/messages"
+          className="relative p-2 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors dark:text-neutral-400 dark:hover:bg-neutral-800"
+          aria-label="Messages"
+          title="Messages"
+        >
           <MessageCircle className="h-5 w-5" />
-        </button>
+        </Link>
 
         <ThemeToggle />
 

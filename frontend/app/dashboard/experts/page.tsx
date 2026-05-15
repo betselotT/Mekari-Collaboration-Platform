@@ -96,11 +96,16 @@ export default function ExpertsPage() {
     );
   }
 
-  function handleDm(expert: DBExpert) {
-    // Navigate to threads page — user can create a thread mentioning the expert
-    router.push(
-      `/dashboard/threads?dm=${encodeURIComponent(expert._id)}&expert=${encodeURIComponent(expert.name)}`
-    );
+  async function handleDm(expert: DBExpert) {
+    try {
+      const res = await apiClient.post<{ conversation: { _id: string } }>(
+        "/api/dms/conversations",
+        { expertId: expert._id }
+      );
+      router.push(`/dashboard/messages?conversation=${res.data.conversation._id}`);
+    } catch (e: any) {
+      setError(e?.response?.data?.error?.message || "Failed to start direct message");
+    }
   }
 
   return (

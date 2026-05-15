@@ -1,193 +1,161 @@
 import { Server, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
 import { RedisClientType } from "redis";
-import { Message } from "../models/Message";
-import { Thread } from "../models/Thread";
-import { User } from "../models/User";
+import { z } from "zod";
+import { createThreadMessage, threadMessageSchema } from "../services/threadMessages";
+import {
+  broadcastToRoom,
+  forgetSocketPresence,
+  markUserPresence,
+  rememberSocketUser,
+  roomName,
+} from "../services/realtime";
+import { createDmMessage, dmMessageSchema, userCanAccessDm } from "../services/dmMessages";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
+const socketThreadMessageSchema = threadMessageSchema.extend({
+  threadId: z.string().min(1),
+});
+const socketDmMessageSchema = dmMessageSchema.extend({
+  conversationId: z.string().min(1),
+});
 
-// In-memory presence fallback (used when Redis is not configured)
-const presenceMap = new Map<string, { lastSeen: number; status: string }>();
-// socketId → userId, used to clean up on disconnect
-const socketToUser = new Map<string, string>();
+type SocketAuth = {
+  sub?: string;
+  role?: string;
+};
+
+function authenticateSocket(socket: Socket) {
+  const token = socket.handshake.auth?.token as string | undefined;
+  if (!token) return null;
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as SocketAuth;
+    if (!decoded.sub) return null;
+    socket.data.userId = decoded.sub;
+    socket.data.userRole = decoded.role;
+    socket.join(roomName("user", decoded.sub));
+    rememberSocketUser(socket.id, decoded.sub);
+    return decoded.sub;
+  } catch {
+    return null;
+  }
+}
 
 export function registerChatHandlers(
   io: Server,
   _redis?: RedisClientType<any, any, any> | null
 ) {
-  // CRITICAL BEHAVIOR #3 — Presence heartbeat: check every 30 s, expire after 60 s
-  setInterval(() => {
-    const now = Date.now();
-    presenceMap.forEach(async (data, userId) => {
-      if (now - data.lastSeen > 60_000 && data.status !== "offline") {
-        presenceMap.set(userId, { lastSeen: data.lastSeen, status: "offline" });
-        try {
-          await User.findByIdAndUpdate(userId, { $set: { availabilityStatus: "offline" } });
-        } catch {}
-        io.emit("presence_update", { userId, status: "offline" });
-      }
-    });
-  }, 30_000);
-
   io.on("connection", (socket: Socket) => {
-    const token = socket.handshake.auth?.token as string | undefined;
-    let socketUserId: string | null = null;
-
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, JWT_SECRET) as { sub: string };
-        socketUserId = decoded.sub;
-        socket.data.userId = socketUserId;
-        socketToUser.set(socket.id, socketUserId);
-
-        // Join personal room for targeted notifications
-        socket.join(`user:${socketUserId}`);
-
-        // Mark online
-        presenceMap.set(socketUserId, { lastSeen: Date.now(), status: "online" });
-        User.findByIdAndUpdate(socketUserId, { $set: { availabilityStatus: "online" } }).catch(() => {});
-        io.emit("presence_update", { userId: socketUserId, status: "online" });
-      } catch {
-        // Proceed without userId — read-only observer
-      }
+    const connectedUserId = authenticateSocket(socket);
+    if (connectedUserId) {
+      markUserPresence(socket.id, connectedUserId, "online").catch((err) =>
+        console.error("[socket presence online]", err)
+      );
     }
 
-    // ── join_room ──────────────────────────────────────────────────────────
     socket.on("join_room", (threadId: string) => {
-      socket.join(`room:${threadId}`);
-      socket.join(`thread:${threadId}`); // backward compat
+      if (!threadId) return;
+      socket.join(roomName("thread", threadId));
     });
 
-    // ── leave_room ─────────────────────────────────────────────────────────
     socket.on("leave_room", (threadId: string) => {
-      socket.leave(`room:${threadId}`);
-      socket.leave(`thread:${threadId}`);
+      if (!threadId) return;
+      socket.leave(roomName("thread", threadId));
     });
 
-    // ── send_message ───────────────────────────────────────────────────────
-    socket.on(
-      "send_message",
-      async (payload: { threadId: string; body: string; type?: string; parentMessageId?: string }) => {
-        const userId = socket.data.userId as string | undefined;
-        if (!userId) return;
-
-        try {
-          const message = await Message.create({
-            thread: payload.threadId,
-            sender: userId,
-            body: payload.body,
-            type: payload.type || "TEXT",
-            parentMessageId: payload.parentMessageId || undefined,
-            isFromAi: false,
-          });
-
-          await Thread.findByIdAndUpdate(payload.threadId, {
-            $addToSet: { participants: userId },
-            $set: { updatedAt: new Date() },
-          });
-
-          const populated = await message.populate("sender", "name avatarUrl");
-
-          io.to(`room:${payload.threadId}`).emit("new_message", {
-            _id: message.id,
-            id: message.id,
-            thread: payload.threadId,
-            sender: populated.sender,
-            body: message.body,
-            type: message.type,
-            parentMessageId: message.parentMessageId,
-            upvotes: [],
-            isFromAi: false,
-            createdAt: message.createdAt,
-          });
-        } catch (err) {
-          console.error("[socket send_message]", err);
-        }
-      }
-    );
-
-    // ── typing_start ───────────────────────────────────────────────────────
-    socket.on("typing_start", (threadId: string) => {
-      const userId = socket.data.userId;
-      if (!userId) return;
-      socket.to(`room:${threadId}`).emit("user_typing", { userId, threadId });
-    });
-
-    // ── typing_stop ────────────────────────────────────────────────────────
-    socket.on("typing_stop", (threadId: string) => {
-      const userId = socket.data.userId;
-      if (!userId) return;
-      socket.to(`room:${threadId}`).emit("user_stopped_typing", { userId, threadId });
-    });
-
-    // ── update_presence (heartbeat) ────────────────────────────────────────
-    socket.on("update_presence", async (status: string) => {
+    socket.on("send_message", async (payload: unknown) => {
       const userId = socket.data.userId as string | undefined;
       if (!userId) return;
 
-      const validStatuses = ["online", "busy", "offline", "in_session"];
-      const safeStatus = validStatuses.includes(status) ? status : "online";
-
-      presenceMap.set(userId, { lastSeen: Date.now(), status: safeStatus });
+      const parsed = socketThreadMessageSchema.safeParse(payload);
+      if (!parsed.success) return;
 
       try {
-        await User.findByIdAndUpdate(userId, { $set: { availabilityStatus: safeStatus } });
-      } catch {}
-
-      io.emit("presence_update", { userId, status: safeStatus });
-    });
-
-    // ── backward-compat: join-thread / send-message (kebab) ───────────────
-    socket.on("join-thread", (threadId: string) => {
-      socket.join(`thread:${threadId}`);
-      socket.join(`room:${threadId}`);
-    });
-
-    socket.on(
-      "send-message",
-      async (payload: { threadId: string; senderId: string; body: string }) => {
-        try {
-          const message = await Message.create({
-            thread: payload.threadId,
-            sender: payload.senderId,
-            body: payload.body,
-            isFromAi: false,
-          });
-
-          await Thread.findByIdAndUpdate(payload.threadId, {
-            $set: { updatedAt: new Date() },
-          });
-
-          io.to(`thread:${payload.threadId}`).emit("new-message", {
-            _id: message.id,
-            id: message.id,
-            thread: message.thread,
-            sender: message.sender,
-            body: message.body,
-            createdAt: message.createdAt,
-          });
-        } catch (err) {
-          console.error("[socket send-message]", err);
-        }
+        await createThreadMessage({
+          threadId: parsed.data.threadId,
+          userId,
+          body: parsed.data.body,
+          type: parsed.data.type,
+          parentMessageId: parsed.data.parentMessageId,
+        });
+      } catch (err) {
+        console.error("[socket send_message]", err);
       }
-    );
+    });
 
-    // ── disconnect ─────────────────────────────────────────────────────────
-    socket.on("disconnect", async () => {
-      const userId = socketToUser.get(socket.id);
-      socketToUser.delete(socket.id);
+    socket.on("typing_start", (threadId: string) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId || !threadId) return;
+      broadcastToRoom(roomName("thread", threadId), "user_typing", { userId, threadId });
+    });
+
+    socket.on("typing_stop", (threadId: string) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId || !threadId) return;
+      broadcastToRoom(roomName("thread", threadId), "user_stopped_typing", { userId, threadId });
+    });
+
+    socket.on("join_dm", async (conversationId: string) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!(await userCanAccessDm(conversationId, userId))) return;
+      socket.join(roomName("dm", conversationId));
+    });
+
+    socket.on("leave_dm", (conversationId: string) => {
+      if (!conversationId) return;
+      socket.leave(roomName("dm", conversationId));
+    });
+
+    socket.on("send_dm_message", async (payload: unknown) => {
+      const userId = socket.data.userId as string | undefined;
       if (!userId) return;
 
-      // Only mark offline when this was the user's last socket connection
-      const userSockets = await io.in(`user:${userId}`).fetchSockets();
-      if (userSockets.length === 0) {
-        presenceMap.set(userId, { lastSeen: Date.now(), status: "offline" });
-        try {
-          await User.findByIdAndUpdate(userId, { $set: { availabilityStatus: "offline" } });
-        } catch {}
-        io.emit("presence_update", { userId, status: "offline" });
+      const parsed = socketDmMessageSchema.safeParse(payload);
+      if (!parsed.success) return;
+
+      try {
+        await createDmMessage({
+          conversationId: parsed.data.conversationId,
+          userId,
+          body: parsed.data.body,
+          parentMessageId: parsed.data.parentMessageId,
+        });
+      } catch (err) {
+        console.error("[socket send_dm_message]", err);
       }
+    });
+
+    socket.on("dm_typing_start", async (conversationId: string) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!(await userCanAccessDm(conversationId, userId))) return;
+      broadcastToRoom(roomName("dm", conversationId), "dm_user_typing", {
+        conversationId,
+        userId,
+      });
+    });
+
+    socket.on("dm_typing_stop", async (conversationId: string) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!(await userCanAccessDm(conversationId, userId))) return;
+      broadcastToRoom(roomName("dm", conversationId), "dm_user_stopped_typing", {
+        conversationId,
+        userId,
+      });
+    });
+
+    socket.on("update_presence", async (status: string) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId) return;
+      await markUserPresence(socket.id, userId, status).catch((err) =>
+        console.error("[socket update_presence]", err)
+      );
+    });
+
+    socket.on("disconnect", () => {
+      forgetSocketPresence(socket.id).catch((err) =>
+        console.error("[socket disconnect presence]", err)
+      );
     });
   });
 }

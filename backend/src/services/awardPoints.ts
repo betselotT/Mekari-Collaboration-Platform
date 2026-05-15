@@ -1,7 +1,7 @@
 import { User } from "../models/User";
 import { PointEvent, PointEventType } from "../models/PointEvent";
 import { Notification } from "../models/Notification";
-import { getIo } from "../sockets/ioInstance";
+import { broadcastToUser } from "./realtime";
 
 const POINT_VALUES: Record<PointEventType, number> = {
   ANSWERED_QUESTION: 10,
@@ -12,10 +12,7 @@ const POINT_VALUES: Record<PointEventType, number> = {
 };
 
 async function emitNotification(userId: string, notif: { id: string; type: string; message: string; link: string; createdAt: Date }): Promise<void> {
-  const io = getIo();
-  if (io) {
-    io.to(`user:${userId}`).emit("notification", { ...notif, read: false });
-  }
+  await broadcastToUser(userId, "notification", { ...notif, read: false });
 }
 
 async function checkAndAwardBadges(userId: string): Promise<void> {

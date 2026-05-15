@@ -17,6 +17,7 @@ import { searchRouter } from "./routes/search";
 import { reportRouter } from "./routes/reports";
 import { adminRouter } from "./routes/admin";
 import { intelligenceRouter } from "./routes/intelligence";
+import { dmRouter } from "./routes/dms";
 import swaggerUi from "swagger-ui-express";
 import { createOpenApiSpec } from "./swagger";
 
@@ -68,6 +69,7 @@ export const createApp = () => {
   app.use("/api/auth", authRouter);
   app.use("/api/users", userRouter);
   app.use("/api/threads", threadRouter);
+  app.use("/api/dms", dmRouter);
   app.use("/api/gamification", gamificationRouter);
   app.use("/api/analytics", analyticsRouter);
   app.use("/api/ai", aiRouter);
