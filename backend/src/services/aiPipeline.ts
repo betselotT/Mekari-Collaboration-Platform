@@ -1,13 +1,12 @@
 import { Thread, IThread } from "../models/Thread";
 import { Notification } from "../models/Notification";
-import { getIo } from "../sockets/ioInstance";
+import { broadcastToRoom, broadcastToUser, roomName } from "./realtime";
 import * as intelligence from "../intelligence/client";
 
 async function escalateFromAnalysis(
   thread: IThread,
   experts: intelligence.ExpertMatch[],
 ): Promise<void> {
-  const io = getIo();
   if (!experts.length) return;
 
   const expertIds = experts.map((e) => e.expert_id);
@@ -15,9 +14,7 @@ async function escalateFromAnalysis(
     $set: { matchedExperts: expertIds },
   });
 
-  if (!io) return;
-
-  io.to(`room:${String(thread._id)}`).emit("expert_matched", {
+  await broadcastToRoom(roomName("thread", String(thread._id)), "expert_matched", {
     threadId: String(thread._id),
     threadTitle: thread.title,
     subject: thread.subject,
@@ -33,7 +30,7 @@ async function escalateFromAnalysis(
       link: `/dashboard/threads/${String(thread._id)}`,
       read: false,
     });
-    io.to(`user:${expert.expert_id}`).emit("notification", {
+    await broadcastToUser(String(expert.expert_id), "notification", {
       id: String(notif._id),
       type: notif.type,
       message: notif.message,
@@ -45,7 +42,6 @@ async function escalateFromAnalysis(
 }
 
 export async function runAIPipeline(threadId: string): Promise<void> {
-  const io = getIo();
   let thread: IThread | null = null;
 
   try {
@@ -76,19 +72,17 @@ export async function runAIPipeline(threadId: string): Promise<void> {
       },
     });
 
-    if (io) {
-      io.to(`room:${threadId}`).emit("ai_response_ready", {
-        threadId,
-        aiResponse: {
-          explanation: ai_response.explanation,
-          steps: ai_response.steps,
-          suggestedSolution: ai_response.suggested_solution,
-          confidence: ai_response.confidence,
-          resolved: ai_response.resolved,
-        },
-        status: new_status,
-      });
-    }
+    await broadcastToRoom(roomName("thread", threadId), "ai_response_ready", {
+      threadId,
+      aiResponse: {
+        explanation: ai_response.explanation,
+        steps: ai_response.steps,
+        suggestedSolution: ai_response.suggested_solution,
+        confidence: ai_response.confidence,
+        resolved: ai_response.resolved,
+      },
+      status: new_status,
+    });
 
     if (escalation.should_escalate) {
       await escalateFromAnalysis(thread, result.similar_problems.length > 0 ? [] : []);
@@ -111,13 +105,11 @@ export async function runAIPipeline(threadId: string): Promise<void> {
       $set: { status: "PENDING_EXPERT" },
     });
 
-    if (io) {
-      io.to(`room:${threadId}`).emit("ai_response_ready", {
-        threadId,
-        aiResponse: null,
-        status: "PENDING_EXPERT",
-        error: "Intelligence service unavailable",
-      });
-    }
+    await broadcastToRoom(roomName("thread", threadId), "ai_response_ready", {
+      threadId,
+      aiResponse: null,
+      status: "PENDING_EXPERT",
+      error: "Intelligence service unavailable",
+    });
   }
 }

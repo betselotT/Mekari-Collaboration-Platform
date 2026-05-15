@@ -6,31 +6,34 @@ import { getAuthToken } from "./api";
 
 const SOCKET_URL =
   process.env.NEXT_PUBLIC_SOCKET_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(/\/api\/?$/, "") ||
   "http://localhost:4000";
 
 let globalSocket: Socket | null = null;
+let globalSocketToken: string | null = null;
 
 export function getSocket(): Socket | null {
   return globalSocket;
 }
 
 export async function ensureSocket(): Promise<Socket> {
-  if (globalSocket?.connected) return globalSocket;
-
   const { io } = await import("socket.io-client");
   const token = getAuthToken();
+
+  if (globalSocket && globalSocketToken === token) return globalSocket;
 
   if (globalSocket) {
     globalSocket.disconnect();
     globalSocket = null;
   }
+  globalSocketToken = token;
 
   globalSocket = io(SOCKET_URL, {
     auth: { token },
     autoConnect: true,
     reconnection: true,
     reconnectionDelay: 1000,
+    transports: ["websocket", "polling"],
   });
 
   return globalSocket;

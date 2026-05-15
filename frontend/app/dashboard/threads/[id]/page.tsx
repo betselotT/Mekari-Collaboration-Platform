@@ -212,6 +212,7 @@ export default function ThreadDetailPage() {
       );
 
       socket.on("user_typing", ({ userId }: { userId: string; threadId: string }) => {
+        if (userId === user?._id) return;
         setTypingUsers((prev) => (prev.includes(userId) ? prev : [...prev, userId]));
       });
 

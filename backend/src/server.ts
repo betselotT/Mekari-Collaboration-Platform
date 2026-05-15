@@ -7,6 +7,7 @@ import { createClient } from "redis";
 import { createApp } from "./app";
 import { setIo } from "./sockets/ioInstance";
 import { registerChatHandlers } from "./sockets/chat";
+import { initRealtime, startPresenceExpiryLoop } from "./services/realtime";
 
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
@@ -61,6 +62,8 @@ async function bootstrap() {
 
     // Make io available to route handlers via the singleton
     setIo(io);
+    await initRealtime(io, redisClient);
+    startPresenceExpiryLoop();
     registerChatHandlers(io, redisClient);
 
     server.listen(PORT, () => {
