@@ -1,154 +1,392 @@
 "use client";
 
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { AxiosError } from "axios";
+import { AlertCircle, CheckCircle, Cpu, DraftingCompass, Plus, Send, Zap } from "lucide-react";
 import { DashboardLayout } from "../../../components/layout";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
-import { Zap, Send, Paperclip, Smile, Clock, CheckCircle, Info, AlertCircle } from "lucide-react";
-import { useState } from "react";
+import { apiClient } from "../../../lib/api";
+
+type ChatMessage = {
+  role: "user" | "model";
+  text: string;
+  timestamp: string;
+};
+
+type AiChatResponse = {
+  message: {
+    body: string;
+    createdAt: string;
+    isFromAi: boolean;
+  };
+  model?: string;
+};
+
+const starterMessage: ChatMessage = {
+  role: "model",
+  text:
+    "Hi, I am Mekari AI. Ask me about engineering concepts, architecture tradeoffs, debugging, formulas, circuits, algorithms, mechanics, or design decisions. I will keep the answer practical and explain the reasoning.",
+  timestamp: "Just now",
+};
+
+const CHAT_STORAGE_KEY = "mekari_ai_chat_history";
+
+const quickPrompts = [
+  {
+    icon: Cpu,
+    title: "Explain an algorithm",
+    prompt: "Explain Dijkstra's algorithm with a small engineering-style example.",
+  },
+  {
+    icon: DraftingCompass,
+    title: "Compare designs",
+    prompt: "Compare monolithic and microservice architectures for a student collaboration platform.",
+  },
+  {
+    icon: CheckCircle,
+    title: "Debug a concept",
+    prompt: "Why does a race condition happen in concurrent systems, and how can engineers prevent it?",
+  },
+  {
+    icon: AlertCircle,
+    title: "Review assumptions",
+    prompt: "What assumptions should I check before sizing a database schema for chat messages?",
+  },
+];
+
+function formatTime(date = new Date()) {
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function isSavedChat(value: unknown): value is ChatMessage[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (message) =>
+        message &&
+        typeof message === "object" &&
+        ((message as ChatMessage).role === "user" || (message as ChatMessage).role === "model") &&
+        typeof (message as ChatMessage).text === "string" &&
+        typeof (message as ChatMessage).timestamp === "string",
+    )
+  );
+}
+
+function renderInlineMarkdown(text: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const pattern = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+
+    const token = match[0];
+    if (token.startsWith("**")) {
+      nodes.push(
+        <strong key={`${match.index}-bold`} className="font-semibold">
+          {token.slice(2, -2)}
+        </strong>,
+      );
+    } else {
+      nodes.push(
+        <code
+          key={`${match.index}-code`}
+          className="rounded bg-neutral-100 px-1 py-0.5 font-mono text-[0.85em] text-neutral-900 dark:bg-neutral-700 dark:text-neutral-100"
+        >
+          {token.slice(1, -1)}
+        </code>,
+      );
+    }
+
+    lastIndex = match.index + token.length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes;
+}
+
+function renderMessageText(text: string) {
+  const blocks = text.split(/```/);
+
+  return blocks.map((block, blockIndex) => {
+    if (blockIndex % 2 === 1) {
+      const lines = block.replace(/^\w+\n/, "").trim();
+      return (
+        <pre
+          key={`code-${blockIndex}`}
+          className="my-3 overflow-x-auto rounded-lg bg-neutral-950 p-3 text-xs leading-5 text-neutral-100"
+        >
+          <code>{lines}</code>
+        </pre>
+      );
+    }
+
+    return block
+      .split("\n")
+      .map((line, lineIndex) => {
+        const trimmed = line.trim();
+        const bullet = trimmed.match(/^[-*]\s+(.+)/);
+        const numbered = trimmed.match(/^\d+\.\s+(.+)/);
+        const heading = trimmed.match(/^(#{1,3})\s+(.+)/);
+        const key = `line-${blockIndex}-${lineIndex}`;
+
+        if (!trimmed) {
+          return <div key={key} className="h-2" />;
+        }
+
+        if (heading) {
+          return (
+            <p key={key} className="mt-3 text-sm font-semibold first:mt-0">
+              {renderInlineMarkdown(heading[2])}
+            </p>
+          );
+        }
+
+        if (bullet || numbered) {
+          return (
+            <p key={key} className="pl-4 text-sm leading-6">
+              <span className="mr-2">{bullet ? "-" : `${trimmed.split(".")[0]}.`}</span>
+              {renderInlineMarkdown((bullet || numbered)?.[1] || trimmed)}
+            </p>
+          );
+        }
+
+        return (
+          <p key={key} className="text-sm leading-6">
+            {renderInlineMarkdown(line)}
+          </p>
+        );
+      });
+  });
+}
 
 export default function AIAssistantPage() {
-  const [messages, setMessages] = useState([
-    {
-      type: "ai",
-      content: "Hello! I've loaded your current payroll configuration context. I can help you with formula adjustments, tax calculations, or generating summary reports. What would you like to start with?",
-      timestamp: "Just now",
-    },
-    {
-      type: "user",
-      content: "Can you explain why the PPh 21 calculation for the marketing department changed this month?",
-      timestamp: "2 mins ago",
-    },
-    {
-      type: "ai",
-      content: "Based on your requirements for 'complex state' and 'frequent updates', **Redux Toolkit (RTK)** is definitely the stronger choice. Here's why:\n\n**Performance:** RTK uses optimized selectors that prevent unnecessary re-renders.\n\n**DevTools:** Superior debugging experience with time-travel.\n\n**RTK Query:** Simplifies data fetching and caching significantly.\n\n**Context API** is better suited for low-frequency updates like themes or auth user info.",
-      timestamp: "10:31 AM",
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([starterMessage]);
+  const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasLoadedSavedChat, setHasLoadedSavedChat] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const suggestions = [
-    {
-      icon: Clock,
-      title: "Recalculate tax for Batch Q3",
-      description: "Review changes in tax regulations for the current period.",
-    },
-    {
-      icon: CheckCircle,
-      title: "Generate Payroll Summary",
-      description: "Create a PDF report of all disbursements for management.",
-    },
-    {
-      icon: AlertCircle,
-      title: "Validate Overtime Formulas",
-      description: "Check if the new overtime policy is correctly implemented.",
-    },
-    {
-      icon: Info,
-      title: "Compare with Last Month",
-      description: "View detailed variance report between Aug and Sep payroll.",
-    },
-  ];
+  const apiHistory = useMemo(
+    () =>
+      messages
+        .slice(1)
+        .map((message) => ({ role: message.role, text: message.text })),
+    [messages],
+  );
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(CHAT_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as unknown;
+        if (isSavedChat(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+        }
+      }
+    } finally {
+      setHasLoadedSavedChat(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedSavedChat) return;
+    window.localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
+  }, [hasLoadedSavedChat, messages]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [messages, isSending]);
+
+  async function sendMessage(promptOverride?: string) {
+    const prompt = (promptOverride ?? input).trim();
+    if (!prompt || isSending) return;
+
+    const userMessage: ChatMessage = {
+      role: "user",
+      text: prompt,
+      timestamp: formatTime(),
+    };
+
+    setMessages((current) => [...current, userMessage]);
+    setInput("");
+    setError(null);
+    setIsSending(true);
+
+    try {
+      const res = await apiClient.post<AiChatResponse>("/api/ai/chat", {
+        prompt,
+        messages: apiHistory,
+      });
+
+      setMessages((current) => [
+        ...current,
+        {
+          role: "model",
+          text: res.data.message.body,
+          timestamp: formatTime(new Date(res.data.message.createdAt)),
+        },
+      ]);
+    } catch (err) {
+      const axiosError = err as AxiosError<{ error?: { message?: string } }>;
+      const message =
+        axiosError.response?.data?.error?.message ||
+        "Mekari AI could not respond right now. Check the backend Gemini API key and try again.";
+      setError(message);
+      setMessages((current) => current.filter((message) => message !== userMessage));
+      setInput(prompt);
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void sendMessage();
+  }
+
+  function startNewChat() {
+    setMessages([starterMessage]);
+    setInput("");
+    setError(null);
+    window.localStorage.removeItem(CHAT_STORAGE_KEY);
+  }
 
   return (
-    <DashboardLayout title="Mekari AI" searchPlaceholder="Search...">
-      {/* Breadcrumb */}
-      <div className="mb-8 flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
-        <span>MEKARI</span>
-        <span>›</span>
-        <span>AI ASSISTANT</span>
-      </div>
+    <DashboardLayout title="Mekari AI" searchPlaceholder="Search engineering topics...">
+      <div className="mx-auto flex h-full max-w-5xl flex-col">
+        <div className="mb-6 flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+          <span>MEKARI</span>
+          <span>/</span>
+          <span>AI ASSISTANT</span>
+        </div>
 
-      {/* Main heading */}
-      <div className="mb-8">
-        <h2 className="mb-2 text-3xl font-bold text-neutral-900 dark:text-white">
-          How can I help you today?
-        </h2>
-      </div>
-
-      {/* Current Context Card */}
-      <Card hoverable className="mb-8">
-        <div className="flex items-start justify-between">
+        <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">Current Context</p>
-            <p className="text-lg font-bold text-neutral-900 dark:text-white">
-              Payroll Configuration • Batch Q3 2024
+            <h2 className="text-3xl font-bold text-neutral-900 dark:text-white">
+              Engineering concept assistant
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm text-neutral-600 dark:text-neutral-400">
+              Get focused help with engineering theory, implementation decisions, calculations,
+              debugging, architecture, and technical tradeoffs.
             </p>
           </div>
-          <a href="#" className="text-sm font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400">
-            Change Context
-          </a>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={startNewChat} disabled={isSending}>
+              <Plus className="mr-2 h-4 w-4" />
+              Start new chat
+            </Button>
+            {/* <div className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+              <Zap className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+              Gemini powered
+            </div> */}
+          </div>
         </div>
-      </Card>
 
-      {/* Chat Area */}
-      <div className="mb-8 h-96 rounded-lg border border-neutral-200 bg-neutral-50 p-6 overflow-y-auto dark:border-neutral-700 dark:bg-neutral-800">
-        <div className="space-y-6">
-          {messages.map((msg, idx) => (
-            <div key={idx} className={`flex ${msg.type === "user" ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`max-w-xs rounded-lg px-4 py-3 ${
-                  msg.type === "user"
-                    ? "bg-primary-600 text-white"
-                    : "bg-white text-neutral-900 dark:bg-neutral-700 dark:text-white"
-                }`}
-              >
-                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                <p
-                  className={`mt-2 text-xs ${
-                    msg.type === "user"
-                      ? "text-primary-100"
-                      : "text-neutral-500 dark:text-neutral-400"
-                  }`}
+        <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[1fr_280px]">
+          <section className="flex min-h-0 flex-col rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900">
+            <div ref={scrollRef} className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+              {messages.map((message, index) => (
+                <div
+                  key={`${message.timestamp}-${index}`}
+                  className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
-                  {msg.timestamp}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Quick Actions Grid */}
-      <div className="mb-8">
-        <h3 className="mb-4 text-sm font-semibold text-neutral-600 dark:text-neutral-400">Quick Actions</h3>
-        <div className="grid gap-4 md:grid-cols-2">
-          {suggestions.map((suggestion) => {
-            const Icon = suggestion.icon;
-            return (
-              <Card key={suggestion.title} hoverable className="cursor-pointer">
-                <div className="flex items-start gap-4">
-                  <div className="rounded-lg bg-primary-100 p-2 dark:bg-primary-900">
-                    <Icon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-neutral-900 dark:text-white">
-                      {suggestion.title}
-                    </h4>
-                    <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                      {suggestion.description}
+                  <div
+                    className={`max-w-[78%] rounded-lg px-4 py-3 ${
+                      message.role === "user"
+                        ? "bg-primary-600 text-white"
+                        : "border border-neutral-200 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+                    }`}
+                  >
+                    <div className="space-y-1">{renderMessageText(message.text)}</div>
+                    <p
+                      className={`mt-2 text-xs ${
+                        message.role === "user"
+                          ? "text-primary-100"
+                          : "text-neutral-500 dark:text-neutral-400"
+                      }`}
+                    >
+                      {message.timestamp}
                     </p>
                   </div>
                 </div>
-              </Card>
-            );
-          })}
-        </div>
-      </div>
+              ))}
 
-      {/* Input Area */}
-      <div className="fixed bottom-8 right-8 left-60 max-w-md">
-        <div className="flex gap-2 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
-          <input
-            type="text"
-            placeholder="Ask Mekari AI anything about your payroll..."
-            className="input flex-1 m-0 p-0 border-0"
-          />
-          <Button variant="primary" size="sm">
-            <Send className="h-4 w-4" />
-          </Button>
+              {isSending && (
+                <div className="flex justify-start">
+                  <div className="rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+                    Thinking through the engineering context...
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {error && (
+              <div className="mx-5 mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+                {error}
+              </div>
+            )}
+
+            <form
+              onSubmit={handleSubmit}
+              className="flex gap-2 border-t border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800"
+            >
+              <input
+                type="text"
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                placeholder="Ask an engineering question..."
+                className="input m-0 flex-1 border-0 p-0"
+                disabled={isSending}
+              />
+              <Button type="submit" variant="primary" size="sm" isLoading={isSending}>
+                <Send className="h-4 w-4" />
+              </Button>
+            </form>
+          </section>
+
+          <aside className="space-y-4">
+            <h3 className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">
+              Quick prompts
+            </h3>
+            {quickPrompts.map((suggestion) => {
+              const Icon = suggestion.icon;
+              return (
+                <Card
+                  key={suggestion.title}
+                  hoverable
+                  className="cursor-pointer p-4"
+                  onClick={() => void sendMessage(suggestion.prompt)}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-lg bg-primary-100 p-2 dark:bg-primary-900">
+                      <Icon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-neutral-900 dark:text-white">
+                        {suggestion.title}
+                      </h4>
+                      <p className="mt-1 text-xs leading-5 text-neutral-600 dark:text-neutral-400">
+                        {suggestion.prompt}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </aside>
         </div>
-        <p className="mt-2 text-xs text-neutral-500 text-center dark:text-neutral-400">
-          Mekari AI can make mistakes. Check important info.
-        </p>
       </div>
     </DashboardLayout>
   );

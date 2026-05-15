@@ -2,27 +2,43 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { Message } from "../models/Message";
+import { askGemini } from "../services/gemini";
 
 const router = Router();
 
 const chatSchema = z.object({
-  threadId: z.string().min(1),
+  threadId: z.string().min(1).optional(),
   prompt: z.string().min(5),
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(["user", "model"]),
+        text: z.string().min(1),
+      }),
+    )
+    .optional(),
 });
 
 router.post("/chat", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const parsed = chatSchema.parse(req.body);
+    const result = await askGemini(parsed.prompt, parsed.messages || []);
 
-    // Placeholder AI behaviour: echo-style guidance. In production, call a real LLM here.
-    const aiText =
-      "This is a placeholder AI response. Summarize the problem, share the exact error message, and check related threads in this subject. " +
-      "You can also invite a human mentor by tagging them in the thread.";
+    if (!parsed.threadId) {
+      return res.status(200).json({
+        message: {
+          body: result.text,
+          isFromAi: true,
+          createdAt: new Date().toISOString(),
+        },
+        model: result.model,
+      });
+    }
 
     const aiMessage = await Message.create({
       thread: parsed.threadId,
       sender: req.userId, // could be a dedicated AI user in a fuller implementation
-      body: aiText,
+      body: result.text,
       isFromAi: true,
     });
 
@@ -33,6 +49,7 @@ router.post("/chat", requireAuth, async (req: AuthRequest, res, next) => {
         createdAt: aiMessage.createdAt,
         isFromAi: aiMessage.isFromAi,
       },
+      model: result.model,
     });
   } catch (err) {
     next(err);
