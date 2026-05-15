@@ -23,7 +23,8 @@ function requireAdmin(req: AuthRequest, res: Response, next: NextFunction) {
 }
 
 const updateReportSchema = z.object({
-  status: z.enum(["pending", "resolved", "dismissed"]),
+  status: z.enum(["pending", "resolved", "struck", "dismissed"]),
+  actionTaken: z.string().max(500).optional(),
 });
 
 const reviewVerificationSchema = z.object({
@@ -46,9 +47,12 @@ router.get("/reports", requireAuth, requireMod, async (_req, res, next) => {
 router.patch("/reports/:id", requireAuth, requireMod, async (req: AuthRequest, res, next) => {
   try {
     const parsed = updateReportSchema.parse(req.body);
+    const update: { status: string; actionTaken?: string } = { status: parsed.status };
+    if (parsed.actionTaken !== undefined) update.actionTaken = parsed.actionTaken;
+
     const report = await Report.findByIdAndUpdate(
       req.params.id,
-      { $set: { status: parsed.status } },
+      { $set: update },
       { new: true }
     );
     if (!report) return res.status(404).json({ error: { message: "Report not found" } });

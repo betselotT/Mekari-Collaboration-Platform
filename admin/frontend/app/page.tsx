@@ -34,7 +34,7 @@ type Verification = {
       fileName: string;
       fileType: string;
       fileSize: number;
-      dataUrl: string;
+      dataUrl?: string;
       uploadedAt?: string;
     };
   };
@@ -42,13 +42,30 @@ type Verification = {
 
 type ReportItem = {
   _id: string;
-  reporterId?: { name?: string; email?: string };
+  reporterId?: ReportUser;
   targetType: "thread" | "message" | "user";
   targetId: string;
   target?: Record<string, any>;
   reason: string;
-  status: "pending" | "resolved" | "dismissed";
+  actionTaken?: string;
+  status: "pending" | "resolved" | "struck" | "dismissed";
   createdAt: string;
+};
+
+type ReportUser = {
+  _id?: string;
+  name?: string;
+  email?: string;
+  role?: string;
+  bio?: string;
+  primaryTechnicalField?: string;
+  roleOrStatus?: string;
+  yearsOfExperience?: string;
+  devicesUsed?: string[];
+  expertise?: Array<{ subject: string; proficiency: string }>;
+  skillTags?: string[];
+  points?: number;
+  createdAt?: string;
 };
 
 type ActivityLog = {
@@ -63,6 +80,16 @@ type ActivityLog = {
   status?: string;
 };
 
+type ReportedUser = {
+  userId: string;
+  reportCount: number;
+  pendingCount: number;
+  strikeCount: number;
+  dismissedCount: number;
+  latestReportAt?: string;
+  user?: ReportUser;
+};
+
 type Pagination = {
   page: number;
   limit: number;
@@ -71,7 +98,8 @@ type Pagination = {
 };
 
 type StatusFilter = "all" | "pending" | "approved" | "rejected";
-type ReportFilter = "all" | "pending" | "resolved" | "dismissed";
+type ReportFilter = "all" | "pending" | "struck" | "dismissed";
+type AdminSection = "verifications" | "reports" | "logs";
 const PAGE_SIZE = 10;
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
@@ -108,12 +136,16 @@ export default function AdminDashboard() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [verifications, setVerifications] = useState<Verification[]>([]);
   const [reports, setReports] = useState<ReportItem[]>([]);
+  const [reportedUsers, setReportedUsers] = useState<ReportedUser[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [actionTypes, setActionTypes] = useState<string[]>([]);
+  const [activeSection, setActiveSection] = useState<AdminSection>("verifications");
   const [verificationFilter, setVerificationFilter] = useState<StatusFilter>("pending");
   const [reportFilter, setReportFilter] = useState<ReportFilter>("pending");
   const [verificationPage, setVerificationPage] = useState(1);
   const [reportPage, setReportPage] = useState(1);
   const [logPage, setLogPage] = useState(1);
+  const [logActionType, setLogActionType] = useState("all");
   const [verificationPagination, setVerificationPagination] = useState<Pagination | null>(null);
   const [reportPagination, setReportPagination] = useState<Pagination | null>(null);
   const [logPagination, setLogPagination] = useState<Pagination | null>(null);
@@ -152,8 +184,9 @@ export default function AdminDashboard() {
         page: String(logPage),
         limit: String(PAGE_SIZE),
       });
+      if (logActionType !== "all") logParams.set("actionType", logActionType);
 
-      const [summaryRes, verificationRes, reportRes, logRes] = await Promise.all([
+      const [summaryRes, verificationRes, reportRes, reportedUsersRes, logRes] = await Promise.all([
         adminFetch<{ summary: Summary }>("/api/admin/summary"),
         adminFetch<{ verifications: Verification[]; pagination: Pagination }>(
           `/api/admin/mentor-verifications?${verificationParams.toString()}`
@@ -161,7 +194,8 @@ export default function AdminDashboard() {
         adminFetch<{ reports: ReportItem[]; pagination: Pagination }>(
           `/api/admin/reports?${reportParams.toString()}`
         ),
-        adminFetch<{ logs: ActivityLog[]; pagination: Pagination }>(
+        adminFetch<{ reportedUsers: ReportedUser[] }>("/api/admin/reported-users"),
+        adminFetch<{ logs: ActivityLog[]; actionTypes: string[]; pagination: Pagination }>(
           `/api/admin/action-logs?${logParams.toString()}`
         ),
       ]);
@@ -169,7 +203,9 @@ export default function AdminDashboard() {
       setSummary(summaryRes.summary);
       setVerifications(verificationRes.verifications);
       setReports(reportRes.reports);
+      setReportedUsers(reportedUsersRes.reportedUsers);
       setLogs(logRes.logs);
+      setActionTypes(logRes.actionTypes || []);
       setVerificationPagination(verificationRes.pagination);
       setReportPagination(reportRes.pagination);
       setLogPagination(logRes.pagination);
@@ -183,7 +219,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     loadDashboard();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [verificationFilter, reportFilter, verificationPage, reportPage, logPage]);
+  }, [verificationFilter, reportFilter, verificationPage, reportPage, logPage, logActionType]);
 
   async function reviewMentor(userId: string, status: "approved" | "rejected") {
     if (status === "rejected" && !reviewNotes[userId]?.trim()) {
@@ -208,13 +244,16 @@ export default function AdminDashboard() {
     }
   }
 
-  async function updateReport(reportId: string, status: "resolved" | "dismissed" | "pending") {
+  async function updateReport(reportId: string, status: "struck" | "dismissed") {
     setSavingId(reportId);
     setError(null);
     try {
       await adminFetch(`/api/admin/reports/${reportId}`, {
         method: "PATCH",
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({
+          status,
+          actionTaken: status === "struck" ? "Strike issued" : "Report dismissed",
+        }),
       });
       await loadDashboard();
     } catch (err) {
@@ -241,7 +280,7 @@ export default function AdminDashboard() {
             </div>
           </div>
           <div className="topbar-actions">
-            <div className="topbar-meta">{loading ? "Syncing data" : "Live admin workspace"}</div>
+            <div className="topbar-meta">{loading ? "Syncing data" : "Admin Workspace"}</div>
             <button className="button secondary" onClick={logout}>Sign out</button>
           </div>
         </div>
@@ -250,16 +289,43 @@ export default function AdminDashboard() {
       <div className="content">
         {error && <div className="panel error">{error}</div>}
 
-        <section className="metrics">
-          {metrics.map((metric) => (
-            <div className="metric" key={metric.label}>
-              <span>{metric.label}</span>
-              <strong>{metric.value}</strong>
-            </div>
-          ))}
-        </section>
+        <div className="admin-layout">
+          <aside className="admin-sidebar">
+            <button
+              className={`nav-button ${activeSection === "verifications" ? "active" : ""}`}
+              onClick={() => setActiveSection("verifications")}
+            >
+              <span>Mentor Verification</span>
+              <strong>{summary?.pendingMentors ?? 0}</strong>
+            </button>
+            <button
+              className={`nav-button ${activeSection === "reports" ? "active" : ""}`}
+              onClick={() => setActiveSection("reports")}
+            >
+              <span>Reports</span>
+              <strong>{summary?.pendingReports ?? 0}</strong>
+            </button>
+            <button
+              className={`nav-button ${activeSection === "logs" ? "active" : ""}`}
+              onClick={() => setActiveSection("logs")}
+            >
+              <span>Action Log</span>
+              <strong>{logPagination?.total ?? 0}</strong>
+            </button>
+          </aside>
 
-        <section className="panel">
+          <div className="admin-main">
+            <section className="metrics">
+              {metrics.map((metric) => (
+                <div className="metric" key={metric.label}>
+                  <span>{metric.label}</span>
+                  <strong>{metric.value}</strong>
+                </div>
+              ))}
+            </section>
+
+        {activeSection === "verifications" && (
+          <section className="panel">
           <div className="panel-header">
             <div>
               <h2>Mentor Verification</h2>
@@ -330,7 +396,7 @@ export default function AdminDashboard() {
                           {item.expertVerification.document.fileType} · {formatBytes(item.expertVerification.document.fileSize)}
                         </span>
                       </div>
-                      <a className="button secondary" href={item.expertVerification.document.dataUrl} target="_blank" rel="noreferrer">
+                      <a className="button secondary" href={`/api/admin/mentor-verifications/${item._id}/document`} target="_blank" rel="noreferrer">
                         Open file
                       </a>
                     </div>
@@ -372,9 +438,12 @@ export default function AdminDashboard() {
             onPrev={() => setVerificationPage((page) => Math.max(1, page - 1))}
             onNext={() => setVerificationPage((page) => page + 1)}
           />
-        </section>
+          </section>
+        )}
 
-        <section className="panel">
+        {activeSection === "reports" && (
+          <>
+          <section className="panel">
           <div className="panel-header">
             <div>
               <h2>Reports</h2>
@@ -390,7 +459,7 @@ export default function AdminDashboard() {
                 }}
               >
                 <option value="pending">Pending</option>
-                <option value="resolved">Resolved</option>
+                <option value="struck">Struck</option>
                 <option value="dismissed">Dismissed</option>
                 <option value="all">All</option>
               </select>
@@ -410,14 +479,22 @@ export default function AdminDashboard() {
                     <span>{formatDate(report.createdAt)}</span>
                     <span className={`status ${report.status}`}>{report.status}</span>
                   </div>
+                  <div className="detail-grid report-detail-grid">
+                    <UserDetail title="Reported by" user={report.reporterId} />
+                    <UserDetail title="Reported user" user={report.targetType === "user" ? report.target : undefined} />
+                    <div>
+                      <strong>Current admin action</strong>
+                      <span>{report.actionTaken || "No action recorded yet."}</span>
+                    </div>
+                  </div>
                 </div>
                 <div className="actions">
                   <button
-                    className="button"
+                    className="button danger"
                     disabled={savingId === report._id}
-                    onClick={() => updateReport(report._id, "resolved")}
+                    onClick={() => updateReport(report._id, "struck")}
                   >
-                    Mark resolved
+                    Strike
                   </button>
                   <button
                     className="button secondary"
@@ -436,13 +513,77 @@ export default function AdminDashboard() {
             onPrev={() => setReportPage((page) => Math.max(1, page - 1))}
             onNext={() => setReportPage((page) => page + 1)}
           />
-        </section>
+          </section>
 
-        <section className="panel">
+          <section className="panel">
+            <div className="panel-header">
+              <div>
+                <h2>Users With Report Strikes</h2>
+                <p>Users ranked by how many times they have been reported.</p>
+              </div>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Total Reports</th>
+                    <th>Pending</th>
+                    <th>Strikes</th>
+                    <th>Dismissed</th>
+                    <th>Latest Report</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reportedUsers.map((item) => (
+                    <tr key={item.userId}>
+                      <td>
+                        {item.user?.name || "Unknown user"}
+                        <div className="muted">{item.user?.email || String(item.userId)}</div>
+                        <div className="muted">{item.user?.primaryTechnicalField || "No field"}</div>
+                      </td>
+                      <td>{item.user?.role || "Unknown"}</td>
+                      <td><strong>{item.reportCount}</strong></td>
+                      <td>{item.pendingCount}</td>
+                      <td>{item.strikeCount}</td>
+                      <td>{item.dismissedCount}</td>
+                      <td>{formatDate(item.latestReportAt)}</td>
+                    </tr>
+                  ))}
+                  {reportedUsers.length === 0 && (
+                    <tr>
+                      <td colSpan={7}>No reported users yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+          </>
+        )}
+
+        {activeSection === "logs" && (
+          <section className="panel">
           <div className="panel-header">
             <div>
               <h2>Action Log</h2>
               <p>Recent platform activity synthesized from users, mentor reviews, reports, threads, and messages.</p>
+            </div>
+            <div className="toolbar">
+              <select
+                className="select"
+                value={logActionType}
+                onChange={(event) => {
+                  setLogActionType(event.target.value);
+                  setLogPage(1);
+                }}
+              >
+                <option value="all">All action types</option>
+                {actionTypes.map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="table-wrap">
@@ -483,9 +624,40 @@ export default function AdminDashboard() {
             onPrev={() => setLogPage((page) => Math.max(1, page - 1))}
             onNext={() => setLogPage((page) => page + 1)}
           />
-        </section>
+          </section>
+        )}
+          </div>
+        </div>
       </div>
     </main>
+  );
+}
+
+function UserDetail({ title, user }: { title: string; user?: ReportUser | Record<string, any> }) {
+  if (!user) {
+    return (
+      <div>
+        <strong>{title}</strong>
+        <span>No user details available.</span>
+      </div>
+    );
+  }
+
+  const expertise = Array.isArray(user.expertise)
+    ? user.expertise.map((item: { subject?: string; proficiency?: string }) => `${item.subject || "Expertise"} (${item.proficiency || "level"})`)
+    : [];
+  const skills = Array.isArray(user.skillTags) ? user.skillTags : [];
+
+  return (
+    <div>
+      <strong>{title}</strong>
+      <span>{user.name || "Unknown user"}</span>
+      <span>{user.email || "No email"}</span>
+      <span>{user.role || "No role"} - {user.primaryTechnicalField || "No field"} - {user.yearsOfExperience || "No experience"}</span>
+      <span>{user.roleOrStatus || "No status"} - {user.points || 0} points</span>
+      <span>{user.bio || "No bio provided."}</span>
+      <span>{expertise.concat(skills).slice(0, 6).join(", ") || "No skills listed."}</span>
+    </div>
   );
 }
 

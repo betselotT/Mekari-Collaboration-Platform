@@ -149,6 +149,53 @@ router.post("/me/setup", requireAuth, async (req: AuthRequest, res, next) => {
   }
 });
 
+router.post("/me/mentor-verification-document", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const parsed = z.object({
+      verificationDocument: verificationDocumentSchema,
+    }).parse(req.body);
+
+    const user = await User.findOneAndUpdate(
+      { _id: req.userId, role: "expert" },
+      {
+        $set: {
+          "expertVerification.status": "pending",
+          "expertVerification.document": {
+            ...parsed.verificationDocument,
+            uploadedAt: new Date(),
+          },
+          "expertVerification.submittedAt": new Date(),
+        },
+        $unset: {
+          "expertVerification.reviewNote": "",
+          "expertVerification.reviewedAt": "",
+          "expertVerification.reviewedBy": "",
+        },
+      },
+      { new: true }
+    ).select("-passwordHash");
+
+    if (!user) {
+      return res.status(404).json({ error: { message: "Mentor profile not found." } });
+    }
+
+    await logAuditEvent({
+      actorId: user.id,
+      actorName: user.name,
+      actorEmail: user.email,
+      actionType: "mentor_verification_resubmitted",
+      action: `${user.name} uploaded a new mentor verification document`,
+      targetType: "mentor",
+      targetId: user.id,
+      status: "pending",
+    });
+
+    res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/experts", requireAuth, async (_req: AuthRequest, res, next) => {
   try {
     const experts = await User.find({
@@ -157,6 +204,51 @@ router.get("/experts", requireAuth, async (_req: AuthRequest, res, next) => {
       .select("name avatarUrl bio expertise skillTags availabilityStatus points badges role expertVerification")
       .sort({ points: -1 });
     res.json({ experts });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/directory", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const q = String(req.query.q || "").trim();
+    const role = z.enum(["user", "mentor"]).parse(req.query.role);
+    const page = Math.max(1, Number(req.query.page || 1));
+    const limit = Math.min(10, Math.max(1, Number(req.query.limit || 10)));
+    const skip = (page - 1) * limit;
+    const filter: Record<string, unknown> = {
+      role: role === "mentor" ? "expert" : { $in: ["learner", "user"] },
+      _id: { $ne: req.userId },
+    };
+
+    if (q) {
+      filter.$or = [
+        { name: { $regex: q, $options: "i" } },
+        { email: { $regex: q, $options: "i" } },
+        { primaryTechnicalField: { $regex: q, $options: "i" } },
+        { skillTags: { $regex: q, $options: "i" } },
+      ];
+    }
+
+    const [users, total] = await Promise.all([
+      User.find(filter)
+        .select("name email avatarUrl role bio primaryTechnicalField roleOrStatus yearsOfExperience expertise skillTags availabilityStatus points")
+        .sort({ name: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      User.countDocuments(filter),
+    ]);
+
+    res.json({
+      users,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    });
   } catch (err) {
     next(err);
   }

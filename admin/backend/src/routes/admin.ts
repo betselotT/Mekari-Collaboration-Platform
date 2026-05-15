@@ -9,7 +9,7 @@ import { User } from "../models/User";
 const router = Router();
 
 const verificationStatusSchema = z.enum(["pending", "approved", "rejected"]);
-const reportStatusSchema = z.enum(["pending", "resolved", "dismissed"]);
+const reportStatusSchema = z.enum(["pending", "resolved", "struck", "dismissed"]);
 
 const reviewVerificationSchema = z.object({
   status: z.enum(["approved", "rejected"]),
@@ -20,7 +20,8 @@ const reviewVerificationSchema = z.object({
 });
 
 const reviewReportSchema = z.object({
-  status: z.enum(["resolved", "dismissed", "pending"]),
+  status: z.enum(["struck", "dismissed", "pending"]),
+  actionTaken: z.string().max(500).optional(),
 });
 
 type ActivityLog = {
@@ -107,7 +108,7 @@ router.get("/mentor-verifications", async (req, res, next) => {
     };
     const [users, total] = await Promise.all([
       User.find(filter)
-      .select("name email bio primaryTechnicalField roleOrStatus yearsOfExperience devicesUsed collaborationGoals availabilityStatus expertise skillTags expertVerification points createdAt")
+      .select("name email bio primaryTechnicalField roleOrStatus yearsOfExperience devicesUsed collaborationGoals availabilityStatus expertise skillTags expertVerification.status expertVerification.reviewNote expertVerification.submittedAt expertVerification.reviewedAt expertVerification.document.fileName expertVerification.document.fileType expertVerification.document.fileSize expertVerification.document.uploadedAt points createdAt")
       .sort({ "expertVerification.submittedAt": -1, createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -116,6 +117,36 @@ router.get("/mentor-verifications", async (req, res, next) => {
     ]);
 
     res.json({ verifications: users, pagination: pagination(page, limit, total) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/mentor-verifications/:userId/document", async (req, res, next) => {
+  try {
+    const user = await User.findOne({ _id: req.params.userId, role: "expert" })
+      .select("name expertVerification.document")
+      .exec();
+    const document = user?.expertVerification?.document;
+
+    if (!document?.dataUrl) {
+      res.status(404).json({ error: { message: "Verification document not found" } });
+      return;
+    }
+
+    const match = document.dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) {
+      res.status(422).json({ error: { message: "Verification document is not readable" } });
+      return;
+    }
+
+    const [, contentType, payload] = match;
+    const fileBuffer = Buffer.from(payload, "base64");
+    const safeFileName = document.fileName.replace(/[^\w.\- ]+/g, "_");
+
+    res.setHeader("Content-Type", contentType || document.fileType || "application/octet-stream");
+    res.setHeader("Content-Disposition", `inline; filename="${safeFileName}"`);
+    res.send(fileBuffer);
   } catch (err) {
     next(err);
   }
@@ -157,6 +188,59 @@ router.patch("/mentor-verifications/:userId", async (req, res, next) => {
   }
 });
 
+router.get("/reported-users", async (_req, res, next) => {
+  try {
+    const rows = await Report.aggregate([
+      { $match: { targetType: "user" } },
+      {
+        $group: {
+          _id: "$targetId",
+          reportCount: { $sum: 1 },
+          pendingCount: { $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] } },
+          strikeCount: { $sum: { $cond: [{ $in: ["$status", ["struck", "resolved"]] }, 1, 0] } },
+          dismissedCount: { $sum: { $cond: [{ $eq: ["$status", "dismissed"] }, 1, 0] } },
+          latestReportAt: { $max: "$createdAt" },
+        },
+      },
+      { $sort: { reportCount: -1, latestReportAt: -1 } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 0,
+          userId: "$_id",
+          reportCount: 1,
+          pendingCount: 1,
+          strikeCount: 1,
+          dismissedCount: 1,
+          latestReportAt: 1,
+          user: {
+            _id: "$user._id",
+            name: "$user.name",
+            email: "$user.email",
+            role: "$user.role",
+            primaryTechnicalField: "$user.primaryTechnicalField",
+            roleOrStatus: "$user.roleOrStatus",
+            yearsOfExperience: "$user.yearsOfExperience",
+            points: "$user.points",
+          },
+        },
+      },
+    ]);
+
+    res.json({ reportedUsers: rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/reports", async (req, res, next) => {
   try {
     const status = reportStatusSchema.optional().parse(req.query.status);
@@ -167,7 +251,7 @@ router.get("/reports", async (req, res, next) => {
       .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-      .populate("reporterId", "name email")
+      .populate("reporterId", "name email role primaryTechnicalField roleOrStatus yearsOfExperience devicesUsed bio expertise skillTags points createdAt")
         .lean(),
       Report.countDocuments(filter),
     ]);
@@ -179,7 +263,9 @@ router.get("/reports", async (req, res, next) => {
     };
 
     const [users, threads, messages] = await Promise.all([
-      User.find({ _id: { $in: targetIds.user } }).select("name email role").lean(),
+      User.find({ _id: { $in: targetIds.user } })
+        .select("name email role primaryTechnicalField roleOrStatus yearsOfExperience devicesUsed bio expertise skillTags points createdAt")
+        .lean(),
       Thread.find({ _id: { $in: targetIds.thread } }).select("title subject status").lean(),
       Message.find({ _id: { $in: targetIds.message } }).select("body type").lean(),
     ]);
@@ -209,9 +295,12 @@ router.get("/reports", async (req, res, next) => {
 router.patch("/reports/:reportId", async (req, res, next) => {
   try {
     const parsed = reviewReportSchema.parse(req.body);
+    const update: { status: string; actionTaken?: string } = { status: parsed.status };
+    if (parsed.actionTaken !== undefined) update.actionTaken = parsed.actionTaken;
+
     const report = await Report.findByIdAndUpdate(
       req.params.reportId,
-      { $set: { status: parsed.status } },
+      { $set: update },
       { new: true }
     );
 
@@ -223,7 +312,9 @@ router.patch("/reports/:reportId", async (req, res, next) => {
     await AuditLog.create({
       actorName: "Admin",
       actionType: "report_reviewed",
-      action: `Report ${report.id} marked ${parsed.status}`,
+      action: parsed.actionTaken
+        ? `Report ${report.id} marked ${parsed.status}: ${parsed.actionTaken}`
+        : `Report ${report.id} marked ${parsed.status}`,
       targetType: "report",
       targetId: report.id,
       status: parsed.status,
@@ -238,13 +329,17 @@ router.patch("/reports/:reportId", async (req, res, next) => {
 router.get("/action-logs", async (req, res, next) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
-    const [auditLogs, total] = await Promise.all([
-      AuditLog.find()
+    const actionType = typeof req.query.actionType === "string" ? req.query.actionType.trim() : "";
+    const filter = actionType ? { actionType } : {};
+
+    const [auditLogs, total, actionTypes] = await Promise.all([
+      AuditLog.find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
-      AuditLog.countDocuments(),
+      AuditLog.countDocuments(filter),
+      AuditLog.distinct("actionType"),
     ]);
 
     const logs: ActivityLog[] = auditLogs.map((log) => ({
@@ -261,6 +356,7 @@ router.get("/action-logs", async (req, res, next) => {
 
     res.json({
       logs,
+      actionTypes: actionTypes.filter(Boolean).sort(),
       pagination: pagination(page, limit, total),
     });
   } catch (err) {
