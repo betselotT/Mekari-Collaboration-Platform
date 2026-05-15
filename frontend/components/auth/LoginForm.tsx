@@ -8,6 +8,10 @@ import { Captcha, CaptchaRef } from "./Captcha";
 
 type AccountType = "learner" | "mentor";
 
+function getAuthErrorMessage(err: any, fallback: string) {
+  return err.response?.data?.message || err.response?.data?.error?.message || fallback;
+}
+
 export function LoginForm() {
   const [accountType, setAccountType] = useState<AccountType>("learner");
   const [email, setEmail] = useState("");
@@ -38,7 +42,7 @@ export function LoginForm() {
       localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || "Failed to log in");
+      setError(getAuthErrorMessage(err, "Failed to log in"));
       // Reset CAPTCHA on error
       captchaRef.current?.reset();
       setCaptchaToken(null);
@@ -55,7 +59,7 @@ export function LoginForm() {
       localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || "Google sign-in failed");
+      setError(getAuthErrorMessage(err, "Google sign-in failed"));
     } finally {
       setLoading(false);
     }
