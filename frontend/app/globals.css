@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  /* Light mode colors */
-  /* These are the light mode colors */
+  /* light mode */
+
   --background: 255 255 255;
   --background-secondary: 248 250 252;
   --foreground: 15 23 42;
