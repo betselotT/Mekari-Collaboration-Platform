@@ -16,3 +16,4 @@ frontend/tsconfig.tsbuildinfo
 admin/frontend/.next/
 admin/frontend/tsconfig.tsbuildinfo
 **/venv/
+.codex

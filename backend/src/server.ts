@@ -14,6 +14,14 @@ dotenv.config({ path: path.resolve(__dirname, "../.env") });
 const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/mekari";
 const REDIS_URL = process.env.REDIS_URL;
+const FRONTEND_ORIGINS = [
+  process.env.FRONTEND_ORIGIN,
+  ...(process.env.FRONTEND_ORIGINS || "").split(","),
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+]
+  .map((origin) => origin?.trim())
+  .filter(Boolean) as string[];
 
 async function connectRedisWithTimeout(redisClient: ReturnType<typeof createClient>) {
   const timeoutMs = Number(process.env.REDIS_CONNECT_TIMEOUT_MS || 3000);
@@ -55,7 +63,7 @@ async function bootstrap() {
 
     const io = new Server(server, {
       cors: {
-        origin: process.env.FRONTEND_ORIGIN || "http://localhost:3000",
+        origin: [...new Set(FRONTEND_ORIGINS)],
         credentials: true,
       },
     });

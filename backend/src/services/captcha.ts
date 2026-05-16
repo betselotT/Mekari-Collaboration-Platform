@@ -5,9 +5,26 @@ type HcaptchaSiteVerifyResponse = {
   "error-codes"?: string[];
 };
 
-export async function verifyCaptchaToken(token: string) {
+function isCaptchaBypassEnabled() {
+  return process.env.CAPTCHA_BYPASS_ENABLED === "true";
+}
+
+export async function verifyCaptchaToken(token?: string) {
+  if (isCaptchaBypassEnabled()) {
+    const bypassToken = process.env.CAPTCHA_BYPASS_TOKEN || "dev-bypass";
+    if (!token || token === bypassToken) {
+      return;
+    }
+  }
+
   const secret = process.env.HCAPTCHA_SECRET_KEY;
   const sitekey = process.env.HCAPTCHA_SITE_KEY;
+
+  if (!token) {
+    throw Object.assign(new Error("captchaToken is required"), {
+      status: 400,
+    });
+  }
 
   if (!secret || secret === "your-hcaptcha-secret-key") {
     throw Object.assign(new Error("HCAPTCHA_SECRET_KEY is not configured"), {
