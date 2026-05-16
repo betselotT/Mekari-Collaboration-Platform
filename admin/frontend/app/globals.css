@@ -109,6 +109,78 @@ textarea {
   gap: 12px;
 }
 
+.admin-notification-wrap {
+  position: relative;
+}
+
+.notification-button {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.notification-button strong {
+  background: var(--danger);
+  border-radius: 999px;
+  color: white;
+  font-size: 11px;
+  min-width: 20px;
+  padding: 2px 6px;
+}
+
+.admin-notification-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  width: 360px;
+  z-index: 30;
+}
+
+.notification-panel-header {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+
+.link-button {
+  background: transparent;
+  border: 0;
+  color: var(--primary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0;
+}
+
+.admin-notification-item {
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+}
+
+.admin-notification-item:last-child {
+  border-bottom: 0;
+}
+
+.admin-notification-item span {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-notification-item small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .content {
   margin: 0 auto;
   max-width: 1320px;
@@ -492,6 +564,11 @@ th {
 
 .error {
   color: var(--danger);
+}
+
+.success-message {
+  color: var(--success);
+  padding: 14px 18px;
 }
 
 .login-page {

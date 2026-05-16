@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { adminFetch } from "../lib/api";
+import { registerAdminPushNotifications } from "../lib/pushNotifications";
 
 type Summary = {
   pendingMentors: number;
@@ -80,6 +81,15 @@ type ActivityLog = {
   status?: string;
 };
 
+type AdminNotification = {
+  _id: string;
+  type: string;
+  message: string;
+  link?: string;
+  read: boolean;
+  createdAt: string;
+};
+
 type ReportedUser = {
   userId: string;
   reportCount: number;
@@ -138,6 +148,8 @@ export default function AdminDashboard() {
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [reportedUsers, setReportedUsers] = useState<ReportedUser[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [actionTypes, setActionTypes] = useState<string[]>([]);
   const [activeSection, setActiveSection] = useState<AdminSection>("verifications");
   const [verificationFilter, setVerificationFilter] = useState<StatusFilter>("pending");
@@ -153,6 +165,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pushStatus, setPushStatus] = useState<string | null>(null);
+  const [enablingPush, setEnablingPush] = useState(false);
 
   const metrics = useMemo(
     () => [
@@ -186,7 +200,7 @@ export default function AdminDashboard() {
       });
       if (logActionType !== "all") logParams.set("actionType", logActionType);
 
-      const [summaryRes, verificationRes, reportRes, reportedUsersRes, logRes] = await Promise.all([
+      const [summaryRes, verificationRes, reportRes, reportedUsersRes, logRes, notificationRes] = await Promise.all([
         adminFetch<{ summary: Summary }>("/api/admin/summary"),
         adminFetch<{ verifications: Verification[]; pagination: Pagination }>(
           `/api/admin/mentor-verifications?${verificationParams.toString()}`
@@ -198,6 +212,7 @@ export default function AdminDashboard() {
         adminFetch<{ logs: ActivityLog[]; actionTypes: string[]; pagination: Pagination }>(
           `/api/admin/action-logs?${logParams.toString()}`
         ),
+        adminFetch<{ notifications: AdminNotification[] }>("/api/admin/notifications"),
       ]);
 
       setSummary(summaryRes.summary);
@@ -205,6 +220,7 @@ export default function AdminDashboard() {
       setReports(reportRes.reports);
       setReportedUsers(reportedUsersRes.reportedUsers);
       setLogs(logRes.logs);
+      setNotifications(notificationRes.notifications || []);
       setActionTypes(logRes.actionTypes || []);
       setVerificationPagination(verificationRes.pagination);
       setReportPagination(reportRes.pagination);
@@ -268,6 +284,24 @@ export default function AdminDashboard() {
     window.location.href = "/login";
   }
 
+  async function enablePush() {
+    setEnablingPush(true);
+    setError(null);
+    setPushStatus(null);
+    try {
+      const result = await registerAdminPushNotifications();
+      if (!result.ok) {
+        setError(result.reason || "Failed to enable admin push notifications.");
+        return;
+      }
+      setPushStatus("Admin push notifications are enabled on this browser.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to enable admin push notifications.");
+    } finally {
+      setEnablingPush(false);
+    }
+  }
+
   return (
     <main className="page">
       <header className="topbar">
@@ -281,6 +315,36 @@ export default function AdminDashboard() {
           </div>
           <div className="topbar-actions">
             <div className="topbar-meta">{loading ? "Syncing data" : "Admin Workspace"}</div>
+            <div className="admin-notification-wrap">
+              <button
+                className="button secondary notification-button"
+                onClick={() => setNotificationsOpen((value) => !value)}
+              >
+                Alerts
+                {notifications.length > 0 ? <strong>{notifications.length}</strong> : null}
+              </button>
+              {notificationsOpen && (
+                <div className="admin-notification-panel">
+                  <div className="notification-panel-header">
+                    <strong>Admin alerts</strong>
+                    <button className="link-button" onClick={loadDashboard}>Refresh</button>
+                  </div>
+                  {notifications.length === 0 ? (
+                    <div className="empty">No admin alerts yet.</div>
+                  ) : (
+                    notifications.map((notification) => (
+                      <div className="admin-notification-item" key={notification._id}>
+                        <span>{notification.message}</span>
+                        <small>{formatDate(notification.createdAt)}</small>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+            <button className="button secondary" disabled={enablingPush} onClick={enablePush}>
+              {enablingPush ? "Enabling..." : "Enable push"}
+            </button>
             <button className="button secondary" onClick={logout}>Sign out</button>
           </div>
         </div>
@@ -288,6 +352,7 @@ export default function AdminDashboard() {
 
       <div className="content">
         {error && <div className="panel error">{error}</div>}
+        {pushStatus && <div className="panel success-message">{pushStatus}</div>}
 
         <div className="admin-layout">
           <aside className="admin-sidebar">

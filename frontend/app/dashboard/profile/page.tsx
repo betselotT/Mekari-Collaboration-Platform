@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useState, useEffect } from "react";
 import { apiClient } from "../../../lib/api";
+import { registerForPushNotifications } from "../../../lib/pushNotifications";
 import { DashboardLayout } from "../../../components/layout/DashboardLayout";
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
@@ -17,6 +18,22 @@ type VerificationDocument = {
   fileType: string;
   fileSize: number;
   dataUrl: string;
+};
+
+type NotificationCategory = "chat" | "documentStatus" | "moderation" | "admin";
+type NotificationPreferences = Record<
+  NotificationCategory,
+  {
+    internal: boolean;
+    push: boolean;
+  }
+>;
+
+const defaultNotificationPreferences: NotificationPreferences = {
+  chat: { internal: true, push: false },
+  documentStatus: { internal: true, push: false },
+  moderation: { internal: true, push: false },
+  admin: { internal: true, push: false },
 };
 
 const technicalFields = [
@@ -54,6 +71,10 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
   const [resubmittingVerification, setResubmittingVerification] = useState(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(
+    defaultNotificationPreferences
+  );
+  const [savingPreferences, setSavingPreferences] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const [setupForm, setSetupForm] = useState({
     accountType: "learner" as AccountType,
@@ -282,6 +303,10 @@ export default function ProfilePage() {
         const res = await apiClient.get("/api/users/me");
         if (res.data.user) {
           setUser(res.data.user);
+          setNotificationPreferences({
+            ...defaultNotificationPreferences,
+            ...(res.data.user.notificationPreferences || {}),
+          });
           setFormData({
             name: res.data.user.name || "",
             bio: res.data.user.bio || "",
@@ -297,6 +322,48 @@ export default function ProfilePage() {
     };
     fetchUser();
   }, []);
+
+  async function updateNotificationPreference(
+    category: NotificationCategory,
+    channel: "internal" | "push",
+    value: boolean
+  ) {
+    const previous = notificationPreferences;
+    const next = {
+      ...notificationPreferences,
+      [category]: {
+        ...notificationPreferences[category],
+        [channel]: value,
+      },
+    };
+
+    setNotificationPreferences(next);
+    setSavingPreferences(true);
+    setError("");
+    setMessage("");
+
+    try {
+      if (channel === "push" && value) {
+        const pushResult = await registerForPushNotifications();
+        if (!pushResult.ok) {
+          setNotificationPreferences(previous);
+          setError(pushResult.reason || "Could not enable push notifications.");
+          return;
+        }
+      }
+      const res = await apiClient.put("/api/notifications/preferences", next);
+      setNotificationPreferences({
+        ...defaultNotificationPreferences,
+        ...(res.data.preferences || {}),
+      });
+      setMessage("Notification preferences updated.");
+    } catch (err: any) {
+      setNotificationPreferences(previous);
+      setError(err.response?.data?.error?.message || "Failed to update notification preferences.");
+    } finally {
+      setSavingPreferences(false);
+    }
+  }
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -752,6 +819,60 @@ export default function ProfilePage() {
                       </p>
                     </div>
                   </div>
+                </div>
+              </Card>
+
+              <Card hoverable className="md:col-span-2">
+                <div className="mb-4 flex items-start gap-3">
+                  <div className="rounded-lg bg-primary-100 p-2 dark:bg-primary-900">
+                    <Bell className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-neutral-900 dark:text-white">
+                      Notifications
+                    </h4>
+                    <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                      Choose which updates appear inside Mekari and which can also reach your browser.
+                    </p>
+                  </div>
+                </div>
+                <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700">
+                  {[
+                    { key: "chat", label: "Chat messages" },
+                    { key: "documentStatus", label: "Mentor document status" },
+                    { key: "moderation", label: "Moderation strikes" },
+                    { key: "admin", label: "Admin reports and mentor requests" },
+                  ].map((item) => {
+                    const key = item.key as NotificationCategory;
+                    if (key === "admin" && user.role !== "admin" && user.role !== "mod") return null;
+                    return (
+                      <div
+                        key={key}
+                        className="grid gap-3 border-b border-neutral-200 px-4 py-3 last:border-b-0 dark:border-neutral-700 sm:grid-cols-[1fr_auto_auto]"
+                      >
+                        <span className="text-sm font-medium text-neutral-900 dark:text-white">
+                          {item.label}
+                        </span>
+                        {(["internal", "push"] as const).map((channel) => (
+                          <label
+                            key={channel}
+                            className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-neutral-500"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={notificationPreferences[key]?.[channel] ?? channel === "internal"}
+                              disabled={savingPreferences}
+                              onChange={(event) =>
+                                updateNotificationPreference(key, channel, event.target.checked)
+                              }
+                              className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
+                            />
+                            {channel === "internal" ? "In app" : "Push"}
+                          </label>
+                        ))}
+                      </div>
+                    );
+                  })}
                 </div>
               </Card>
             </div>

@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
+import { adminUsername } from "../auth";
 import { AuditLog } from "../models/AuditLog";
 import { Message } from "../models/Message";
+import { Notification } from "../models/Notification";
 import { Report } from "../models/Report";
 import { Thread } from "../models/Thread";
 import { User } from "../models/User";
@@ -22,6 +24,10 @@ const reviewVerificationSchema = z.object({
 const reviewReportSchema = z.object({
   status: z.enum(["struck", "dismissed", "pending"]),
   actionTaken: z.string().max(500).optional(),
+});
+
+const pushTokenSchema = z.object({
+  token: z.string().min(20),
 });
 
 type ActivityLog = {
@@ -69,6 +75,36 @@ function userEmail(user: unknown) {
   return typeof email === "string" ? email : undefined;
 }
 
+async function findAdminPushUser() {
+  const configuredEmail =
+    process.env.ADMIN_PUSH_USER_EMAIL || process.env.ADMIN_EMAIL || adminUsername();
+
+  if (configuredEmail.includes("@")) {
+    const configuredUser = await User.findOneAndUpdate(
+      { email: configuredEmail },
+      {
+        $set: { role: "admin" },
+        $setOnInsert: {
+          name: process.env.ADMIN_PUSH_USER_NAME || "Mekari Admin",
+          email: configuredEmail,
+          availabilityStatus: "offline",
+          devicesUsed: [],
+          expertise: [],
+          skillTags: [],
+          expertVerification: { status: "not_required" },
+          points: 0,
+        },
+      },
+      { new: true, upsert: true }
+    ).select("_id name email");
+    if (configuredUser) return configuredUser;
+  }
+
+  return User.findOne({ role: { $in: ["admin", "mod"] } })
+    .sort({ role: 1, createdAt: 1 })
+    .select("_id name email");
+}
+
 router.get("/summary", async (_req, res, next) => {
   try {
     const [
@@ -89,6 +125,70 @@ router.get("/summary", async (_req, res, next) => {
         pendingReports,
         approvedMentors,
         totalUsers,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/notifications", async (_req, res, next) => {
+  try {
+    const notifications = await Notification.find({
+      type: { $in: ["new_report", "mentor_verification_submitted"] },
+    })
+      .sort({ createdAt: -1 })
+      .limit(30)
+      .lean();
+    res.json({ notifications });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/push-token", async (req, res, next) => {
+  try {
+    const parsed = pushTokenSchema.parse(req.body);
+    const adminUser = await findAdminPushUser();
+    if (!adminUser) {
+      res.status(404).json({
+        error: {
+          message:
+            "No admin or moderator user exists in the shared database. Create one or set ADMIN_PUSH_USER_EMAIL to an admin user's email.",
+        },
+      });
+      return;
+    }
+
+    await User.updateOne(
+      { _id: adminUser._id },
+      { $pull: { pushTokens: { token: parsed.token } } }
+    );
+    await User.updateOne(
+      { _id: adminUser._id },
+      {
+        $push: {
+          pushTokens: {
+            token: parsed.token,
+            provider: "fcm",
+            platform: "admin_web",
+            createdAt: new Date(),
+            lastUsedAt: new Date(),
+          },
+        },
+        $set: {
+          "notificationPreferences.admin.internal": true,
+          "notificationPreferences.admin.push": true,
+        },
+      }
+    );
+
+    res.json({
+      ok: true,
+      user: {
+        id: String(adminUser._id),
+        name: adminUser.name,
+        email: adminUser.email,
       },
     });
   } catch (err) {
@@ -180,6 +280,17 @@ router.patch("/mentor-verifications/:userId", async (req, res, next) => {
       targetId: user.id,
       status: parsed.status,
       metadata: { reviewNote: parsed.reviewNote },
+    });
+
+    await Notification.create({
+      userId: user._id,
+      type: "mentor_verification_reviewed",
+      message:
+        parsed.status === "approved"
+          ? "Your mentor verification document was approved."
+          : `Your mentor verification document was rejected${parsed.reviewNote ? `: ${parsed.reviewNote}` : "."}`,
+      link: "/dashboard/profile",
+      read: false,
     });
 
     res.json({ user });
@@ -319,6 +430,21 @@ router.patch("/reports/:reportId", async (req, res, next) => {
       targetId: report.id,
       status: parsed.status,
     });
+
+    if (parsed.status === "struck" && report.targetType === "user") {
+      const strikeCount = await Report.countDocuments({
+        targetType: "user",
+        targetId: report.targetId,
+        status: "struck",
+      });
+      await Notification.create({
+        userId: report.targetId,
+        type: "account_strike",
+        message: `Your account has been struck for a community violation. Total strikes: ${strikeCount}.`,
+        link: "/dashboard/profile",
+        read: false,
+      });
+    }
 
     res.json({ report });
   } catch (err) {

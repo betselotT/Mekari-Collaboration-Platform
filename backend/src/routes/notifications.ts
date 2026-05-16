@@ -1,8 +1,29 @@
 import { Router } from "express";
+import { z } from "zod";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { Notification } from "../models/Notification";
+import { User } from "../models/User";
 
 const router = Router();
+
+const preferenceSchema = z.object({
+  chat: z
+    .object({ internal: z.boolean().optional(), push: z.boolean().optional() })
+    .optional(),
+  documentStatus: z
+    .object({ internal: z.boolean().optional(), push: z.boolean().optional() })
+    .optional(),
+  moderation: z
+    .object({ internal: z.boolean().optional(), push: z.boolean().optional() })
+    .optional(),
+  admin: z
+    .object({ internal: z.boolean().optional(), push: z.boolean().optional() })
+    .optional(),
+});
+
+const pushTokenSchema = z.object({
+  token: z.string().min(20),
+});
 
 router.get("/", requireAuth, async (req: AuthRequest, res, next) => {
   try {
@@ -10,6 +31,80 @@ router.get("/", requireAuth, async (req: AuthRequest, res, next) => {
       .sort({ createdAt: -1 })
       .limit(50);
     res.json({ notifications });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/preferences", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const user = await User.findById(req.userId).select("notificationPreferences");
+    if (!user) return res.status(404).json({ error: { message: "User not found" } });
+    res.json({ preferences: user.notificationPreferences });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put("/preferences", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const parsed = preferenceSchema.parse(req.body);
+    const set: Record<string, boolean> = {};
+    for (const [category, channels] of Object.entries(parsed)) {
+      if (!channels) continue;
+      if (channels.internal !== undefined) {
+        set[`notificationPreferences.${category}.internal`] = channels.internal;
+      }
+      if (channels.push !== undefined) {
+        set[`notificationPreferences.${category}.push`] = channels.push;
+      }
+    }
+
+    const user = await User.findByIdAndUpdate(req.userId, { $set: set }, { new: true }).select(
+      "notificationPreferences"
+    );
+    if (!user) return res.status(404).json({ error: { message: "User not found" } });
+    res.json({ preferences: user.notificationPreferences });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/push-token", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const parsed = pushTokenSchema.parse(req.body);
+    await User.updateOne(
+      { _id: req.userId },
+      { $pull: { pushTokens: { token: parsed.token } } }
+    );
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      {
+        $push: {
+          pushTokens: {
+            token: parsed.token,
+            provider: "fcm",
+            platform: "web",
+            createdAt: new Date(),
+            lastUsedAt: new Date(),
+          },
+        },
+      },
+      { new: true }
+    ).select("pushTokens");
+
+    if (!user) return res.status(404).json({ error: { message: "User not found" } });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/push-token", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const parsed = pushTokenSchema.parse(req.body);
+    await User.updateOne({ _id: req.userId }, { $pull: { pushTokens: { token: parsed.token } } });
+    res.json({ ok: true });
   } catch (err) {
     next(err);
   }

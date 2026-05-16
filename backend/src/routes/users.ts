@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { User } from "../models/User";
 import { logAuditEvent } from "../services/auditLog";
+import { notifyAdmins } from "../services/notifications";
 
 const router = Router();
 
@@ -141,6 +142,14 @@ router.post("/me/setup", requireAuth, async (req: AuthRequest, res, next) => {
         targetId: user.id,
         status: isMentor ? "pending" : "completed",
       });
+      if (isMentor) {
+        await notifyAdmins({
+          type: "mentor_verification_submitted",
+          title: "New mentor approval request",
+          message: `${user.name} asked to be approved as a mentor.`,
+          link: "/admin/mentor-verifications",
+        });
+      }
     }
 
     res.json({ user });
@@ -188,6 +197,12 @@ router.post("/me/mentor-verification-document", requireAuth, async (req: AuthReq
       targetType: "mentor",
       targetId: user.id,
       status: "pending",
+    });
+    await notifyAdmins({
+      type: "mentor_verification_submitted",
+      title: "Mentor document resubmitted",
+      message: `${user.name} uploaded a new mentor verification document.`,
+      link: "/admin/mentor-verifications",
     });
 
     res.json({ user });
