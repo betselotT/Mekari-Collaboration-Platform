@@ -1,4 +1,4 @@
-"""Shared async LLM caller. All intelligence modules import from here."""
+"""Shared async Gemini caller. All intelligence modules import from here."""
 
 from __future__ import annotations
 import json
@@ -35,31 +35,48 @@ async def call_llm(
     dev_fallback: str | None = None,
 ) -> str:
     """
-    Call the configured OpenAI-compatible API.
+    Call the configured Gemini API.
 
-    If OPENAI_API_KEY is absent:
+    If GEMINI_API_KEY is absent:
     - returns dev_fallback when provided
     - raises RuntimeError otherwise
     """
-    if not settings.openai_api_key:
+    if not settings.gemini_api_key:
         if dev_fallback is not None:
             return dev_fallback
-        raise RuntimeError("OPENAI_API_KEY is not set and no dev_fallback was provided")
+        raise RuntimeError("GEMINI_API_KEY is not set and no dev_fallback was provided")
+
+    system_parts = [
+        {"text": msg["content"]}
+        for msg in messages
+        if msg.get("role") == "system" and msg.get("content")
+    ]
+    contents = [
+        {
+            "role": "model" if msg.get("role") == "assistant" else "user",
+            "parts": [{"text": msg.get("content", "")}],
+        }
+        for msg in messages
+        if msg.get("role") != "system" and msg.get("content")
+    ]
 
     body: dict = {
-        "model": settings.openai_model,
-        "messages": messages,
-        "max_tokens": max_tokens,
+        "contents": contents,
+        "generationConfig": {
+            "maxOutputTokens": max_tokens,
+        },
     }
+    if system_parts:
+        body["systemInstruction"] = {"parts": system_parts}
     if json_mode:
-        body["response_format"] = {"type": "json_object"}
+        body["generationConfig"]["responseMimeType"] = "application/json"
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.post(
-            f"{settings.openai_base_url}/chat/completions",
+            f"{settings.gemini_base_url}/models/{settings.gemini_model}:generateContent",
+            params={"key": settings.gemini_api_key},
             json=body,
             headers={
-                "Authorization": f"Bearer {settings.openai_api_key}",
                 "Content-Type": "application/json",
             },
         )
@@ -68,8 +85,12 @@ async def call_llm(
         raise RuntimeError(f"LLM API error {resp.status_code}: {resp.text[:300]}")
 
     data = resp.json()
-    return data["choices"][0]["message"]["content"]
+    try:
+        parts = data["candidates"][0]["content"]["parts"]
+        return "".join(part.get("text", "") for part in parts).strip()
+    except (KeyError, IndexError, TypeError) as exc:
+        raise RuntimeError("Gemini API response did not contain text output") from exc
 
 
 def is_llm_available() -> bool:
-    return bool(settings.openai_api_key)
+    return bool(settings.gemini_api_key)

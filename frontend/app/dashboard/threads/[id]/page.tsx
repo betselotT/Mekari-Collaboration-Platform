@@ -194,6 +194,11 @@ export default function ThreadDetailPage() {
         setThread((prev) => (prev ? { ...prev, status: "SOLVED", isSolved: true } : prev));
       });
 
+      socket.on("thread_tags_updated", (data: { threadId: string; tags: string[] }) => {
+        if (data.threadId !== threadId) return;
+        setThread((prev) => (prev ? { ...prev, tags: data.tags } : prev));
+      });
+
       socket.on("message_deleted", (data: { threadId: string; messageId: string }) => {
         if (data.threadId !== threadId) return;
         setMessages((prev) => prev.filter((msg) => getMessageId(msg) !== data.messageId));
@@ -230,6 +235,7 @@ export default function ThreadDetailPage() {
         socket.off("ai_response_ready");
         socket.off("expert_matched");
         socket.off("thread_solved");
+        socket.off("thread_tags_updated");
         socket.off("message_deleted");
         socket.off("message_upvoted");
         socket.off("user_typing");

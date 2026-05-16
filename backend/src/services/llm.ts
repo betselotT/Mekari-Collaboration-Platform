@@ -59,7 +59,7 @@ export async function callLlm(
 
   const baseUrl =
     process.env.GEMINI_BASE_URL ?? "https://generativelanguage.googleapis.com/v1beta";
-  const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash-lite";
+  const model = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
   const url = new URL(`${baseUrl}/models/${model}:generateContent`);
   url.searchParams.set("key", apiKey);
 
