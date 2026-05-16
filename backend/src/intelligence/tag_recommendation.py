@@ -79,7 +79,6 @@ _SYS = (
     "a list of up to 6 lowercase hyphenated tags (e.g. 'rest-api', 'nodejs'). "
     "Return ONLY the JSON object."
 )
-
 _DEV_FALLBACK = json.dumps({"tags": []})
 
 

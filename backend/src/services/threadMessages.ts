@@ -5,6 +5,7 @@ import { PointEvent } from "../models/PointEvent";
 import { awardPoints } from "./awardPoints";
 import { createNotification } from "./notifications";
 import { broadcastToRoom, roomName } from "./realtime";
+import { generateContentTags } from "./tagExtraction";
 
 export const threadMessageSchema = z.object({
   body: z.string().trim().min(1),
@@ -38,10 +39,29 @@ export async function createThreadMessage(input: ThreadMessageInput) {
     isFromAi: false,
   });
 
+  const generatedTags =
+    message.type === "TEXT" || message.type === "CODE"
+      ? await generateContentTags({
+          title: thread.title,
+          subject: thread.subject,
+          body: input.body,
+          existingTags: thread.tags,
+        })
+      : thread.tags;
+  const addedTags = generatedTags.filter((tag) => !thread.tags.includes(tag));
+
   await Thread.findByIdAndUpdate(input.threadId, {
     $addToSet: { participants: input.userId },
-    $set: { updatedAt: new Date() },
+    $set: { updatedAt: new Date(), tags: generatedTags },
   });
+
+  if (addedTags.length > 0) {
+    await broadcastToRoom(roomName("thread", input.threadId), "thread_tags_updated", {
+      threadId: input.threadId,
+      tags: generatedTags,
+      addedTags,
+    });
+  }
 
   const populated = await message.populate("sender", "name avatarUrl");
   const payload = {

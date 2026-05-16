@@ -10,6 +10,7 @@ import { captureKnowledge } from "../services/knowledgeCapture";
 import { runAIPipeline } from "../services/aiPipeline";
 import { broadcastToRoom, roomName } from "../services/realtime";
 import { createThreadMessage, threadMessageSchema } from "../services/threadMessages";
+import { generateContentTags } from "../services/tagExtraction";
 
 const router = Router();
 
@@ -222,12 +223,18 @@ router.get("/:threadId", requireAuth, async (req: AuthRequest, res, next) => {
 router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, next) => {
   try {
     const parsed = createThreadSchema.parse(req.body);
+    const tags = await generateContentTags({
+      title: parsed.title,
+      subject: parsed.subject,
+      body: [parsed.body, parsed.initialMessage].filter(Boolean).join("\n\n"),
+      existingTags: parsed.tags,
+    });
 
     const thread = await Thread.create({
       title: parsed.title,
       subject: parsed.subject,
       body: parsed.body,
-      tags: parsed.tags,
+      tags,
       createdBy: req.userId,
       participants: [req.userId],
       status: "OPEN",
