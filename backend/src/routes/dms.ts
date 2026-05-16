@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth, AuthRequest } from "../middleware/auth";
+import { messageRateLimiter } from "../middleware/messageRateLimiter";
 import {
   createDmConversationSchema,
   createDmMessage,
@@ -78,6 +79,7 @@ router.get(
 router.post(
   "/conversations/:conversationId/messages",
   requireAuth,
+  messageRateLimiter,
   async (req: AuthRequest, res, next) => {
     try {
       const parsed = dmMessageSchema.parse(req.body);

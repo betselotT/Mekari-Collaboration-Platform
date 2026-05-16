@@ -290,7 +290,11 @@ function MessagesContent() {
       setDraft("");
       setReplyTo(null);
     } catch (e: any) {
-      setError(e?.response?.data?.error?.message || "Failed to send message");
+      setError(
+        e?.response?.data?.message ||
+          e?.response?.data?.error?.message ||
+          "Failed to send message"
+      );
     } finally {
       setSending(false);
     }
