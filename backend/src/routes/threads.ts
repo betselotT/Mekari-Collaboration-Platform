@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireAuth, AuthRequest } from "../middleware/auth";
+import { messageRateLimiter } from "../middleware/messageRateLimiter";
 import { Thread } from "../models/Thread";
 import { Message } from "../models/Message";
 import { PointEvent } from "../models/PointEvent";
@@ -218,7 +219,7 @@ router.get("/:threadId", requireAuth, async (req: AuthRequest, res, next) => {
 });
 
 // POST / — create thread, fire AI pipeline async (CRITICAL BEHAVIOR #1)
-router.post("/", requireAuth, async (req: AuthRequest, res, next) => {
+router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, next) => {
   try {
     const parsed = createThreadSchema.parse(req.body);
 
