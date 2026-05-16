@@ -22,6 +22,26 @@ export type ExpertVerification = {
   reviewNote?: string;
 };
 
+export type NotificationChannelPreferences = {
+  internal: boolean;
+  push: boolean;
+};
+
+export type NotificationPreferences = {
+  chat: NotificationChannelPreferences;
+  documentStatus: NotificationChannelPreferences;
+  moderation: NotificationChannelPreferences;
+  admin: NotificationChannelPreferences;
+};
+
+export type PushToken = {
+  token: string;
+  provider: "fcm";
+  platform: "web" | "admin_web";
+  createdAt: Date;
+  lastUsedAt: Date;
+};
+
 export interface IUser extends Document {
   name: string;
   email: string;
@@ -41,6 +61,8 @@ export interface IUser extends Document {
   skillTags: string[];
   availabilityStatus: "online" | "busy" | "offline" | "in_session";
   expertVerification: ExpertVerification;
+  notificationPreferences: NotificationPreferences;
+  pushTokens: PushToken[];
   points: number;
   badges: string[];
   role: "user" | "admin" | "learner" | "expert" | "mod";
@@ -87,6 +109,35 @@ const ExpertVerificationSchema = new Schema<ExpertVerification>(
   { _id: false }
 );
 
+const NotificationChannelPreferencesSchema = new Schema<NotificationChannelPreferences>(
+  {
+    internal: { type: Boolean, default: true },
+    push: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+const NotificationPreferencesSchema = new Schema<NotificationPreferences>(
+  {
+    chat: { type: NotificationChannelPreferencesSchema, default: () => ({}) },
+    documentStatus: { type: NotificationChannelPreferencesSchema, default: () => ({}) },
+    moderation: { type: NotificationChannelPreferencesSchema, default: () => ({}) },
+    admin: { type: NotificationChannelPreferencesSchema, default: () => ({}) },
+  },
+  { _id: false }
+);
+
+const PushTokenSchema = new Schema<PushToken>(
+  {
+    token: { type: String, required: true },
+    provider: { type: String, enum: ["fcm"], default: "fcm" },
+    platform: { type: String, enum: ["web", "admin_web"], default: "web" },
+    createdAt: { type: Date, default: Date.now },
+    lastUsedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const UserSchema = new Schema<IUser>(
   {
     name: { type: String, required: true },
@@ -114,6 +165,11 @@ const UserSchema = new Schema<IUser>(
       type: ExpertVerificationSchema,
       default: () => ({ status: "not_required" }),
     },
+    notificationPreferences: {
+      type: NotificationPreferencesSchema,
+      default: () => ({}),
+    },
+    pushTokens: { type: [PushTokenSchema], default: [] },
     points: { type: Number, default: 0 },
     badges: { type: [String], default: [] },
     role: {

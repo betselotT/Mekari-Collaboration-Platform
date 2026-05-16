@@ -3,6 +3,7 @@ import { z } from "zod";
 import { DmConversation } from "../models/DmConversation";
 import { DmMessage } from "../models/DmMessage";
 import { User } from "../models/User";
+import { createNotification } from "./notifications";
 import { broadcastToRoom, broadcastToUser, roomName } from "./realtime";
 
 export const createDmConversationSchema = z.object({
@@ -141,6 +142,23 @@ export async function createDmMessage(input: {
       message: payload,
     });
   }
+
+  const sender = populated.sender as unknown as { name?: string };
+  const senderName = sender?.name || "Someone";
+  await Promise.all(
+    conversation.participants
+      .filter((participantId) => String(participantId) !== String(input.userId))
+      .map((participantId) =>
+        createNotification({
+          userId: String(participantId),
+          category: "chat",
+          type: "new_dm_message",
+          title: "New message",
+          message: `${senderName}: ${input.body.slice(0, 120)}`,
+          link: `/dashboard/messages?conversation=${input.conversationId}`,
+        })
+      )
+  );
 
   return { message: populated, payload };
 }

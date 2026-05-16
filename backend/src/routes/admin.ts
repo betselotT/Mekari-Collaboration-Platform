@@ -5,6 +5,7 @@ import { Report } from "../models/Report";
 import { Thread } from "../models/Thread";
 import { Message } from "../models/Message";
 import { User } from "../models/User";
+import { createNotification } from "../services/notifications";
 
 const router = Router();
 
@@ -56,6 +57,23 @@ router.patch("/reports/:id", requireAuth, requireMod, async (req: AuthRequest, r
       { new: true }
     );
     if (!report) return res.status(404).json({ error: { message: "Report not found" } });
+
+    if (parsed.status === "struck" && report.targetType === "user") {
+      const strikeCount = await Report.countDocuments({
+        targetType: "user",
+        targetId: report.targetId,
+        status: "struck",
+      });
+      await createNotification({
+        userId: String(report.targetId),
+        category: "moderation",
+        type: "account_strike",
+        title: "Account strike",
+        message: `Your account has been struck for a community violation. Total strikes: ${strikeCount}.`,
+        link: "/dashboard/profile",
+      });
+    }
+
     res.json({ report });
   } catch (err) {
     next(err);
@@ -130,6 +148,18 @@ router.patch("/expert-verifications/:userId", requireAuth, requireAdmin, async (
     if (!user) {
       return res.status(404).json({ error: { message: "Mentor verification request not found" } });
     }
+
+    await createNotification({
+      userId: String(user._id),
+      category: "documentStatus",
+      type: "mentor_verification_reviewed",
+      title: "Mentor verification reviewed",
+      message:
+        parsed.status === "approved"
+          ? "Your mentor verification document was approved."
+          : `Your mentor verification document was rejected${parsed.reviewNote ? `: ${parsed.reviewNote}` : "."}`,
+      link: "/dashboard/profile",
+    });
 
     res.json({ user });
   } catch (err) {

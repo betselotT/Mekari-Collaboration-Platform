@@ -3,6 +3,7 @@ import { Message } from "../models/Message";
 import { Thread } from "../models/Thread";
 import { PointEvent } from "../models/PointEvent";
 import { awardPoints } from "./awardPoints";
+import { createNotification } from "./notifications";
 import { broadcastToRoom, roomName } from "./realtime";
 
 export const threadMessageSchema = z.object({
@@ -59,6 +60,28 @@ export async function createThreadMessage(input: ThreadMessageInput) {
   if (input.broadcast !== false) {
     await broadcastToRoom(roomName("thread", input.threadId), "new_message", payload);
   }
+
+  const notifyIds = new Set<string>([
+    String(thread.createdBy),
+    ...thread.participants.map((participantId) => String(participantId)),
+    ...thread.matchedExperts.map((expertId) => String(expertId)),
+  ]);
+  notifyIds.delete(String(input.userId));
+
+  const sender = populated.sender as unknown as { name?: string };
+  const senderName = sender?.name || "Someone";
+  await Promise.all(
+    Array.from(notifyIds).map((userId) =>
+      createNotification({
+        userId,
+        category: "chat",
+        type: "new_thread_message",
+        title: "New thread message",
+        message: `${senderName} replied in "${thread.title}"`,
+        link: `/dashboard/threads/${input.threadId}`,
+      })
+    )
+  );
 
   if (String(thread.createdBy) !== String(input.userId)) {
     await awardPoints(String(input.userId), "ANSWERED_QUESTION", String(message._id));
