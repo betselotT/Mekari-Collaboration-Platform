@@ -22,6 +22,7 @@ import {
   Reply,
   ArrowUp,
   X,
+  BookOpen,
   } from "lucide-react";
 import type { Socket } from "socket.io-client";
 
@@ -60,6 +61,19 @@ interface Expert {
   reasons?: string[];
 }
 
+interface SimilarProblem {
+  docId: string;
+  threadId: string;
+  title: string;
+  tags: string[];
+  solution: string;
+  threadSummary: string;
+  similarity: number;
+  qualityScore: number;
+  combinedScore: number;
+  reasons: string[];
+}
+
 interface Thread {
   _id: string;
   title: string;
@@ -68,6 +82,7 @@ interface Thread {
   tags: string[];
   status: string;
   aiResponse?: AIResponse;
+  similarProblems?: SimilarProblem[];
   matchedExperts: Expert[];
   googleMeetLink?: string;
   createdBy: Sender;
@@ -115,6 +130,8 @@ export default function ThreadDetailPage() {
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [aiPanel, setAiPanel] = useState(true);
   const [expertPanel, setExpertPanel] = useState(true);
+  const [similarPanel, setSimilarPanel] = useState(true);
+  const [similarLoading, setSimilarLoading] = useState(false);
   const [solveError, setSolveError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
@@ -144,6 +161,18 @@ export default function ThreadDetailPage() {
       .then(([threadRes, msgRes]) => {
         setThread(threadRes.data.thread);
         setMessages(msgRes.data.messages);
+        if (!threadRes.data.thread.similarProblems?.length) {
+          setSimilarLoading(true);
+          apiClient
+            .get<{ problems: SimilarProblem[] }>(`/api/threads/${threadId}/similar`)
+            .then((res) => {
+              setThread((prev) =>
+                prev ? { ...prev, similarProblems: res.data.problems } : prev
+              );
+            })
+            .catch(console.error)
+            .finally(() => setSimilarLoading(false));
+        }
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -193,6 +222,17 @@ export default function ThreadDetailPage() {
         }
       );
 
+      socket.on(
+        "similar_problems_ready",
+        (data: { threadId: string; similarProblems: SimilarProblem[] }) => {
+          if (data.threadId !== threadId) return;
+          setThread((prev) =>
+            prev ? { ...prev, similarProblems: data.similarProblems } : prev
+          );
+          setSimilarPanel(true);
+        }
+      );
+
       socket.on("thread_solved", (data: { threadId: string }) => {
         if (data.threadId !== threadId) return;
         setThread((prev) => (prev ? { ...prev, status: "SOLVED", isSolved: true } : prev));
@@ -238,6 +278,7 @@ export default function ThreadDetailPage() {
         socket.off("new_message");
         socket.off("ai_response_ready");
         socket.off("expert_matched");
+        socket.off("similar_problems_ready");
         socket.off("thread_solved");
         socket.off("thread_tags_updated");
         socket.off("message_deleted");
@@ -421,6 +462,8 @@ export default function ThreadDetailPage() {
   const statusVariant = (STATUS_COLOR[thread.status] || "default") as any;
   const hasAI = !!thread.aiResponse;
   const hasExperts = thread.matchedExperts && thread.matchedExperts.length > 0;
+  const similarProblems = thread.similarProblems || [];
+  const hasSimilarProblems = similarProblems.length > 0;
 
   return (
     <DashboardLayout title={thread.title} searchPlaceholder="Search threads...">
@@ -730,6 +773,80 @@ export default function ThreadDetailPage() {
 
         {/* ── Side panels (1/3) ───────────────────────────────────────── */}
         <div className="flex flex-col gap-4">
+          {/* Similar Problems panel */}
+          {(hasSimilarProblems || similarLoading) && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+              <button
+                className="flex w-full items-center justify-between px-4 py-3"
+                onClick={() => setSimilarPanel((v) => !v)}
+              >
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                    Similar Problems
+                  </span>
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200">
+                    {similarLoading ? "..." : similarProblems.length}
+                  </span>
+                </div>
+                {similarPanel ? (
+                  <ChevronUp className="h-4 w-4 text-emerald-500" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-emerald-500" />
+                )}
+              </button>
+
+              {similarPanel && (
+                <div className="border-t border-emerald-200/60 px-4 pb-4 pt-3 dark:border-emerald-900/40">
+                  {similarLoading && !hasSimilarProblems ? (
+                    <p className="text-sm text-emerald-800 dark:text-emerald-200">
+                      Finding related solved threads...
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {similarProblems.map((problem) => (
+                        <a
+                          key={`${problem.docId}-${problem.threadId}`}
+                          href={`/dashboard/threads/${problem.threadId}`}
+                          className="block rounded-lg border border-emerald-200 bg-white p-3 hover:border-emerald-300 hover:bg-emerald-50 dark:border-emerald-900/50 dark:bg-neutral-900 dark:hover:bg-emerald-950/30"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="text-sm font-semibold text-neutral-900 dark:text-white">
+                              {problem.title}
+                            </p>
+                            <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200">
+                              {Math.round(problem.combinedScore * 100)}%
+                            </span>
+                          </div>
+                          {problem.threadSummary && (
+                            <p className="mt-2 line-clamp-2 text-xs text-neutral-600 dark:text-neutral-400">
+                              {problem.threadSummary}
+                            </p>
+                          )}
+                          {problem.solution && (
+                            <p className="mt-2 line-clamp-2 text-xs text-emerald-800 dark:text-emerald-200">
+                              {problem.solution}
+                            </p>
+                          )}
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {problem.tags.slice(0, 4).map((tag) => (
+                              <span
+                                key={tag}
+                                className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* AI Response panel */}
           {hasAI && (
             <div className="rounded-xl border border-primary-200 bg-primary-50/50 dark:border-primary-800/50 dark:bg-primary-950/20">

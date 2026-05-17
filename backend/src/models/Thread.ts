@@ -10,6 +10,19 @@ export interface AIResponseData {
   resolved: boolean;
 }
 
+export interface SimilarProblemData {
+  docId: string;
+  threadId: string;
+  title: string;
+  tags: string[];
+  solution: string;
+  threadSummary: string;
+  similarity: number;
+  qualityScore: number;
+  combinedScore: number;
+  reasons: string[];
+}
+
 export interface IThread extends Document {
   title: string;
   subject: string;
@@ -19,6 +32,7 @@ export interface IThread extends Document {
   participants: Types.ObjectId[];
   status: ThreadStatus;
   aiResponse?: AIResponseData;
+  similarProblems: SimilarProblemData[];
   matchedExperts: Types.ObjectId[];
   solutionMsgId?: Types.ObjectId;
   isSolved: boolean;
@@ -40,6 +54,22 @@ const AIResponseSchema = new Schema<AIResponseData>(
   { _id: false }
 );
 
+const SimilarProblemSchema = new Schema<SimilarProblemData>(
+  {
+    docId: { type: String, required: true },
+    threadId: { type: String, required: true },
+    title: { type: String, required: true },
+    tags: { type: [String], default: [] },
+    solution: { type: String, default: "" },
+    threadSummary: { type: String, default: "" },
+    similarity: { type: Number, default: 0 },
+    qualityScore: { type: Number, default: 0 },
+    combinedScore: { type: Number, default: 0 },
+    reasons: { type: [String], default: [] },
+  },
+  { _id: false }
+);
+
 const ThreadSchema = new Schema<IThread>(
   {
     title: { type: String, required: true },
@@ -55,6 +85,7 @@ const ThreadSchema = new Schema<IThread>(
       index: true,
     },
     aiResponse: { type: AIResponseSchema },
+    similarProblems: { type: [SimilarProblemSchema], default: [] },
     matchedExperts: [{ type: Schema.Types.ObjectId, ref: "User" }],
     solutionMsgId: { type: Schema.Types.ObjectId, ref: "Message" },
     isSolved: { type: Boolean, default: false },

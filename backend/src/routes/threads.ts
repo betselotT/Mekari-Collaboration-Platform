@@ -11,6 +11,7 @@ import { runAIPipeline } from "../services/aiPipeline";
 import { broadcastToRoom, roomName } from "../services/realtime";
 import { createThreadMessage, threadMessageSchema } from "../services/threadMessages";
 import { generateContentTags, normalizeContentTags } from "../services/tagExtraction";
+import { findSimilarProblems } from "../services/similarProblems";
 
 const router = Router();
 
@@ -218,6 +219,31 @@ router.get("/:threadId", requireAuth, async (req: AuthRequest, res, next) => {
 
     if (!thread) return res.status(404).json({ error: { message: "Thread not found" } });
     res.json({ thread });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /:threadId/similar - retrieve solved threads/knowledge docs related to this thread
+router.get("/:threadId/similar", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const thread = await Thread.findById(req.params.threadId);
+    if (!thread) return res.status(404).json({ error: { message: "Thread not found" } });
+
+    const similarProblems = await findSimilarProblems({
+      threadId: String(thread._id),
+      title: thread.title,
+      body: thread.body ?? "",
+      subject: thread.subject,
+      tags: thread.tags,
+      limit: Math.min(10, Math.max(1, Number(req.query.limit ?? 5))),
+    });
+
+    await Thread.findByIdAndUpdate(thread._id, {
+      $set: { similarProblems },
+    });
+
+    res.json({ problems: similarProblems });
   } catch (err) {
     next(err);
   }
