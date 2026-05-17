@@ -27,7 +27,7 @@ function normalizeTag(tag: string) {
     .slice(0, 40);
 }
 
-function uniqueTags(tags: string[]) {
+export function normalizeContentTags(tags: string[]) {
   const seen = new Set<string>();
   const normalized: string[] = [];
   for (const tag of tags) {
@@ -41,7 +41,7 @@ function uniqueTags(tags: string[]) {
 }
 
 function fallbackTags(text: string) {
-  return uniqueTags(
+  return normalizeContentTags(
     KEYWORD_TAGS.flatMap(([pattern, tag]) => (pattern.test(text) ? [tag] : []))
   );
 }
@@ -52,13 +52,13 @@ function parseTags(raw: string) {
   try {
     const parsed = JSON.parse(jsonSource) as { tags?: unknown };
     if (Array.isArray(parsed.tags)) {
-      return uniqueTags(parsed.tags.filter((tag): tag is string => typeof tag === "string"));
+      return normalizeContentTags(parsed.tags.filter((tag): tag is string => typeof tag === "string"));
     }
   } catch {
     // Fall through to simple parsing for non-JSON model output.
   }
 
-  return uniqueTags(
+  return normalizeContentTags(
     raw
       .split(/[\n,]/)
       .map((tag) => tag.replace(/^[-*\d.\s"'`:[\]{}]+/, ""))
@@ -79,7 +79,7 @@ export async function generateContentTags(input: {
   ]
     .filter(Boolean)
     .join("\n");
-  const existingTags = uniqueTags(input.existingTags ?? []);
+  const existingTags = normalizeContentTags(input.existingTags ?? []);
 
   try {
     const raw = await callLlm(
@@ -95,9 +95,9 @@ export async function generateContentTags(input: {
     );
 
     const llmTags = parseTags(raw);
-    return uniqueTags([...existingTags, ...llmTags, ...fallbackTags(text)]);
+    return normalizeContentTags([...existingTags, ...llmTags, ...fallbackTags(text)]);
   } catch (err) {
     console.error("[tagExtraction] Gemini tag generation failed", err);
-    return uniqueTags([...existingTags, ...fallbackTags(text)]);
+    return normalizeContentTags([...existingTags, ...fallbackTags(text)]);
   }
 }

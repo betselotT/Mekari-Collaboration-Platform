@@ -67,6 +67,8 @@ router.post("/request", requireAuth, async (req: AuthRequest, res, next) => {
       requesterId: req.userId,
       subject: parsed.subject,
       tags: parsed.tags,
+      title: parsed.title,
+      body: parsed.initialMessage,
       availabilityPreference: parsed.availabilityPreference,
       limit: 5,
     });
@@ -122,4 +124,3 @@ router.get("/requests/:matchRequestId", requireAuth, async (req: AuthRequest, re
 });
 
 export const matchingRouter = router;
-

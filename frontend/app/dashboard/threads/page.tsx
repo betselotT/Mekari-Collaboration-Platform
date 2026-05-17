@@ -6,7 +6,7 @@ import { DashboardLayout } from "../../../components/layout";
 import { ThreadCard } from "../../../components/features/ThreadCard";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
-import { MessageCircle, Plus } from "lucide-react";
+import { MessageCircle, Plus, Users } from "lucide-react";
 import { apiClient } from "../../../lib/api";
 
 export default function ThreadsPage() {
@@ -22,10 +22,12 @@ function ThreadsContent() {
   const [threads, setThreads] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [latestMatch, setLatestMatch] = useState<any | null>(null);
 
   const [showNewThread, setShowNewThread] = useState(false);
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
+  const [manualTags, setManualTags] = useState("");
   const [initialMessage, setInitialMessage] = useState("");
   const [creating, setCreating] = useState(false);
 
@@ -61,10 +63,23 @@ function ThreadsContent() {
     setCreating(true);
     setError(null);
     try {
-      await apiClient.post("/api/threads", { title, subject, initialMessage });
+
+      const tags = manualTags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+      await apiClient.post("/api/threads", { title, subject, initialMessage, tags });
+
+      const res = await apiClient.post("/api/threads", { title, subject, initialMessage });
+      setLatestMatch({
+        thread: res.data.thread,
+        suggestedExperts: res.data.suggestedExperts || [],
+      });
+
       setShowNewThread(false);
       setTitle("");
       setSubject("");
+      setManualTags("");
       setInitialMessage("");
       await loadThreads();
     } catch (e: any) {
@@ -100,6 +115,62 @@ function ThreadsContent() {
         </div>
       )}
 
+      {latestMatch && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-950/30">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-amber-700 dark:text-amber-300" />
+              <div>
+                <h3 className="text-sm font-bold text-amber-950 dark:text-amber-100">
+                  Suggested mentors for your new thread
+                </h3>
+                <p className="text-xs text-amber-800 dark:text-amber-200">
+                  Based on the generated tags and mentor expertise.
+                </p>
+              </div>
+            </div>
+            <a
+              href={`/dashboard/threads/${latestMatch.thread?._id || latestMatch.thread?.id}`}
+              className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+            >
+              Open thread
+            </a>
+          </div>
+
+          {latestMatch.suggestedExperts.length === 0 ? (
+            <p className="text-sm text-amber-900 dark:text-amber-100">
+              No mentor matched strongly yet. Broader tags or more detail can improve matching.
+            </p>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-3">
+              {latestMatch.suggestedExperts.map((rec: any) => {
+                const expert = rec.expert;
+                const expertise = expert.expertise?.[0]?.subject || expert.skillTags?.[0] || "Mentor";
+                return (
+                  <div
+                    key={expert._id}
+                    className="rounded-lg border border-amber-200 bg-white p-3 dark:border-amber-900/40 dark:bg-neutral-900"
+                  >
+                    <div className="text-sm font-bold text-neutral-900 dark:text-white">
+                      {expert.name}
+                    </div>
+                    <div className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                      {expertise} - {expert.availabilityStatus}
+                    </div>
+                    <div className="mt-2 rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                      Match score {Math.round(rec.score)}
+                    </div>
+                    <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                      {rec.reasons?.[0] || "Relevant mentor"}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* New thread modal */}
       {showNewThread && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -108,7 +179,7 @@ function ThreadsContent() {
               <div>
                 <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Create a new thread</h3>
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                  Add a clear title, subject, and your first message.
+                  Add your own tags. Gemini will add extra topic tags from the content.
                 </p>
               </div>
               <button
@@ -122,6 +193,12 @@ function ThreadsContent() {
             <div className="space-y-4">
               <Input label="Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Min 5 characters" />
               <Input label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g., Software Engineering" />
+              <Input
+                label="Your tags"
+                value={manualTags}
+                onChange={(e) => setManualTags(e.target.value)}
+                placeholder="e.g., mongodb, indexing, performance"
+              />
               <div>
                 <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
                   Initial message
