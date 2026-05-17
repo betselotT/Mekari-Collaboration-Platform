@@ -1,3 +1,7 @@
+// Defines the expected structure of the match request API response.
+// Includes generated discussion thread information,
+// request metadata, and ranked expert recommendations
+// returned from the matching engine.
 "use client";
 
 import { Suspense, useMemo, useState, useEffect } from "react";
@@ -30,7 +34,9 @@ type MatchRequestResponse = {
     }>;
   };
 };
-
+// Wrapper page component for the expert matching feature.
+// Suspense is used here to support async search param handling
+// and avoid rendering issues during client-side navigation.
 export default function MatchPage() {
   return (
     <Suspense fallback={null}>
@@ -45,7 +51,10 @@ function MatchContent() {
   const [subject, setSubject] = useState("");
   const [tags, setTags] = useState("");
 
-  // Pre-fill from URL params when navigating from experts page
+  // Pre-populates matching fields using URL query parameters.
+// This supports smoother navigation flows when users
+// initiate matching from related pages such as
+// expert discovery or recommendation views.
   useEffect(() => {
     const s = searchParams?.get("subject");
     const t = searchParams?.get("tags");
@@ -77,7 +86,10 @@ function MatchContent() {
         .filter(Boolean),
     [tags]
   );
-
+// Submits the expert matching request to the backend service.
+// Handles loading state, error management,
+// and stores recommendation results for display
+// after successful response processing.
   async function submit() {
     setLoading(true);
     setError(null);
