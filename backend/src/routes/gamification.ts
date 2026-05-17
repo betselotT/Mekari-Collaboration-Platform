@@ -57,24 +57,5 @@ router.get("/leaderboards", requireAuth, async (_req: AuthRequest, res, next) =>
   }
 });
 
-router.post("/reward", requireAuth, async (req: AuthRequest, res, next) => {
-  try {
-    const { userId, points } = req.body as { userId: string; points: number };
-    if (!userId || typeof points !== "number") {
-      return res.status(400).json({ error: { message: "Invalid payload" } });
-    }
-
-    const updated = await User.findByIdAndUpdate(
-      userId,
-      { $inc: { points } },
-      { new: true }
-    ).select("name points badges");
-
-    res.json({ user: updated });
-  } catch (err) {
-    next(err);
-  }
-});
-
 export const gamificationRouter = router;
 

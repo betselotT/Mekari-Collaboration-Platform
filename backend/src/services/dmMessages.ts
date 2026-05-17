@@ -3,6 +3,7 @@ import { z } from "zod";
 import { DmConversation } from "../models/DmConversation";
 import { Message, type MessageType } from "../models/Message";
 import { User } from "../models/User";
+import { awardPoints } from "./awardPoints";
 import { createGoogleMeetSpace } from "./googleMeet";
 import { createNotification } from "./notifications";
 import { broadcastToRoom, broadcastToUser, roomName } from "./realtime";
@@ -16,6 +17,18 @@ export const dmMessageSchema = z.object({
   type: z.enum(["TEXT", "CODE", "IMAGE", "FILE", "SYSTEM_EVENT"]).optional(),
   parentMessageId: z.string().optional(),
 });
+
+export const endDmSessionSchema = z.object({
+  helpDelivered: z.boolean().default(false),
+});
+
+const MIN_HELPFUL_LIVE_SESSION_MINUTES = Number(
+  process.env.MIN_HELPFUL_LIVE_SESSION_MINUTES || 2
+);
+const MIN_HELPFUL_LIVE_SESSION_MS =
+  Number.isFinite(MIN_HELPFUL_LIVE_SESSION_MINUTES) && MIN_HELPFUL_LIVE_SESSION_MINUTES > 0
+    ? MIN_HELPFUL_LIVE_SESSION_MINUTES * 60 * 1000
+    : 10 * 60 * 1000;
 
 function participantKey(userIdA: string, userIdB: string) {
   return [String(userIdA), String(userIdB)].sort().join(":");
@@ -248,6 +261,7 @@ export async function startDmSession(conversationId: string, userId: string) {
     body: `Live session started. Join here: ${created.meetLink}`,
     type: "SYSTEM_EVENT",
   });
+
   const populatedMessage = await systemMsg.populate("sender", "name avatarUrl role");
   const messagePayload = {
     _id: systemMsg.id,
@@ -308,7 +322,11 @@ export async function getActiveDmSession(conversationId: string, userId: string)
   return serializeDmSession(conversation);
 }
 
-export async function endDmSession(conversationId: string, userId: string) {
+export async function endDmSession(
+  conversationId: string,
+  userId: string,
+  options: z.infer<typeof endDmSessionSchema> = { helpDelivered: false }
+) {
   const conversation = await getConversationForUser(conversationId, userId);
   if (!conversation) throw forbidden();
 
@@ -318,9 +336,14 @@ export async function endDmSession(conversationId: string, userId: string) {
     throw error;
   }
 
+  const sessionStartedAt = new Date(conversation.activeSession.startedAt);
+  const sessionEndedAt = new Date();
+  const durationMs = sessionEndedAt.getTime() - sessionStartedAt.getTime();
+  const helpConfirmed = options.helpDelivered;
+
   conversation.activeSession.status = "ended";
   conversation.activeSession.endedBy = new mongoose.Types.ObjectId(userId);
-  conversation.activeSession.endedAt = new Date();
+  conversation.activeSession.endedAt = sessionEndedAt;
   conversation.lastMessagePreview = "Live session ended";
   conversation.lastMessageAt = new Date();
   await conversation.save();
@@ -331,6 +354,24 @@ export async function endDmSession(conversationId: string, userId: string) {
     body: "Live session ended.",
     type: "SYSTEM_EVENT",
   });
+
+  const helpedInLiveSessionAwarded =
+    helpConfirmed && durationMs >= MIN_HELPFUL_LIVE_SESSION_MS;
+  let helpedInLiveSessionPoints:
+    | { pointsAwarded: number; totalPoints: number; awardedToUserId: string }
+    | null = null;
+  if (helpedInLiveSessionAwarded) {
+    const awarded = await awardPoints(
+      String(conversation.expert),
+      "HELPED_IN_LIVE_SESSION",
+      String(systemMsg._id)
+    );
+    helpedInLiveSessionPoints = {
+      ...awarded,
+      awardedToUserId: String(conversation.expert),
+    };
+  }
+
   const populatedMessage = await systemMsg.populate("sender", "name avatarUrl role");
   const messagePayload = {
     _id: systemMsg.id,
@@ -358,7 +399,17 @@ export async function endDmSession(conversationId: string, userId: string) {
     });
   }
 
-  return { session, message: populatedMessage };
+  return {
+    session,
+    message: populatedMessage,
+    gamification: {
+      helpedInLiveSessionAwarded,
+      durationMs,
+      minDurationMs: MIN_HELPFUL_LIVE_SESSION_MS,
+      helpConfirmed,
+      helpedInLiveSessionPoints,
+    },
+  };
 }
 
 export async function deleteDmMessage(conversationId: string, messageId: string, userId: string) {

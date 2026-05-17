@@ -7,6 +7,7 @@ import {
   deleteDmMessage,
   dmMessageSchema,
   endDmSession,
+  endDmSessionSchema,
   findOrCreateDmConversation,
   getActiveDmSession,
   getConversationForUser,
@@ -143,7 +144,8 @@ router.post(
   requireAuth,
   async (req: AuthRequest, res, next) => {
     try {
-      const result = await endDmSession(req.params.conversationId, String(req.userId));
+      const parsed = endDmSessionSchema.parse(req.body || {});
+      const result = await endDmSession(req.params.conversationId, String(req.userId), parsed);
       res.json(result);
     } catch (err) {
       const status = statusFromError(err);

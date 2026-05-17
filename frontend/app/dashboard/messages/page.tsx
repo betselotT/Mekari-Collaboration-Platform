@@ -412,11 +412,15 @@ function MessagesContent() {
 
   async function endSession() {
     if (!activeId || endingSession) return;
+    const helpDelivered = window.confirm(
+      "Did this live session include meaningful help? Select OK to confirm help was delivered, or Cancel to end without help confirmation."
+    );
     setEndingSession(true);
     setError(null);
     try {
       const res = await apiClient.post<{ session: DmSession; message?: DmMessage }>(
-        `/api/dms/conversations/${activeId}/session/end`
+        `/api/dms/conversations/${activeId}/session/end`,
+        { helpDelivered }
       );
       setConversations((prev) =>
         prev.map((conversation) =>

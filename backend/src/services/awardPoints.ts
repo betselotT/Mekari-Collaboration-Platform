@@ -4,11 +4,11 @@ import { Notification } from "../models/Notification";
 import { broadcastToUser } from "./realtime";
 
 const POINT_VALUES: Record<PointEventType, number> = {
-  ANSWERED_QUESTION: 10,
-  ANSWER_MARKED_SOLUTION: 25,
-  RECEIVED_UPVOTE: 5,
-  HELPED_IN_LIVE_SESSION: 15,
-  FIRST_ANSWER_OF_DAY: 5,
+  ANSWERED_QUESTION: 5,
+  ANSWER_MARKED_SOLUTION: 20,
+  RECEIVED_UPVOTE: 15,
+  HELPED_IN_LIVE_SESSION: 25,
+  FIRST_ANSWER_OF_DAY: 10,
 };
 
 async function emitNotification(userId: string, notif: { id: string; type: string; message: string; link: string; createdAt: Date }): Promise<void> {
@@ -16,7 +16,7 @@ async function emitNotification(userId: string, notif: { id: string; type: strin
 }
 
 async function checkAndAwardBadges(userId: string): Promise<void> {
-  const user = await User.findById(userId).select("badges points");
+  const user = await User.findById(userId).select("badges points role");
   if (!user) return;
 
   const newBadges: string[] = [];
@@ -31,8 +31,8 @@ async function checkAndAwardBadges(userId: string): Promise<void> {
     if (count >= 10) newBadges.push("Reliable");
   }
 
-  if (!user.badges.includes("Top Expert") && user.points >= 500) {
-    const rank = await User.countDocuments({ points: { $gt: user.points } });
+  if (!user.badges.includes("Top Expert") && user.role === "expert" && user.points >= 500) {
+    const rank = await User.countDocuments({ role: "expert", points: { $gt: user.points } });
     if (rank < 10) newBadges.push("Top Expert");
   }
 
@@ -62,9 +62,19 @@ export async function awardPoints(
   userId: string,
   eventType: PointEventType,
   refId: string
-): Promise<void> {
+): Promise<{ pointsAwarded: number; totalPoints: number }> {
   const pts = POINT_VALUES[eventType];
   await PointEvent.create({ userId, eventType, points: pts, refId });
-  await User.findByIdAndUpdate(userId, { $inc: { points: pts } });
+  const updated = await User.findByIdAndUpdate(
+    userId,
+    { $inc: { points: pts } },
+    { new: true }
+  ).select("points");
+  if (!updated) {
+    const error = new Error("Point recipient not found") as Error & { status?: number };
+    error.status = 404;
+    throw error;
+  }
   await checkAndAwardBadges(userId);
+  return { pointsAwarded: pts, totalPoints: updated.points };
 }
