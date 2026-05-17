@@ -5,12 +5,18 @@ import { messageRateLimiter } from "../middleware/messageRateLimiter";
 import { Thread } from "../models/Thread";
 import { Message } from "../models/Message";
 import { PointEvent } from "../models/PointEvent";
+import { User } from "../models/User";
 import { awardPoints } from "../services/awardPoints";
 import { captureKnowledge } from "../services/knowledgeCapture";
 import { runAIPipeline } from "../services/aiPipeline";
 import { broadcastToRoom, roomName } from "../services/realtime";
 import { createThreadMessage, threadMessageSchema } from "../services/threadMessages";
+
 import { generateContentTags, normalizeContentTags } from "../services/tagExtraction";
+
+import { recommendExperts } from "../services/matching";
+import { createNotification } from "../services/notifications";
+
 
 const router = Router();
 
@@ -267,6 +273,17 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
       body: [parsed.body, parsed.initialMessage].filter(Boolean).join("\n\n"),
       existingTags: parsed.tags,
     });
+    const questionText = [parsed.body, parsed.initialMessage].filter(Boolean).join("\n\n");
+    const recommendations = await recommendExperts({
+      requesterId: req.userId,
+      subject: parsed.subject,
+      tags,
+      title: parsed.title,
+      body: questionText,
+      availabilityPreference: "any",
+      limit: 3,
+    });
+    const recommendedExpertIds = recommendations.map((rec) => rec.expertId);
 
     const thread = await Thread.create({
       title: parsed.title,
@@ -275,6 +292,7 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
       tags,
       createdBy: req.userId,
       participants: [req.userId],
+      matchedExperts: recommendedExpertIds,
       status: "OPEN",
     });
 
@@ -286,8 +304,45 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
       isFromAi: false,
     });
 
+    const experts = await User.find({ _id: { $in: recommendedExpertIds } })
+      .select("name avatarUrl expertise skillTags availabilityStatus points badges")
+      .lean();
+    const expertMap = new Map(experts.map((expert) => [String(expert._id), expert]));
+    const suggestedExperts = recommendations
+      .map((rec) => {
+        const expert = expertMap.get(rec.expertId);
+        if (!expert) return null;
+        return {
+          expert,
+          score: rec.score,
+          reasons: rec.reasons,
+        };
+      })
+      .filter(Boolean);
+
+    await Promise.all(
+      recommendedExpertIds.map((expertId) =>
+        createNotification({
+          userId: expertId,
+          category: "chat",
+          type: "expert_suggested",
+          title: "Matched to a learner question",
+          message: `You may be able to help with: "${thread.title}"`,
+          link: `/dashboard/threads/${thread.id}`,
+        })
+      )
+    );
+
+    await thread.populate([
+      { path: "createdBy", select: "name avatarUrl" },
+      {
+        path: "matchedExperts",
+        select: "name avatarUrl expertise skillTags availabilityStatus points badges",
+      },
+    ]);
+
     // Respond to client immediately, then fire AI pipeline
-    res.status(201).json({ thread });
+    res.status(201).json({ thread, suggestedExperts });
 
     setImmediate(() => {
       runAIPipeline(String(thread._id)).catch((err) =>
