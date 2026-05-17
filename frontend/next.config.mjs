@@ -1,6 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
+    ],
+  },
   async rewrites() {
     // Proxy all /api/* requests to the Express backend so the frontend never
     // makes cross-origin requests — eliminates CORS issues in development.

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { DmConversation } from "../models/DmConversation";
 import { Message, type MessageType } from "../models/Message";
 import { User } from "../models/User";
+import { createGoogleMeetSpace } from "./googleMeet";
 import { createNotification } from "./notifications";
 import { broadcastToRoom, broadcastToUser, roomName } from "./realtime";
 
@@ -87,6 +88,21 @@ export async function listDmMessages(conversationId: string, userId: string) {
     .populate("sender", "name avatarUrl role");
 }
 
+function serializeDmSession(conversation: Awaited<ReturnType<typeof getConversationForUser>>) {
+  const session = conversation?.activeSession;
+  if (!session) return null;
+
+  return {
+    meetLink: session.meetLink,
+    meetSpaceName: session.meetSpaceName,
+    status: session.status,
+    startedBy: String(session.startedBy),
+    startedAt: session.startedAt,
+    endedBy: session.endedBy ? String(session.endedBy) : undefined,
+    endedAt: session.endedAt,
+  };
+}
+
 export async function createDmMessage(input: {
   conversationId: string;
   userId: string;
@@ -163,6 +179,186 @@ export async function createDmMessage(input: {
   );
 
   return { message: populated, payload };
+}
+
+export async function startDmSession(conversationId: string, userId: string) {
+  const conversation = await getConversationForUser(conversationId, userId);
+  if (!conversation) throw forbidden();
+
+  if (conversation.activeSession?.status === "active") {
+    return { session: serializeDmSession(conversation), alreadyActive: true };
+  }
+
+  if (conversation.activeSession?.status === "creating") {
+    const error = new Error("A live session is already being created") as Error & { status?: number };
+    error.status = 409;
+    throw error;
+  }
+
+  const participantIds = conversation.participants.map((participantId) => String(participantId));
+  const locked = await DmConversation.findOneAndUpdate(
+    {
+      _id: conversationId,
+      participants: userId,
+      $or: [
+        { activeSession: { $exists: false } },
+        { "activeSession.status": "ended" },
+      ],
+    },
+    {
+      $set: {
+        activeSession: {
+          meetLink: "creating",
+          status: "creating",
+          startedBy: userId,
+          startedAt: new Date(),
+        },
+      },
+    },
+    { new: true }
+  );
+
+  if (!locked) {
+    const existing = await getConversationForUser(conversationId, userId);
+    return { session: serializeDmSession(existing), alreadyActive: true };
+  }
+
+  let created: { meetLink: string; meetSpaceName?: string };
+  try {
+    created = await createGoogleMeetSpace();
+  } catch (err) {
+    await DmConversation.findByIdAndUpdate(conversationId, { $unset: { activeSession: "" } });
+    throw err;
+  }
+
+  conversation.activeSession = {
+    meetLink: created.meetLink,
+    meetSpaceName: created.meetSpaceName,
+    status: "active",
+    startedBy: new mongoose.Types.ObjectId(userId),
+    startedAt: new Date(),
+  };
+  conversation.lastMessagePreview = "Live session started";
+  conversation.lastMessageAt = new Date();
+  await conversation.save();
+
+  const systemMsg = await Message.create({
+    conversation: conversationId,
+    sender: userId,
+    body: `Live session started. Join here: ${created.meetLink}`,
+    type: "SYSTEM_EVENT",
+  });
+  const populatedMessage = await systemMsg.populate("sender", "name avatarUrl role");
+  const messagePayload = {
+    _id: systemMsg.id,
+    id: systemMsg.id,
+    conversation: conversationId,
+    sender: populatedMessage.sender,
+    body: systemMsg.body,
+    type: systemMsg.type,
+    parentMessageId: systemMsg.parentMessageId,
+    createdAt: systemMsg.createdAt,
+  };
+  const session = serializeDmSession(conversation);
+
+  await broadcastToRoom(roomName("dm", conversationId), "dm_session_updated", {
+    conversationId,
+    session,
+    message: messagePayload,
+  });
+  await broadcastToRoom(roomName("dm", conversationId), "new_dm_message", messagePayload);
+  for (const participantId of participantIds) {
+    await broadcastToUser(participantId, "dm_conversation_updated", {
+      conversationId,
+      message: messagePayload,
+      session,
+    });
+  }
+
+  const sender = populatedMessage.sender as unknown as { name?: string };
+  const senderName = sender?.name || "Someone";
+  await Promise.all(
+    participantIds
+      .filter((participantId) => participantId !== String(userId))
+      .map((participantId) =>
+        createNotification({
+          userId: participantId,
+          category: "chat",
+          type: "dm_session_started",
+          title: "Live session started",
+          message: `${senderName} started a Google Meet session in your DM.`,
+          link: `/dashboard/messages?conversation=${conversationId}`,
+        })
+      )
+  );
+
+  return { session, message: populatedMessage, alreadyActive: false };
+}
+
+export async function getActiveDmSession(conversationId: string, userId: string) {
+  const conversation = await getConversationForUser(conversationId, userId);
+  if (!conversation) throw forbidden();
+
+  if (!conversation.activeSession || conversation.activeSession.status !== "active") {
+    const error = new Error("No active session to join") as Error & { status?: number };
+    error.status = 404;
+    throw error;
+  }
+
+  return serializeDmSession(conversation);
+}
+
+export async function endDmSession(conversationId: string, userId: string) {
+  const conversation = await getConversationForUser(conversationId, userId);
+  if (!conversation) throw forbidden();
+
+  if (!conversation.activeSession || conversation.activeSession.status !== "active") {
+    const error = new Error("No active session to end") as Error & { status?: number };
+    error.status = 409;
+    throw error;
+  }
+
+  conversation.activeSession.status = "ended";
+  conversation.activeSession.endedBy = new mongoose.Types.ObjectId(userId);
+  conversation.activeSession.endedAt = new Date();
+  conversation.lastMessagePreview = "Live session ended";
+  conversation.lastMessageAt = new Date();
+  await conversation.save();
+
+  const systemMsg = await Message.create({
+    conversation: conversationId,
+    sender: userId,
+    body: "Live session ended.",
+    type: "SYSTEM_EVENT",
+  });
+  const populatedMessage = await systemMsg.populate("sender", "name avatarUrl role");
+  const messagePayload = {
+    _id: systemMsg.id,
+    id: systemMsg.id,
+    conversation: conversationId,
+    sender: populatedMessage.sender,
+    body: systemMsg.body,
+    type: systemMsg.type,
+    parentMessageId: systemMsg.parentMessageId,
+    createdAt: systemMsg.createdAt,
+  };
+  const session = serializeDmSession(conversation);
+
+  await broadcastToRoom(roomName("dm", conversationId), "dm_session_updated", {
+    conversationId,
+    session,
+    message: messagePayload,
+  });
+  await broadcastToRoom(roomName("dm", conversationId), "new_dm_message", messagePayload);
+  for (const participantId of conversation.participants) {
+    await broadcastToUser(String(participantId), "dm_conversation_updated", {
+      conversationId,
+      message: messagePayload,
+      session,
+    });
+  }
+
+  return { session, message: populatedMessage };
 }
 
 export async function deleteDmMessage(conversationId: string, messageId: string, userId: string) {
