@@ -48,6 +48,10 @@ See CONTRIBUTING.md (to be added) for detailed guidelines.
 #### License
 This project is developed as part of an academic capstone.
 
+#### Setting Up
+
+To get this project up and running on your local machine, please follow our detailed [Setup Guide](SETUP.md).
+
 ### Team Members
 1.  Betselot Tesfa (ETS0327/14)
 2.	Edom Mulugeta	(ETS0503/14)
