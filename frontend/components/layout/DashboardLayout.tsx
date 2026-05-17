@@ -3,13 +3,13 @@
 import { ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
-
+// Props for configuring the dashboard layout structure and header content
 interface DashboardLayoutProps {
   children: ReactNode;
   title?: string;
   searchPlaceholder?: string;
 }
-
+// Main dashboard layout wrapper with shared sidebar and header navigation
 export function DashboardLayout({
   children,
   title = "Dashboard",
