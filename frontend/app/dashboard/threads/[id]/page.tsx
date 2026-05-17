@@ -122,6 +122,10 @@ export default function ThreadDetailPage() {
   const [upvotingMessageId, setUpvotingMessageId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [sessionStarting, setSessionStarting] = useState(false);
+  const [isEditingTags, setIsEditingTags] = useState(false);
+  const [tagDraft, setTagDraft] = useState("");
+  const [tagError, setTagError] = useState<string | null>(null);
+  const [savingTags, setSavingTags] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -321,6 +325,33 @@ export default function ThreadDetailPage() {
     }
   }
 
+  function startTagEdit() {
+    setTagDraft(thread?.tags.join(", ") || "");
+    setTagError(null);
+    setIsEditingTags(true);
+  }
+
+  async function saveTags() {
+    if (!thread || savingTags) return;
+    setSavingTags(true);
+    setTagError(null);
+    try {
+      const tags = tagDraft
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+      const res = await apiClient.patch<{ thread: Thread }>(`/api/threads/${threadId}/tags`, {
+        tags,
+      });
+      setThread(res.data.thread);
+      setIsEditingTags(false);
+    } catch (err: any) {
+      setTagError(err?.response?.data?.error?.message || "Failed to update tags");
+    } finally {
+      setSavingTags(false);
+    }
+  }
+
   const getParentMessage = (parentId?: string) => {
   if (!parentId) return null;
   return messages.find((m) => getMessageId(m) === parentId);
@@ -403,7 +434,43 @@ export default function ThreadDetailPage() {
               {tag}
             </Badge>
           ))}
+          {isAuthor && (
+            <button
+              type="button"
+              onClick={startTagEdit}
+              className="rounded border border-neutral-300 px-2 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            >
+              Edit tags
+            </button>
+          )}
         </div>
+        {isEditingTags && (
+          <div className="mb-3 rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
+            <label className="mb-2 block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+              Tags
+            </label>
+            <input
+              value={tagDraft}
+              onChange={(event) => setTagDraft(event.target.value)}
+              placeholder="mongodb, indexing, performance"
+              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+            />
+            {tagError && <p className="mt-2 text-xs text-rose-600 dark:text-rose-300">{tagError}</p>}
+            <div className="mt-3 flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setIsEditingTags(false)}
+                disabled={savingTags}
+              >
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" onClick={saveTags} isLoading={savingTags}>
+                Save tags
+              </Button>
+            </div>
+          </div>
+        )}
         <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">{thread.title}</h1>
         {thread.body && (
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">{thread.body}</p>

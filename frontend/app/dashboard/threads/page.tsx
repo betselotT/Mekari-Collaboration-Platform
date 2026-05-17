@@ -26,6 +26,7 @@ function ThreadsContent() {
   const [showNewThread, setShowNewThread] = useState(false);
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
+  const [manualTags, setManualTags] = useState("");
   const [initialMessage, setInitialMessage] = useState("");
   const [creating, setCreating] = useState(false);
 
@@ -61,10 +62,15 @@ function ThreadsContent() {
     setCreating(true);
     setError(null);
     try {
-      await apiClient.post("/api/threads", { title, subject, initialMessage });
+      const tags = manualTags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+      await apiClient.post("/api/threads", { title, subject, initialMessage, tags });
       setShowNewThread(false);
       setTitle("");
       setSubject("");
+      setManualTags("");
       setInitialMessage("");
       await loadThreads();
     } catch (e: any) {
@@ -108,7 +114,7 @@ function ThreadsContent() {
               <div>
                 <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Create a new thread</h3>
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                  Add a clear title, subject, and your first message.
+                  Add your own tags. Gemini will add extra topic tags from the content.
                 </p>
               </div>
               <button
@@ -122,6 +128,12 @@ function ThreadsContent() {
             <div className="space-y-4">
               <Input label="Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Min 5 characters" />
               <Input label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g., Software Engineering" />
+              <Input
+                label="Your tags"
+                value={manualTags}
+                onChange={(e) => setManualTags(e.target.value)}
+                placeholder="e.g., mongodb, indexing, performance"
+              />
               <div>
                 <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
                   Initial message
