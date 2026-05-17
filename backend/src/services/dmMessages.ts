@@ -23,7 +23,7 @@ export const endDmSessionSchema = z.object({
 });
 
 const MIN_HELPFUL_LIVE_SESSION_MINUTES = Number(
-  process.env.MIN_HELPFUL_LIVE_SESSION_MINUTES || 2
+  process.env.MIN_HELPFUL_LIVE_SESSION_MINUTES || 10
 );
 const MIN_HELPFUL_LIVE_SESSION_MS =
   Number.isFinite(MIN_HELPFUL_LIVE_SESSION_MINUTES) && MIN_HELPFUL_LIVE_SESSION_MINUTES > 0

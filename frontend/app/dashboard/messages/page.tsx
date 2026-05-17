@@ -1,8 +1,19 @@
 "use client";
 
-import { FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ExternalLink, MessageCircle, Reply, Send, Square, Trash2, Video, X } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ExternalLink,
+  MessageCircle,
+  Reply,
+  Send,
+  Square,
+  Trash2,
+  Video,
+  X,
+} from "lucide-react";
 import type { Socket } from "socket.io-client";
 import { DashboardLayout } from "../../../components/layout/DashboardLayout";
 import { Avatar } from "../../../components/ui/Avatar";
@@ -76,6 +87,198 @@ export default function MessagesPage() {
   );
 }
 
+function ConfirmDialog({
+  open,
+  title,
+  description,
+  tone = "default",
+  confirmLabel,
+  cancelLabel,
+  isLoading,
+  icon,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  title: string;
+  description: string;
+  tone?: "default" | "danger";
+  confirmLabel: string;
+  cancelLabel: string;
+  isLoading?: boolean;
+  icon: ReactNode;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open) return null;
+
+  const accent =
+    tone === "danger"
+      ? "bg-rose-50 text-rose-600 ring-rose-100 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-900/50"
+      : "bg-primary-50 text-primary-600 ring-primary-100 dark:bg-primary-950/40 dark:text-primary-300 dark:ring-primary-900/50";
+  const confirmClass =
+    tone === "danger"
+      ? "bg-rose-600 text-white hover:bg-rose-700 disabled:bg-rose-400"
+      : "bg-primary-600 text-white hover:bg-primary-700 disabled:bg-primary-400";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/50 px-4 py-6 backdrop-blur-sm">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        className="w-full max-w-md rounded-lg border border-neutral-200 bg-white p-5 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+      >
+        <div className="flex items-start gap-3">
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ring-1 ${accent}`}>
+            {icon}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 id="confirm-dialog-title" className="text-base font-bold text-neutral-900 dark:text-white">
+              {title}
+            </h2>
+            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{description}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isLoading}
+            className="rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+            aria-label="Close dialog"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isLoading}
+            className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-800 transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+          >
+            {cancelLabel}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isLoading}
+            className={`inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${confirmClass}`}
+          >
+            {isLoading ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : (
+              icon
+            )}
+            {isLoading ? "Working..." : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EndSessionDialog({
+  open,
+  isLoading,
+  mentorName,
+  onCancel,
+  onEnd,
+}: {
+  open: boolean;
+  isLoading: boolean;
+  mentorName: string;
+  onCancel: () => void;
+  onEnd: (helpDelivered: boolean) => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/50 px-4 py-6 backdrop-blur-sm">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="end-session-title"
+        className="w-full max-w-lg rounded-lg border border-neutral-200 bg-white p-5 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900/50">
+            <Video className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 id="end-session-title" className="text-base font-bold text-neutral-900 dark:text-white">
+              End Live Session
+            </h2>
+            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+              Confirm whether {mentorName} delivered meaningful help during this session.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isLoading}
+            className="rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+            aria-label="Close dialog"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => onEnd(true)}
+            disabled={isLoading}
+            className="flex min-h-[92px] flex-col items-start justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-left transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-70 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50"
+          >
+            <span className="inline-flex items-center gap-2 text-sm font-bold text-emerald-800 dark:text-emerald-200">
+              {isLoading ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
+              Mentor was helpful
+            </span>
+            <span className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
+              End session and confirm help was delivered.
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onEnd(false)}
+            disabled={isLoading}
+            className="flex min-h-[92px] flex-col items-start justify-center rounded-lg border border-neutral-200 bg-white px-4 py-3 text-left transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:bg-neutral-800"
+          >
+            <span className="inline-flex items-center gap-2 text-sm font-bold text-neutral-800 dark:text-neutral-100">
+              {isLoading ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <AlertTriangle className="h-4 w-4" />
+              )}
+              End without reward
+            </span>
+            <span className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+              End session without confirming mentor help.
+            </span>
+          </button>
+        </div>
+
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isLoading}
+            className="inline-flex min-h-[38px] items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MessagesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -95,6 +298,8 @@ function MessagesContent() {
   const [error, setError] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<DmMessage | null>(null);
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DmMessage | null>(null);
+  const [showEndSessionDialog, setShowEndSessionDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -348,16 +553,16 @@ function MessagesContent() {
     submitMessage();
   }
 
-  async function deleteMessage(messageId: string) {
+  async function confirmDeleteMessage() {
+    const messageId = deleteTarget ? getId(deleteTarget) : "";
     if (!activeId || !messageId || deletingMessageId) return;
-    const confirmed = window.confirm("Delete this message?");
-    if (!confirmed) return;
     setDeletingMessageId(messageId);
     setError(null);
     try {
       await apiClient.delete(`/api/dms/conversations/${activeId}/messages/${messageId}`);
       setMessages((prev) => prev.filter((message) => getId(message) !== messageId));
       if (replyTo && getId(replyTo) === messageId) setReplyTo(null);
+      setDeleteTarget(null);
     } catch (e: any) {
       setError(e?.response?.data?.error?.message || "Failed to delete message");
     } finally {
@@ -410,11 +615,8 @@ function MessagesContent() {
     }
   }
 
-  async function endSession() {
+  async function endSession(helpDelivered: boolean) {
     if (!activeId || endingSession) return;
-    const helpDelivered = window.confirm(
-      "Did this live session include meaningful help? Select OK to confirm help was delivered, or Cancel to end without help confirmation."
-    );
     setEndingSession(true);
     setError(null);
     try {
@@ -436,6 +638,7 @@ function MessagesContent() {
           return [...prev, res.data.message!];
         });
       }
+      setShowEndSessionDialog(false);
     } catch (e: any) {
       setError(e?.response?.data?.error?.message || "Failed to end the live session");
     } finally {
@@ -445,6 +648,31 @@ function MessagesContent() {
 
   return (
     <DashboardLayout title="Messages" searchPlaceholder="Search messages...">
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete Message"
+        description="This message will be removed from the conversation."
+        tone="danger"
+        confirmLabel="Delete"
+        cancelLabel="Keep"
+        isLoading={Boolean(deletingMessageId)}
+        icon={<Trash2 className="h-5 w-5" />}
+        onCancel={() => {
+          if (!deletingMessageId) setDeleteTarget(null);
+        }}
+        onConfirm={confirmDeleteMessage}
+      />
+
+      <EndSessionDialog
+        open={showEndSessionDialog}
+        isLoading={endingSession}
+        mentorName={activeConversation?.expert?.name || "mentor"}
+        onCancel={() => {
+          if (!endingSession) setShowEndSessionDialog(false);
+        }}
+        onEnd={(helpDelivered) => endSession(helpDelivered)}
+      />
+
       <div className="mb-6 flex items-center gap-2">
         <MessageCircle className="h-5 w-5 text-primary-600" />
         <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">
@@ -544,7 +772,7 @@ function MessagesContent() {
                       </button>
                       <button
                         type="button"
-                        onClick={endSession}
+                        onClick={() => setShowEndSessionDialog(true)}
                         disabled={endingSession}
                         className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-900/60 dark:bg-neutral-900 dark:text-rose-300 dark:hover:bg-rose-950/30"
                       >
@@ -650,7 +878,7 @@ function MessagesContent() {
                               {isMine && (
                                 <button
                                   type="button"
-                                  onClick={() => deleteMessage(messageId)}
+                                  onClick={() => setDeleteTarget(message)}
                                   disabled={deletingMessageId === messageId}
                                   className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-red-500 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                                 >
