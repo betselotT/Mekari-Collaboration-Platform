@@ -23,16 +23,6 @@ Mekari was developed as a Capstone Project for Student Collaboration following a
 - Intelligence Module (AI Pipeline, Knowledge Capture, Points System)
 - Docker support via `docker-compose.yml` for easy deployment
 
-#### Backend setup
-
-```bash
-cd backend
-cp .env.example .env   # and adjust values
-npm install
-npm run dev
-```
-
-The backend will run on `http://localhost:4000` by default.
 
 ### Frontend (`/frontend`)
 
@@ -41,15 +31,6 @@ The backend will run on `http://localhost:4000` by default.
 - Basic onboarding (login/register) and dashboard pages
 - Core modules: auth hooks, socket context, responsive dynamic dashboard and thread views
 
-#### Frontend setup
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-The frontend will run on `http://localhost:3000` by default and expects the backend on `http://localhost:4000`.
 
 #### Contributing (For Future Student Teams / Open Source)
 
