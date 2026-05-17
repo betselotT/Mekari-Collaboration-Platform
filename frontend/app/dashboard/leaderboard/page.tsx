@@ -1,3 +1,4 @@
+// Represents leaderboard participant data returned from the gamification API
 "use client";
 
 import { useEffect, useState } from "react";
@@ -20,7 +21,7 @@ type LeaderboardUser = {
   role: string;
   createdAt?: string;
 };
-
+// Generates avatar initials from a user's full name
 function initials(name: string) {
   return name
     .split(" ")
@@ -30,7 +31,6 @@ function initials(name: string) {
     .join("")
     .toUpperCase();
 }
-
 function joinedLabel(createdAt?: string) {
   if (!createdAt) return "Joined Mekari";
   return `Joined ${new Intl.DateTimeFormat("en", { month: "short", year: "numeric" }).format(new Date(createdAt))}`;
@@ -42,7 +42,6 @@ function expertiseLabel(user: LeaderboardUser) {
   if (user.skillTags?.length) return user.skillTags.slice(0, 3).join(", ");
   return user.role === "expert" ? "Mentor" : "Learner";
 }
-
 export default function LeaderboardPage() {
   const [learners, setLearners] = useState<LeaderboardUser[]>([]);
   const [experts, setExperts] = useState<LeaderboardUser[]>([]);
