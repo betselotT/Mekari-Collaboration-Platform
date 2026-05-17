@@ -87,6 +87,7 @@ router.post(
         conversationId: req.params.conversationId,
         userId: String(req.userId),
         body: parsed.body,
+        type: parsed.type,
         parentMessageId: parsed.parentMessageId,
       });
       res.status(201).json({ message });

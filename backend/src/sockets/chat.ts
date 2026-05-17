@@ -119,6 +119,7 @@ export function registerChatHandlers(
           conversationId: parsed.data.conversationId,
           userId,
           body: parsed.data.body,
+          type: parsed.data.type,
           parentMessageId: parsed.data.parentMessageId,
         });
       } catch (err) {
