@@ -8,14 +8,14 @@ interface AvatarProps extends React.HTMLAttributes<HTMLDivElement> {
   size?: "sm" | "md" | "lg" | "xl";
   status?: "online" | "offline" | "away";
 }
-
+// Defines avatar size variations and corresponding Tailwind utility classes
 const sizeStyles = {
   sm: "h-8 w-8 text-xs",
   md: "h-10 w-10 text-sm",
   lg: "h-12 w-12 text-base",
   xl: "h-16 w-16 text-lg",
 };
-
+// Maps user availability status to visual indicator colors
 const statusStyles = {
   online: "bg-emerald-500",
   offline: "bg-neutral-400",
