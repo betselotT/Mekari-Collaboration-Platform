@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { DashboardLayout } from "../../../components/layout";
 import { ThreadCard } from "../../../components/features/ThreadCard";
@@ -30,6 +30,7 @@ function ThreadsContent() {
   const [manualTags, setManualTags] = useState("");
   const [initialMessage, setInitialMessage] = useState("");
   const [creating, setCreating] = useState(false);
+  const creatingRef = useRef(false);
 
   // Open new-thread modal pre-filled when navigating via DM from experts page
   useEffect(() => {
@@ -59,7 +60,8 @@ function ThreadsContent() {
   }
 
   async function createThread() {
-    if (!canCreate) return;
+    if (!canCreate || creatingRef.current) return;
+    creatingRef.current = true;
     setCreating(true);
     setError(null);
     try {
@@ -85,6 +87,7 @@ function ThreadsContent() {
     } catch (e: any) {
       setError(e?.response?.data?.error?.message || "Failed to create thread");
     } finally {
+      creatingRef.current = false;
       setCreating(false);
     }
   }
@@ -215,7 +218,7 @@ function ThreadsContent() {
                 <Button variant="secondary" size="md" onClick={() => setShowNewThread(false)}>
                   Cancel
                 </Button>
-                <Button variant="primary" size="md" disabled={!canCreate || creating} onClick={createThread}>
+                <Button variant="primary" size="md" disabled={!canCreate || creating} onClick={() => void createThread()}>
                   {creating ? "Creating..." : "Create thread"}
                 </Button>
               </div>
