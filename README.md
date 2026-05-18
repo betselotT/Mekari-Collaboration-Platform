@@ -26,7 +26,6 @@ This project was developed as an academic capstone project using agile developme
 - Push notification support
 - Report and moderation workflow
 - Admin dashboard for platform monitoring and management
-- API documentation through Swagger
 
 ## Technology Stack
 
@@ -49,13 +48,11 @@ This project was developed as an academic capstone project using agile developme
 - Socket.IO
 - JWT authentication
 - Redis support for real-time infrastructure
-- Swagger API documentation
 
 ### Intelligence Service
 
 - Python
 - FastAPI
-- Pydantic
 - MongoDB async integration
 - Gemini API integration support
 
@@ -182,13 +179,6 @@ ADMIN_API_KEY=your_admin_api_key
 ADMIN_FRONTEND_ORIGIN=http://localhost:3100
 ```
 
-## API Documentation
-
-When the backend is running, API documentation is available at:
-
-```text
-http://localhost:4000/api-docs
-```
 
 ## Academic Context
 
