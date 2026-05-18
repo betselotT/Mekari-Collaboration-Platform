@@ -51,8 +51,8 @@ export const createApp = () => {
   );
   app.use(helmet());
   app.use(morgan("dev"));
-  app.use(json({ limit: "1mb" }));
-  app.use(urlencoded({ extended: true }));
+  app.use(json({ limit: "8mb" }));
+  app.use(urlencoded({ extended: true, limit: "8mb" }));
 
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,

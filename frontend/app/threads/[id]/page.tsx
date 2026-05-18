@@ -60,18 +60,53 @@ export default function PublicThreadDetailPage() {
   useEffect(() => {
     if (!threadId) return;
 
-    Promise.all([
-      apiClient.get<{ thread: PublicThread }>(`/api/threads/public/${threadId}`),
-      apiClient.get<{ messages: PublicMessage[] }>(`/api/threads/public/${threadId}/messages`),
-    ])
-      .then(([threadRes, messagesRes]) => {
+    let mounted = true;
+
+    async function loadPublicThread() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const threadRes = await apiClient.get<{ thread: PublicThread }>(
+          `/api/threads/public/${threadId}`
+        );
+        if (!mounted) return;
+
         setThread(threadRes.data.thread);
-        setMessages(messagesRes.data.messages || []);
-      })
-      .catch((err) =>
-        setError(err?.response?.data?.error?.message || "Failed to load this thread")
-      )
-      .finally(() => setLoading(false));
+
+        try {
+          const messagesRes = await apiClient.get<{ messages: PublicMessage[] }>(
+            `/api/threads/public/${threadId}/messages`
+          );
+          if (mounted) setMessages(messagesRes.data.messages || []);
+        } catch (messageErr: any) {
+          if (mounted) {
+            setMessages([]);
+            setError(
+              messageErr?.response?.data?.error?.message ||
+                "Thread loaded, but replies could not be loaded."
+            );
+          }
+        }
+      } catch (err: any) {
+        if (!mounted) return;
+        setThread(null);
+        setMessages([]);
+        setError(
+          err?.response?.status === 404
+            ? "Thread not found."
+            : err?.response?.data?.error?.message || "Failed to load this thread"
+        );
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    loadPublicThread();
+
+    return () => {
+      mounted = false;
+    };
   }, [threadId]);
 
   return (
@@ -107,7 +142,7 @@ export default function PublicThreadDetailPage() {
           </div>
         ) : !thread ? (
           <div className="rounded-lg border border-neutral-200 bg-white p-6 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
-            Thread not found.
+            {error || "This thread could not be loaded."}
           </div>
         ) : (
           <div className="space-y-4">

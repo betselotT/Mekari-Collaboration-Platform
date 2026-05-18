@@ -363,10 +363,16 @@ export async function recommendExperts(params: {
   if (/agentic|llm|ai automation|tool call|workflow automation/i.test(combinedText)) {
     contentSignals.push("Agentic AI Engineer", "agentic ai", "llm agents", "ai automation");
   }
-  const rawTerms = [subject, ...tags, ...contentSignals].map((t) => t.trim()).filter(Boolean);
-  const tagSet = new Set(rawTerms.map((t) => t.toLowerCase()));
-  // Case-insensitive regex for each term
-  const tagRegexes = rawTerms.map((t) => new RegExp(`^${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"));
+  const rawTerms = [
+    subject,
+    title,
+    ...tags,
+    ...contentSignals,
+    ...extractContentSignals(combinedText),
+  ]
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const queryTerms = buildTermSet(rawTerms);
 
   const baseFilter = {
     ...(requesterId ? { _id: { $ne: requesterId } } : {}),

@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "../../../components/layout";
 import { ThreadCard } from "../../../components/features/ThreadCard";
 import { Button } from "../../../components/ui/Button";
@@ -18,6 +18,7 @@ export default function ThreadsPage() {
 }
 
 function ThreadsContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [threads, setThreads] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,16 +66,18 @@ function ThreadsContent() {
     setCreating(true);
     setError(null);
     try {
-
       const tags = manualTags
         .split(",")
         .map((tag) => tag.trim())
         .filter(Boolean);
-      await apiClient.post("/api/threads", { title, subject, initialMessage, tags });
-
-      const res = await apiClient.post("/api/threads", { title, subject, initialMessage });
+      const res = await apiClient.post("/api/threads", { title, subject, initialMessage, tags });
+      const createdThread = res.data.thread;
+      const createdThreadId = createdThread?._id || createdThread?.id;
+      if (!createdThreadId) {
+        throw new Error("The server created the thread but did not return its id.");
+      }
       setLatestMatch({
-        thread: res.data.thread,
+        thread: createdThread,
         suggestedExperts: res.data.suggestedExperts || [],
       });
 
@@ -84,8 +87,9 @@ function ThreadsContent() {
       setManualTags("");
       setInitialMessage("");
       await loadThreads();
+      router.push(`/dashboard/threads/${createdThreadId}`);
     } catch (e: any) {
-      setError(e?.response?.data?.error?.message || "Failed to create thread");
+      setError(e?.response?.data?.error?.message || e?.message || "Failed to create thread");
     } finally {
       creatingRef.current = false;
       setCreating(false);

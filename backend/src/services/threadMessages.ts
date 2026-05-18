@@ -10,6 +10,7 @@ import { generateContentTags } from "./tagExtraction";
 export const threadMessageSchema = z.object({
   body: z.string().trim().min(1),
   type: z.enum(["TEXT", "CODE", "IMAGE", "FILE", "SYSTEM_EVENT"]).optional(),
+  attachmentUrl: z.string().max(7_000_000).optional(),
   parentMessageId: z.string().optional(),
 });
 
@@ -18,6 +19,7 @@ type ThreadMessageInput = {
   userId: string;
   body: string;
   type?: "TEXT" | "CODE" | "IMAGE" | "FILE" | "SYSTEM_EVENT";
+  attachmentUrl?: string;
   parentMessageId?: string;
   broadcast?: boolean;
 };
@@ -35,6 +37,7 @@ export async function createThreadMessage(input: ThreadMessageInput) {
     sender: input.userId,
     body: input.body,
     type: input.type || "TEXT",
+    attachmentUrl: input.attachmentUrl,
     parentMessageId: input.parentMessageId || undefined,
     isFromAi: false,
   });
@@ -71,6 +74,7 @@ export async function createThreadMessage(input: ThreadMessageInput) {
     sender: populated.sender,
     body: message.body,
     type: message.type,
+    attachmentUrl: message.attachmentUrl,
     parentMessageId: message.parentMessageId,
     upvotes: [],
     isFromAi: false,

@@ -454,6 +454,7 @@ router.post("/:threadId/messages", requireAuth, async (req: AuthRequest, res, ne
       userId: String(req.userId),
       body: parsed.body,
       type: parsed.type,
+      attachmentUrl: parsed.attachmentUrl,
       parentMessageId: parsed.parentMessageId,
     });
 
