@@ -109,6 +109,17 @@ export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProp
 
   return (
     <div className="space-y-2">
+      {!hasClientId && (
+        <button
+          type="button"
+          onClick={() =>
+            onError?.("Google sign-in is not configured (missing NEXT_PUBLIC_GOOGLE_CLIENT_ID)")
+          }
+          className="flex w-full items-center justify-center rounded border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+        >
+          Continue with Google
+        </button>
+      )}
       {hasClientId && !canUseGoogle && (
         <button
           type="button"
