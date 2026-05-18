@@ -3,7 +3,17 @@
 import Link from "next/link";
 import { ThemeToggle } from "../components/theme/ThemeToggle";
 import { Button } from "../components/ui/Button";
-import { Zap, Users, MessageSquare, Lightbulb, Award, Code } from "lucide-react";
+import {
+  Zap,
+  Users,
+  MessageSquare,
+  Lightbulb,
+  Award,
+  Code,
+  CheckCircle2,
+  Search,
+  Video,
+} from "lucide-react";
 
 export default function LandingPage() {
   return (
@@ -65,9 +75,102 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          {/* Placeholder for illustration */}
-          <div className="mt-16 rounded-2xl border border-neutral-200 bg-gradient-to-br from-primary-50 to-purple-50 p-12 dark:border-neutral-700 dark:from-neutral-800 dark:to-neutral-700">
-            <div className="aspect-video bg-gradient-to-r from-primary-200 to-purple-200 rounded-lg dark:from-neutral-700 dark:to-neutral-600" />
+          <div className="mt-16 overflow-hidden rounded-2xl border border-neutral-200 bg-white text-left shadow-xl shadow-primary-100/50 dark:border-neutral-700 dark:bg-neutral-900 dark:shadow-none">
+            <div className="grid min-h-[360px] md:grid-cols-[1.05fr_0.95fr]">
+              <div className="flex flex-col justify-between gap-6 bg-gradient-to-br from-primary-600 via-violet-600 to-indigo-700 p-6 text-white sm:p-8">
+                <div>
+                  <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur">
+                    <Zap className="h-3.5 w-3.5" />
+                    Live collaboration preview
+                  </div>
+                  <h2 className="text-2xl font-bold leading-tight sm:text-3xl">
+                    From stuck to solved in one shared workspace.
+                  </h2>
+                  <p className="mt-3 max-w-md text-sm leading-6 text-violet-100">
+                    Post a technical blocker, get smart tags, match with available mentors, and keep the solution searchable for the next learner.
+                  </p>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {heroStats.map((stat) => {
+                    const Icon = stat.icon;
+                    return (
+                      <div key={stat.label} className="rounded-lg bg-white/12 p-3 ring-1 ring-white/15 backdrop-blur">
+                        <Icon className="mb-2 h-4 w-4 text-violet-100" />
+                        <p className="text-lg font-bold">{stat.value}</p>
+                        <p className="mt-1 text-xs text-violet-100">{stat.label}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-neutral-50 p-5 dark:bg-neutral-950 sm:p-6">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-primary-600 dark:text-primary-400">
+                      Active thread
+                    </p>
+                    <h3 className="mt-1 text-base font-bold text-neutral-950 dark:text-white">
+                      MongoDB query timing out
+                    </h3>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                    Mentor online
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white">
+                      <Search className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                      AI tagged the issue
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {["mongodb", "indexing", "node-api"].map((tag) => (
+                        <span key={tag} className="rounded bg-primary-50 px-2 py-1 text-xs font-semibold text-primary-700 dark:bg-primary-950 dark:text-primary-300">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white">
+                      <Users className="h-4 w-4 text-amber-500" />
+                      Matched helpers
+                    </div>
+                    <div className="space-y-2">
+                      {["Edom - Database design", "Meklit - Backend APIs"].map((mentor, index) => (
+                        <div key={mentor} className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2 dark:bg-neutral-800">
+                          <span className="text-sm text-neutral-700 dark:text-neutral-200">{mentor}</span>
+                          <span className="text-xs font-bold text-primary-600 dark:text-primary-400">
+                            {index === 0 ? "96%" : "88%"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white">
+                        <Video className="h-4 w-4 text-sky-500" />
+                        Live session
+                      </div>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">Ready for voice and whiteboard handoff.</p>
+                    </div>
+                    <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                        Knowledge saved
+                      </div>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">Solved answers become searchable examples.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -142,7 +245,7 @@ export default function LandingPage() {
           </div>
 
           <p className="mt-6 text-xs text-neutral-600 dark:text-neutral-400">
-            © 2024 Mekari Inc. All rights reserved.
+            &copy; 2026 Mekari Inc. All rights reserved.
           </p>
         </div>
       </section>
@@ -180,6 +283,24 @@ const features = [
     icon: Zap,
     title: "Real-time Collaboration",
     description: "Instant support from the community when you need it.",
+  },
+];
+
+const heroStats = [
+  {
+    icon: MessageSquare,
+    value: "2s",
+    label: "real-time replies",
+  },
+  {
+    icon: Users,
+    value: "96%",
+    label: "mentor match",
+  },
+  {
+    icon: Award,
+    value: "+20",
+    label: "solution points",
   },
 ];
 
