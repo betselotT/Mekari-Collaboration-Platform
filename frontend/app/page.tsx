@@ -141,7 +141,7 @@ export default function LandingPage() {
                       Matched helpers
                     </div>
                     <div className="space-y-2">
-                      {["Edom - Database design", "Meklit - Backend APIs"].map((mentor, index) => (
+                      {["Ari - Database design", "Nia - Backend APIs"].map((mentor, index) => (
                         <div key={mentor} className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2 dark:bg-neutral-800">
                           <span className="text-sm text-neutral-700 dark:text-neutral-200">{mentor}</span>
                           <span className="text-xs font-bold text-primary-600 dark:text-primary-400">
