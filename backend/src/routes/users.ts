@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { User } from "../models/User";
 import { logAuditEvent } from "../services/auditLog";
+import { normalizeBadgeCounts } from "../services/awardPoints";
 import { notifyAdmins } from "../services/notifications";
 
 const router = Router();
@@ -57,13 +58,13 @@ const profileSetupSchema = z.object({
 
 router.get("/me", requireAuth, async (req: AuthRequest, res, next) => {
   try {
-    const user = await User.findById(req.userId).select("-passwordHash").lean();
+    const user = await User.findById(req.userId).select("-passwordHash -badgeAchievements").lean();
     if (!user) return res.status(404).json({ error: { message: "User not found" } });
 
     // Calculate global rank (count users with more points + 1)
     const rank = await User.countDocuments({ points: { $gt: user.points || 0 } }) + 1;
 
-    res.json({ user: { ...user, rank } });
+    res.json({ user: { ...user, badgeCounts: normalizeBadgeCounts(user), rank } });
   } catch (err) {
     next(err);
   }
@@ -76,8 +77,12 @@ router.put("/me", requireAuth, async (req: AuthRequest, res, next) => {
       req.userId,
       { $set: parsed },
       { new: true }
-    ).select("-passwordHash");
-    res.json({ user });
+    ).select("-passwordHash -badgeAchievements");
+    res.json({
+      user: user
+        ? { ...user.toObject(), badgeCounts: normalizeBadgeCounts(user) }
+        : user,
+    });
   } catch (err) {
     next(err);
   }

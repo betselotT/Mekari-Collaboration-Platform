@@ -16,6 +16,7 @@ type LeaderboardUser = {
   avatarUrl?: string;
   points: number;
   badges: string[];
+  badgeCounts?: Record<string, number>;
   expertise: Array<{ subject: string; proficiency: string }>;
   skillTags: string[];
   role: string;
@@ -187,7 +188,11 @@ function LeaderboardSection({
                         {user.badges?.length ? (
                           <div className="flex flex-wrap gap-2">
                             {user.badges.slice(0, 2).map((badge) => (
-                              <Badge key={badge} variant="primary">{badge}</Badge>
+                              <Badge key={badge} variant="primary">
+                                {(user.badgeCounts?.[badge] || 1) > 1
+                                  ? `${badge} x${user.badgeCounts?.[badge]}`
+                                  : badge}
+                              </Badge>
                             ))}
                           </div>
                         ) : (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { ReactNode, useEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { DashboardLayout } from "../../../../components/layout";
 import { Button } from "../../../../components/ui/Button";
@@ -136,6 +136,7 @@ export default function ThreadDetailPage() {
   const [solveError, setSolveError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ChatMessage | null>(null);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [upvotingMessageId, setUpvotingMessageId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -430,17 +431,16 @@ export default function ThreadDetailPage() {
     }
   }
 
-  async function deleteMessage(msgId: string) {
+  async function confirmDeleteMessage() {
+    const msgId = deleteTarget ? getMessageId(deleteTarget) : "";
     if (!msgId || deletingMessageId) return;
-
-    const confirmed = window.confirm("Delete this message?");
-    if (!confirmed) return;
 
     setDeleteError(null);
     setDeletingMessageId(msgId);
     try {
       await apiClient.delete(`/api/threads/${threadId}/messages/${msgId}`);
       setMessages((prev) => prev.filter((msg) => getMessageId(msg) !== msgId));
+      setDeleteTarget(null);
     } catch (err: any) {
       setDeleteError(err?.response?.data?.error?.message || "Failed to delete message");
     } finally {
@@ -474,6 +474,21 @@ export default function ThreadDetailPage() {
 
   return (
     <DashboardLayout title={thread.title} searchPlaceholder="Search threads...">
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete Message"
+        description="This message will be removed from the thread."
+        tone="danger"
+        confirmLabel="Delete"
+        cancelLabel="Keep"
+        isLoading={Boolean(deletingMessageId)}
+        icon={<Trash2 className="h-5 w-5" />}
+        onCancel={() => {
+          if (!deletingMessageId) setDeleteTarget(null);
+        }}
+        onConfirm={confirmDeleteMessage}
+      />
+
       {/* Thread header */}
       <div className="mb-6">
         <div className="mb-2 flex items-center gap-2 flex-wrap">
@@ -668,7 +683,7 @@ export default function ThreadDetailPage() {
       {canDelete && !isSolutionMessage && (
         <button
           type="button"
-          onClick={() => deleteMessage(msgId)}
+          onClick={() => setDeleteTarget(msg)}
           disabled={deletingMessageId === msgId}
           className="text-xs text-neutral-500 hover:text-red-500 hover:underline"
           title="Delete message"
@@ -1004,5 +1019,96 @@ export default function ThreadDetailPage() {
         </div>
       </div>
     </DashboardLayout>
+  );
+}
+
+function ConfirmDialog({
+  open,
+  title,
+  description,
+  tone = "default",
+  confirmLabel,
+  cancelLabel,
+  isLoading,
+  icon,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  title: string;
+  description: string;
+  tone?: "default" | "danger";
+  confirmLabel: string;
+  cancelLabel: string;
+  isLoading?: boolean;
+  icon: ReactNode;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open) return null;
+
+  const accent =
+    tone === "danger"
+      ? "bg-rose-50 text-rose-600 ring-rose-100 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-900/50"
+      : "bg-primary-50 text-primary-600 ring-primary-100 dark:bg-primary-950/40 dark:text-primary-300 dark:ring-primary-900/50";
+  const confirmClass =
+    tone === "danger"
+      ? "bg-rose-600 text-white hover:bg-rose-700 disabled:bg-rose-400"
+      : "bg-primary-600 text-white hover:bg-primary-700 disabled:bg-primary-400";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/50 px-4 py-6 backdrop-blur-sm">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        className="w-full max-w-md rounded-lg border border-neutral-200 bg-white p-5 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+      >
+        <div className="flex items-start gap-3">
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ring-1 ${accent}`}>
+            {icon}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 id="confirm-dialog-title" className="text-base font-bold text-neutral-900 dark:text-white">
+              {title}
+            </h2>
+            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{description}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isLoading}
+            className="rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+            aria-label="Close dialog"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isLoading}
+            className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-800 transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+          >
+            {cancelLabel}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isLoading}
+            className={`inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${confirmClass}`}
+          >
+            {isLoading ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : (
+              icon
+            )}
+            {isLoading ? "Working..." : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

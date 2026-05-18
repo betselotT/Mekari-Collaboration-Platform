@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { IUser, User } from "../models/User";
+import { normalizeBadgeCounts } from "../services/awardPoints";
 
 const router = Router();
 
@@ -12,6 +13,7 @@ function buildLeaderboard(users: IUser[]) {
     avatarUrl: user.avatarUrl,
     points: user.points,
     badges: user.badges,
+    badgeCounts: normalizeBadgeCounts(user),
     expertise: user.expertise,
     skillTags: user.skillTags,
     role: user.role,
@@ -26,7 +28,7 @@ router.get("/leaderboard", requireAuth, async (req: AuthRequest, res, next) => {
       : undefined;
     const filter = role ? { role } : {};
     const users = await User.find(filter)
-      .select("name avatarUrl points badges expertise skillTags role createdAt")
+      .select("name avatarUrl points badges badgeCounts expertise skillTags role createdAt")
       .sort({ points: -1 })
       .limit(20);
     res.json({ leaderboard: buildLeaderboard(users) });
@@ -39,11 +41,11 @@ router.get("/leaderboards", requireAuth, async (_req: AuthRequest, res, next) =>
   try {
     const [learners, experts] = await Promise.all([
       User.find({ role: "learner" })
-        .select("name avatarUrl points badges expertise skillTags role createdAt")
+        .select("name avatarUrl points badges badgeCounts expertise skillTags role createdAt")
         .sort({ points: -1 })
         .limit(20),
       User.find({ role: "expert" })
-        .select("name avatarUrl points badges expertise skillTags role createdAt")
+        .select("name avatarUrl points badges badgeCounts expertise skillTags role createdAt")
         .sort({ points: -1 })
         .limit(20),
     ]);
@@ -52,25 +54,6 @@ router.get("/leaderboards", requireAuth, async (_req: AuthRequest, res, next) =>
       learners: buildLeaderboard(learners),
       experts: buildLeaderboard(experts),
     });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.post("/reward", requireAuth, async (req: AuthRequest, res, next) => {
-  try {
-    const { userId, points } = req.body as { userId: string; points: number };
-    if (!userId || typeof points !== "number") {
-      return res.status(400).json({ error: { message: "Invalid payload" } });
-    }
-
-    const updated = await User.findByIdAndUpdate(
-      userId,
-      { $inc: { points } },
-      { new: true }
-    ).select("name points badges");
-
-    res.json({ user: updated });
   } catch (err) {
     next(err);
   }
