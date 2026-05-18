@@ -100,7 +100,6 @@ interface Thread {
   aiResponse?: AIResponse;
   similarProblems?: SimilarProblem[];
   matchedExperts: Expert[];
-  googleMeetLink?: string;
   createdBy: Sender;
   isSolved: boolean;
   solutionMsgId?: string;
@@ -558,7 +557,6 @@ export default function ThreadDetailPage() {
     setSessionStarting(true);
     try {
       const res = await apiClient.post<{ meetLink: string }>(`/api/threads/${threadId}/session`);
-      setThread((prev) => (prev ? { ...prev, googleMeetLink: res.data.meetLink } : prev));
       window.open(res.data.meetLink, "_blank", "noopener,noreferrer");
     } catch (err) {
       console.error(err);
@@ -756,17 +754,6 @@ export default function ThreadDetailPage() {
               <Video className="mr-1.5 h-4 w-4" />
               Start Session
             </Button>
-          )}
-          {thread.googleMeetLink && (
-            <a
-              href={thread.googleMeetLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-300"
-            >
-              <Video className="h-4 w-4 text-green-500" />
-              Join Session
-            </a>
           )}
         </div>
       </div>
