@@ -6,7 +6,7 @@ import { Thread } from "../models/Thread";
 import { Message } from "../models/Message";
 import { PointEvent } from "../models/PointEvent";
 import { User } from "../models/User";
-import { awardPoints } from "../services/awardPoints";
+import { awardPoints, awardRepeatableBadge } from "../services/awardPoints";
 import { captureKnowledge } from "../services/knowledgeCapture";
 import { runAIPipeline } from "../services/aiPipeline";
 import { broadcastToRoom, roomName } from "../services/realtime";
@@ -553,26 +553,14 @@ router.patch("/:threadId/solve", requireAuth, async (req: AuthRequest, res, next
 
       // AI Beater badge: the thread was PENDING_EXPERT (AI couldn't resolve it)
       if (thread.status === "PENDING_EXPERT" || (thread.aiResponse && !thread.aiResponse.resolved)) {
-        const { User } = await import("../models/User");
-        const solver = await User.findById(solutionMsg.sender).select("badges");
-        if (solver && !solver.badges.includes("AI Beater")) {
-          await User.findByIdAndUpdate(solutionMsg.sender, {
-            $addToSet: { badges: "AI Beater" },
-          });
-        }
+        await awardRepeatableBadge(String(solutionMsg.sender), "AI Beater", threadId);
       }
 
       // Speed Demon badge: solved in under 5 minutes
       const createdAt = thread.createdAt as unknown as Date;
       const elapsed = Date.now() - new Date(createdAt).getTime();
       if (elapsed < 5 * 60 * 1000) {
-        const { User } = await import("../models/User");
-        const solver = await User.findById(solutionMsg.sender).select("badges");
-        if (solver && !solver.badges.includes("Speed Demon")) {
-          await User.findByIdAndUpdate(solutionMsg.sender, {
-            $addToSet: { badges: "Speed Demon" },
-          });
-        }
+        await awardRepeatableBadge(String(solutionMsg.sender), "Speed Demon", threadId);
       }
     }
 

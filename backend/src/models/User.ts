@@ -42,6 +42,12 @@ export type PushToken = {
   lastUsedAt: Date;
 };
 
+export type BadgeAchievement = {
+  badge: string;
+  refId: mongoose.Types.ObjectId;
+  earnedAt: Date;
+};
+
 export interface IUser extends Document {
   name: string;
   email: string;
@@ -65,6 +71,8 @@ export interface IUser extends Document {
   pushTokens: PushToken[];
   points: number;
   badges: string[];
+  badgeCounts: Map<string, number>;
+  badgeAchievements: BadgeAchievement[];
   role: "user" | "admin" | "learner" | "expert" | "mod";
   createdAt: Date;
   updatedAt: Date;
@@ -138,6 +146,15 @@ const PushTokenSchema = new Schema<PushToken>(
   { _id: false }
 );
 
+const BadgeAchievementSchema = new Schema<BadgeAchievement>(
+  {
+    badge: { type: String, required: true },
+    refId: { type: Schema.Types.ObjectId, required: true },
+    earnedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const UserSchema = new Schema<IUser>(
   {
     name: { type: String, required: true },
@@ -172,6 +189,12 @@ const UserSchema = new Schema<IUser>(
     pushTokens: { type: [PushTokenSchema], default: [] },
     points: { type: Number, default: 0 },
     badges: { type: [String], default: [] },
+    badgeCounts: {
+      type: Map,
+      of: Number,
+      default: () => ({}),
+    },
+    badgeAchievements: { type: [BadgeAchievementSchema], default: [] },
     role: {
       type: String,
       enum: ["user", "admin", "learner", "expert", "mod"],
@@ -180,5 +203,7 @@ const UserSchema = new Schema<IUser>(
   },
   { timestamps: true }
 );
+
+UserSchema.index({ _id: 1, "badgeAchievements.badge": 1, "badgeAchievements.refId": 1 });
 
 export const User = mongoose.model<IUser>("User", UserSchema);

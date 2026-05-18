@@ -1089,6 +1089,8 @@ export default function ProfilePage() {
                     }[badgeName] || { icon: Award, color: "from-neutral-500 to-neutral-700", desc: "Special achievement" };
 
                     const Icon = config.icon;
+                    const badgeCount = user.badgeCounts?.[badgeName] || 1;
+                    const badgeLabel = badgeCount > 1 ? `${badgeName} x${badgeCount}` : badgeName;
 
                     return (
                       <div 
@@ -1099,7 +1101,7 @@ export default function ProfilePage() {
                           <Icon className="h-5 w-5" />
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-neutral-900 dark:text-white">{badgeName}</p>
+                          <p className="truncate text-sm font-bold text-neutral-900 dark:text-white">{badgeLabel}</p>
                           <p className="truncate text-[10px] text-neutral-500">{config.desc}</p>
                         </div>
                       </div>
