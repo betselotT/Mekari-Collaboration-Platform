@@ -15,6 +15,7 @@ export const createDmConversationSchema = z.object({
 export const dmMessageSchema = z.object({
   body: z.string().trim().min(1),
   type: z.enum(["TEXT", "CODE", "IMAGE", "FILE", "SYSTEM_EVENT"]).optional(),
+  attachmentUrl: z.string().max(7_000_000).optional(),
   parentMessageId: z.string().optional(),
 });
 
@@ -121,6 +122,7 @@ export async function createDmMessage(input: {
   userId: string;
   body: string;
   type?: MessageType;
+  attachmentUrl?: string;
   parentMessageId?: string;
 }) {
   const conversation = await getConversationForUser(input.conversationId, input.userId);
@@ -143,6 +145,7 @@ export async function createDmMessage(input: {
     sender: input.userId,
     body: input.body,
     type: input.type || "TEXT",
+    attachmentUrl: input.attachmentUrl,
     parentMessageId: input.parentMessageId || undefined,
   });
 
@@ -162,6 +165,7 @@ export async function createDmMessage(input: {
     sender: populated.sender,
     body: message.body,
     type: message.type,
+    attachmentUrl: message.attachmentUrl,
     parentMessageId: message.parentMessageId,
     createdAt: message.createdAt,
   };
