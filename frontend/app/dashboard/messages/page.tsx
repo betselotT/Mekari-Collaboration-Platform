@@ -2,7 +2,7 @@
 
 import { FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { MessageCircle, Reply, Send, Trash2, X } from "lucide-react";
+import { ExternalLink, MessageCircle, Reply, Send, Square, Trash2, Video, X } from "lucide-react";
 import type { Socket } from "socket.io-client";
 import { DashboardLayout } from "../../../components/layout/DashboardLayout";
 import { Avatar } from "../../../components/ui/Avatar";
@@ -24,9 +24,20 @@ interface DmConversation {
   participants: DmUser[];
   learner: DmUser;
   expert: DmUser;
+  activeSession?: DmSession | null;
   lastMessagePreview?: string;
   lastMessageAt?: string;
   updatedAt: string;
+}
+
+interface DmSession {
+  meetLink: string;
+  meetSpaceName?: string;
+  status: "creating" | "active" | "ended";
+  startedBy: string;
+  startedAt: string;
+  endedBy?: string;
+  endedAt?: string;
 }
 
 interface DmMessage {
@@ -35,7 +46,7 @@ interface DmMessage {
   conversation: string;
   sender: DmUser;
   body: string;
-  type: "TEXT";
+  type: "TEXT" | "CODE" | "IMAGE" | "FILE" | "SYSTEM_EVENT";
   parentMessageId?: string;
   createdAt: string;
 }
@@ -78,6 +89,9 @@ function MessagesContent() {
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
+  const [creatingSession, setCreatingSession] = useState(false);
+  const [joiningSession, setJoiningSession] = useState(false);
+  const [endingSession, setEndingSession] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<DmMessage | null>(null);
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
@@ -167,7 +181,17 @@ function MessagesContent() {
       conversationId?: string;
       message?: DmMessage;
       deletedMessageId?: string;
+      session?: DmSession | null;
     }) => {
+      if (data?.conversationId && "session" in data) {
+        setConversations((prev) =>
+          prev.map((conversation) =>
+            conversation._id === data.conversationId
+              ? { ...conversation, activeSession: data.session }
+              : conversation
+          )
+        );
+      }
       if (data?.conversationId === activeIdRef.current && data.message) {
         appendMessage(data.message);
       }
@@ -188,6 +212,22 @@ function MessagesContent() {
       if (data.conversationId !== activeIdRef.current) return;
       setTypingUsers((prev) => prev.filter((id) => id !== data.userId));
     };
+    const handleSessionUpdated = (data: {
+      conversationId: string;
+      session: DmSession | null;
+      message?: DmMessage;
+    }) => {
+      setConversations((prev) =>
+        prev.map((conversation) =>
+          conversation._id === data.conversationId
+            ? { ...conversation, activeSession: data.session }
+            : conversation
+        )
+      );
+      if (data.conversationId === activeIdRef.current && data.message) {
+        appendMessage(data.message);
+      }
+    };
 
     ensureSocket().then((socket) => {
       if (!mounted) return;
@@ -202,6 +242,7 @@ function MessagesContent() {
       socket.on("dm_message_deleted", handleDeleted);
       socket.on("dm_user_typing", handleTyping);
       socket.on("dm_user_stopped_typing", handleStoppedTyping);
+      socket.on("dm_session_updated", handleSessionUpdated);
       cleanup = () => {
         if (activeIdRef.current) socket.emit("leave_dm", activeIdRef.current);
         socket.off("connect", joinActive);
@@ -210,6 +251,7 @@ function MessagesContent() {
         socket.off("dm_message_deleted", handleDeleted);
         socket.off("dm_user_typing", handleTyping);
         socket.off("dm_user_stopped_typing", handleStoppedTyping);
+        socket.off("dm_session_updated", handleSessionUpdated);
       };
     });
 
@@ -249,6 +291,7 @@ function MessagesContent() {
   }
 
   function startReply(message: DmMessage) {
+    if (message.type === "SYSTEM_EVENT") return;
     setReplyTo(message);
     requestAnimationFrame(() => inputRef.current?.focus());
   }
@@ -322,6 +365,80 @@ function MessagesContent() {
     }
   }
 
+  async function startSession() {
+    if (!activeId || creatingSession) return;
+    setCreatingSession(true);
+    setError(null);
+    try {
+      const res = await apiClient.post<{ session: DmSession; message?: DmMessage }>(
+        `/api/dms/conversations/${activeId}/session`
+      );
+      setConversations((prev) =>
+        prev.map((conversation) =>
+          conversation._id === activeId
+            ? { ...conversation, activeSession: res.data.session }
+            : conversation
+        )
+      );
+      if (res.data.message) {
+        setMessages((prev) => {
+          const messageId = getId(res.data.message!);
+          if (messageId && prev.some((message) => getId(message) === messageId)) return prev;
+          return [...prev, res.data.message!];
+        });
+      }
+    } catch (e: any) {
+      setError(e?.response?.data?.error?.message || "Failed to create the live session");
+    } finally {
+      setCreatingSession(false);
+    }
+  }
+
+  async function joinSession() {
+    if (!activeId || joiningSession) return;
+    setJoiningSession(true);
+    setError(null);
+    try {
+      const res = await apiClient.get<{ session: DmSession }>(
+        `/api/dms/conversations/${activeId}/session`
+      );
+      window.open(res.data.session.meetLink, "_blank", "noopener,noreferrer");
+    } catch (e: any) {
+      setError(e?.response?.data?.error?.message || "Failed to open the live session");
+    } finally {
+      setJoiningSession(false);
+    }
+  }
+
+  async function endSession() {
+    if (!activeId || endingSession) return;
+    setEndingSession(true);
+    setError(null);
+    try {
+      const res = await apiClient.post<{ session: DmSession; message?: DmMessage }>(
+        `/api/dms/conversations/${activeId}/session/end`
+      );
+      setConversations((prev) =>
+        prev.map((conversation) =>
+          conversation._id === activeId
+            ? { ...conversation, activeSession: res.data.session }
+            : conversation
+        )
+      );
+      if (res.data.message) {
+        setMessages((prev) => {
+          const messageId = getId(res.data.message!);
+          if (messageId && prev.some((message) => getId(message) === messageId)) return prev;
+          return [...prev, res.data.message!];
+        });
+      }
+    } catch (e: any) {
+      setError(e?.response?.data?.error?.message || "Failed to end the live session");
+    } finally {
+      setEndingSession(false);
+    }
+  }
+
   return (
     <DashboardLayout title="Messages" searchPlaceholder="Search messages...">
       <div className="mb-6 flex items-center gap-2">
@@ -385,19 +502,73 @@ function MessagesContent() {
         <section className="flex min-h-[520px] flex-col">
           {activeConversation ? (
             <>
-              <div className="flex items-center gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
-                <Avatar
-                  size="sm"
-                  src={otherParticipant(activeConversation)?.avatarUrl}
-                  initials={(otherParticipant(activeConversation)?.name || "DM").slice(0, 2).toUpperCase()}
-                />
-                <div>
-                  <h2 className="text-sm font-bold text-neutral-900 dark:text-white">
-                    {otherParticipant(activeConversation)?.name || "Conversation"}
-                  </h2>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                    One-on-one private DM
-                  </p>
+              <div className="flex flex-col gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-700 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
+                  <Avatar
+                    size="sm"
+                    src={otherParticipant(activeConversation)?.avatarUrl}
+                    initials={(otherParticipant(activeConversation)?.name || "DM").slice(0, 2).toUpperCase()}
+                  />
+                  <div className="min-w-0">
+                    <h2 className="truncate text-sm font-bold text-neutral-900 dark:text-white">
+                      {otherParticipant(activeConversation)?.name || "Conversation"}
+                    </h2>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                      One-on-one private DM
+                    </p>
+                  </div>
+                </div>
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+                  <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                    Need deeper discussion?
+                  </span>
+                  {activeConversation.activeSession?.status === "active" ? (
+                    <div className="flex w-full gap-2 sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={joinSession}
+                        disabled={joiningSession}
+                        className="inline-flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70 sm:flex-none"
+                      >
+                        {joiningSession ? (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        ) : (
+                          <Video className="h-4 w-4" />
+                        )}
+                        {joiningSession ? "Opening..." : "Rejoin"}
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={endSession}
+                        disabled={endingSession}
+                        className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-900/60 dark:bg-neutral-900 dark:text-rose-300 dark:hover:bg-rose-950/30"
+                      >
+                        {endingSession ? (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        ) : (
+                          <Square className="h-4 w-4" />
+                        )}
+                        End
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={startSession}
+                      disabled={creatingSession || activeConversation.activeSession?.status === "creating"}
+                      className="inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-emerald-900/10 transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-500 disabled:opacity-80 sm:w-auto"
+                    >
+                      {creatingSession || activeConversation.activeSession?.status === "creating" ? (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      ) : (
+                        <Video className="h-4 w-4" />
+                      )}
+                      {creatingSession || activeConversation.activeSession?.status === "creating"
+                        ? "Creating..."
+                        : "Start Session"}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -412,7 +583,17 @@ function MessagesContent() {
                   messages.map((message) => {
                     const messageId = getId(message);
                     const isMine = message.sender?._id === user?._id;
+                    const isSystemEvent = message.type === "SYSTEM_EVENT";
                     const parent = getParentMessage(message.parentMessageId);
+                    if (isSystemEvent) {
+                      return (
+                        <div key={messageId} className="flex justify-center">
+                          <div className="max-w-[90%] rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs font-medium text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200">
+                            {message.body}
+                          </div>
+                        </div>
+                      );
+                    }
                     return (
                       <div key={messageId} className={`flex gap-3 ${isMine ? "flex-row-reverse" : ""}`}>
                         <Avatar

@@ -11,10 +11,15 @@ import { captureKnowledge } from "../services/knowledgeCapture";
 import { runAIPipeline } from "../services/aiPipeline";
 import { broadcastToRoom, roomName } from "../services/realtime";
 import { createThreadMessage, threadMessageSchema } from "../services/threadMessages";
+
 import { generateContentTags, normalizeContentTags } from "../services/tagExtraction";
 import { findSimilarProblems } from "../services/similarProblems";
 import { recommendExperts } from "../services/matching";
 import { createNotification } from "../services/notifications";
+
+import { recommendExperts } from "../services/matching";
+import { createNotification } from "../services/notifications";
+
 
 const router = Router();
 

@@ -6,10 +6,13 @@ import {
   createDmMessage,
   deleteDmMessage,
   dmMessageSchema,
+  endDmSession,
   findOrCreateDmConversation,
+  getActiveDmSession,
   getConversationForUser,
   listDmConversations,
   listDmMessages,
+  startDmSession,
 } from "../services/dmMessages";
 
 const router = Router();
@@ -87,9 +90,61 @@ router.post(
         conversationId: req.params.conversationId,
         userId: String(req.userId),
         body: parsed.body,
+        type: parsed.type,
         parentMessageId: parsed.parentMessageId,
       });
       res.status(201).json({ message });
+    } catch (err) {
+      const status = statusFromError(err);
+      if (status !== 500) {
+        return res.status(status).json({ error: { message: (err as Error).message } });
+      }
+      next(err);
+    }
+  }
+);
+
+router.post(
+  "/conversations/:conversationId/session",
+  requireAuth,
+  async (req: AuthRequest, res, next) => {
+    try {
+      const result = await startDmSession(req.params.conversationId, String(req.userId));
+      res.status(result.alreadyActive ? 200 : 201).json(result);
+    } catch (err) {
+      const status = statusFromError(err);
+      if (status !== 500) {
+        return res.status(status).json({ error: { message: (err as Error).message } });
+      }
+      next(err);
+    }
+  }
+);
+
+router.get(
+  "/conversations/:conversationId/session",
+  requireAuth,
+  async (req: AuthRequest, res, next) => {
+    try {
+      const session = await getActiveDmSession(req.params.conversationId, String(req.userId));
+      res.json({ session });
+    } catch (err) {
+      const status = statusFromError(err);
+      if (status !== 500) {
+        return res.status(status).json({ error: { message: (err as Error).message } });
+      }
+      next(err);
+    }
+  }
+);
+
+router.post(
+  "/conversations/:conversationId/session/end",
+  requireAuth,
+  async (req: AuthRequest, res, next) => {
+    try {
+      const result = await endDmSession(req.params.conversationId, String(req.userId));
+      res.json(result);
     } catch (err) {
       const status = statusFromError(err);
       if (status !== 500) {

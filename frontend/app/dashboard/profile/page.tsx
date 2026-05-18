@@ -1147,10 +1147,6 @@ export default function ProfilePage() {
                 <span className="text-sm text-neutral-600 dark:text-neutral-400">Google Meet</span>
                 <Badge variant="success">Connected</Badge>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-neutral-600 dark:text-neutral-400">Calendar</span>
-                <Badge variant="default">Not connected</Badge>
-              </div>
             </div>
           </Card>
         </div>

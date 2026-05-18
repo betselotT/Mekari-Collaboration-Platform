@@ -3,7 +3,8 @@ import mongoose, { Document, Schema, Types } from "mongoose";
 export type MessageType = "TEXT" | "CODE" | "IMAGE" | "FILE" | "SYSTEM_EVENT";
 
 export interface IMessage extends Document {
-  thread: Types.ObjectId;
+  thread?: Types.ObjectId;
+  conversation?: Types.ObjectId;
   sender: Types.ObjectId;
   body: string;
   type: MessageType;
@@ -17,7 +18,8 @@ export interface IMessage extends Document {
 
 const MessageSchema = new Schema<IMessage>(
   {
-    thread: { type: Schema.Types.ObjectId, ref: "Thread", required: true },
+    thread: { type: Schema.Types.ObjectId, ref: "Thread" },
+    conversation: { type: Schema.Types.ObjectId, ref: "DmConversation" },
     sender: { type: Schema.Types.ObjectId, ref: "User", required: true },
     body: { type: String, required: true },
     type: {
@@ -33,6 +35,19 @@ const MessageSchema = new Schema<IMessage>(
   { timestamps: true }
 );
 
+MessageSchema.pre("validate", function (next) {
+  const hasThread = Boolean(this.thread);
+  const hasConversation = Boolean(this.conversation);
+
+  if (hasThread === hasConversation) {
+    next(new Error("Message must belong to exactly one thread or DM conversation"));
+    return;
+  }
+
+  next();
+});
+
 MessageSchema.index({ thread: 1, createdAt: 1 });
+MessageSchema.index({ conversation: 1, createdAt: 1 });
 
 export const Message = mongoose.model<IMessage>("Message", MessageSchema);
