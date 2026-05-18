@@ -128,8 +128,10 @@ async def route_question(req: AnalyzeRequest) -> AnalyzeResponse:
     # 3. Find similar problems
     similar = await find_similar(
         title=req.title,
+        body=req.body,
         tags=list(set(req.tags + suggested_tags)),
         subject=req.subject,
+        thread_id=req.thread_id,
     )
 
     # 4. Generate AI response using similar problems as context

@@ -40,11 +40,21 @@ export async function recommendExperts(params: {
   requesterId?: string;
   subject: string;
   tags: string[];
+  title?: string;
+  body?: string;
   availabilityPreference: MatchAvailabilityPreference;
   limit?: number;
 }): Promise<ExpertRecommendation[]> {
-  const { requesterId, subject, tags, availabilityPreference, limit = 5 } = params;
-  const rawTerms = [subject, ...tags].map((t) => t.trim()).filter(Boolean);
+  const { requesterId, subject, tags, title = "", body = "", availabilityPreference, limit = 5 } = params;
+  const contentSignals: string[] = [];
+  const combinedText = `${subject} ${title} ${body} ${tags.join(" ")}`.toLowerCase();
+  if (/\bdsa\b|data structures?|algorithms?|dynamic programming|graphs?|trees?|stacks?|queues?/i.test(combinedText)) {
+    contentSignals.push("DSA", "Data Structures & Algorithms", "algorithms", "data structures");
+  }
+  if (/agentic|llm|ai automation|tool call|workflow automation/i.test(combinedText)) {
+    contentSignals.push("Agentic AI Engineer", "agentic ai", "llm agents", "ai automation");
+  }
+  const rawTerms = [subject, ...tags, ...contentSignals].map((t) => t.trim()).filter(Boolean);
   const tagSet = new Set(rawTerms.map((t) => t.toLowerCase()));
   // Case-insensitive regex for each term
   const tagRegexes = rawTerms.map((t) => new RegExp(`^${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"));
@@ -52,10 +62,6 @@ export async function recommendExperts(params: {
   const baseFilter = {
     ...(requesterId ? { _id: { $ne: requesterId } } : {}),
     role: { $in: ["expert", "admin"] },
-    $or: [
-      { "expertVerification.status": "approved" },
-      { expertVerification: { $exists: false } },
-    ],
   };
 
   // Try tag-matched experts first

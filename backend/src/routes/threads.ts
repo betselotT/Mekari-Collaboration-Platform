@@ -5,6 +5,7 @@ import { messageRateLimiter } from "../middleware/messageRateLimiter";
 import { Thread } from "../models/Thread";
 import { Message } from "../models/Message";
 import { PointEvent } from "../models/PointEvent";
+import { User } from "../models/User";
 import { awardPoints } from "../services/awardPoints";
 import { captureKnowledge } from "../services/knowledgeCapture";
 import { runAIPipeline } from "../services/aiPipeline";
@@ -12,6 +13,8 @@ import { broadcastToRoom, roomName } from "../services/realtime";
 import { createThreadMessage, threadMessageSchema } from "../services/threadMessages";
 import { generateContentTags, normalizeContentTags } from "../services/tagExtraction";
 import { findSimilarProblems } from "../services/similarProblems";
+import { recommendExperts } from "../services/matching";
+import { createNotification } from "../services/notifications";
 
 const router = Router();
 
@@ -213,9 +216,31 @@ router.get("/", requireAuth, async (req: AuthRequest, res, next) => {
 // GET /:threadId — single thread with populated experts
 router.get("/:threadId", requireAuth, async (req: AuthRequest, res, next) => {
   try {
+    let threadDoc = await Thread.findById(req.params.threadId);
+    if (!threadDoc) return res.status(404).json({ error: { message: "Thread not found" } });
+
+    if (!threadDoc.matchedExperts?.length) {
+      const recommendations = await recommendExperts({
+        requesterId: String(threadDoc.createdBy),
+        subject: threadDoc.subject,
+        tags: threadDoc.tags,
+        title: threadDoc.title,
+        body: threadDoc.body ?? "",
+        availabilityPreference: "any",
+        limit: 3,
+      });
+      if (recommendations.length > 0) {
+        threadDoc = await Thread.findByIdAndUpdate(
+          req.params.threadId,
+          { $set: { matchedExperts: recommendations.map((rec) => rec.expertId) } },
+          { new: true }
+        );
+      }
+    }
+
     const thread = await Thread.findById(req.params.threadId)
       .populate("createdBy", "name avatarUrl")
-      .populate("matchedExperts", "name avatarUrl expertise availabilityStatus points badges");
+      .populate("matchedExperts", "name avatarUrl expertise skillTags availabilityStatus points badges");
 
     if (!thread) return res.status(404).json({ error: { message: "Thread not found" } });
     res.json({ thread });
@@ -229,11 +254,21 @@ router.get("/:threadId/similar", requireAuth, async (req: AuthRequest, res, next
   try {
     const thread = await Thread.findById(req.params.threadId);
     if (!thread) return res.status(404).json({ error: { message: "Thread not found" } });
+    const messages = await Message.find({ thread: thread._id })
+      .sort({ createdAt: 1 })
+      .limit(4)
+      .select("body type")
+      .lean();
+    const messageText = messages
+      .filter((message) => message.type !== "SYSTEM_EVENT")
+      .map((message) => message.body)
+      .filter(Boolean)
+      .join("\n\n");
 
     const similarProblems = await findSimilarProblems({
       threadId: String(thread._id),
       title: thread.title,
-      body: thread.body ?? "",
+      body: [thread.body, messageText].filter(Boolean).join("\n\n"),
       subject: thread.subject,
       tags: thread.tags,
       limit: Math.min(10, Math.max(1, Number(req.query.limit ?? 5))),
@@ -293,14 +328,26 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
       body: [parsed.body, parsed.initialMessage].filter(Boolean).join("\n\n"),
       existingTags: parsed.tags,
     });
+    const questionText = [parsed.body, parsed.initialMessage].filter(Boolean).join("\n\n");
+    const recommendations = await recommendExperts({
+      requesterId: req.userId,
+      subject: parsed.subject,
+      tags,
+      title: parsed.title,
+      body: questionText,
+      availabilityPreference: "any",
+      limit: 3,
+    });
+    const recommendedExpertIds = recommendations.map((rec) => rec.expertId);
 
     const thread = await Thread.create({
       title: parsed.title,
       subject: parsed.subject,
-      body: parsed.body,
+      body: parsed.body || parsed.initialMessage,
       tags,
       createdBy: req.userId,
       participants: [req.userId],
+      matchedExperts: recommendedExpertIds,
       status: "OPEN",
     });
 
@@ -312,8 +359,41 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
       isFromAi: false,
     });
 
+    const experts = await User.find({ _id: { $in: recommendedExpertIds } })
+      .select("name avatarUrl expertise skillTags availabilityStatus points badges")
+      .lean();
+    const expertMap = new Map(experts.map((expert) => [String(expert._id), expert]));
+    const suggestedExperts = recommendations
+      .map((rec) => {
+        const expert = expertMap.get(rec.expertId);
+        if (!expert) return null;
+        return { expert, score: rec.score, reasons: rec.reasons };
+      })
+      .filter(Boolean);
+
+    await Promise.all(
+      recommendedExpertIds.map((expertId) =>
+        createNotification({
+          userId: expertId,
+          category: "chat",
+          type: "expert_suggested",
+          title: "Matched to a learner question",
+          message: `You may be able to help with: "${thread.title}"`,
+          link: `/dashboard/threads/${thread.id}`,
+        })
+      )
+    );
+
+    await thread.populate([
+      { path: "createdBy", select: "name avatarUrl" },
+      {
+        path: "matchedExperts",
+        select: "name avatarUrl expertise skillTags availabilityStatus points badges",
+      },
+    ]);
+
     // Respond to client immediately, then fire AI pipeline
-    res.status(201).json({ thread });
+    res.status(201).json({ thread, suggestedExperts });
 
     setImmediate(() => {
       runAIPipeline(String(thread._id)).catch((err) =>

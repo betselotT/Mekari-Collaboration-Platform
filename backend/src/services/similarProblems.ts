@@ -119,7 +119,7 @@ function scoreCandidate(query: Query, candidate: Candidate) {
     combinedScore: Number(combined.toFixed(4)),
     reasons: [
       tagScore > 0 ? "Overlapping topic tags" : "Textually related problem",
-      candidate.solution ? "Includes a captured solution" : "Solved thread context",
+      candidate.solution ? "Includes a captured solution" : "Related thread discussion",
     ],
   };
 }
@@ -142,11 +142,14 @@ function toSimilarProblem(candidate: Candidate): SimilarProblemData {
 async function loadKnowledgeCandidates(query: Query): Promise<Candidate[]> {
   const collection = mongoose.connection.collection("knowledgedocs");
   const tagTerms = [query.subject, ...query.tags].map(normalizeTag).filter(Boolean);
-  const docs = await collection
+  let docs = await collection
     .find(tagTerms.length ? { tags: { $in: tagTerms } } : {})
     .sort({ createdAt: -1 })
     .limit(80)
     .toArray();
+  if (docs.length === 0 && tagTerms.length > 0) {
+    docs = await collection.find({}).sort({ createdAt: -1 }).limit(120).toArray();
+  }
 
   return docs
     .filter((doc) => String(doc.questionId ?? doc._id) !== String(query.threadId ?? ""))
@@ -166,15 +169,30 @@ async function loadKnowledgeCandidates(query: Query): Promise<Candidate[]> {
     }));
 }
 
-async function loadSolvedThreadCandidates(query: Query): Promise<Candidate[]> {
+async function loadThreadCandidates(query: Query): Promise<Candidate[]> {
   const threads = await Thread.find({
     _id: { $ne: query.threadId },
-    $or: [{ isSolved: true }, { status: "SOLVED" }],
   })
     .sort({ updatedAt: -1 })
-    .limit(80)
-    .select("title body subject tags solutionMsgId aiResponse updatedAt")
+    .limit(160)
+    .select("title body subject tags status isSolved solutionMsgId aiResponse updatedAt")
     .lean();
+
+  const threadIds = threads.map((thread) => thread._id);
+  const threadMessages = threadIds.length
+    ? await Message.find({ thread: { $in: threadIds } })
+        .sort({ createdAt: 1 })
+        .select("thread body isFromAi type createdAt")
+        .lean()
+    : [];
+  const messageMap = new Map<string, string[]>();
+  for (const message of threadMessages) {
+    if (message.type === "SYSTEM_EVENT") continue;
+    const key = String(message.thread);
+    const list = messageMap.get(key) ?? [];
+    if (list.length < 4) list.push(message.body ?? "");
+    messageMap.set(key, list);
+  }
 
   const solutionIds = threads.map((thread) => thread.solutionMsgId).filter(Boolean);
   const solutionMessages = solutionIds.length
@@ -183,17 +201,18 @@ async function loadSolvedThreadCandidates(query: Query): Promise<Candidate[]> {
   const solutionMap = new Map(solutionMessages.map((message) => [String(message._id), message.body]));
 
   return threads.map((thread) => {
+    const messagesText = (messageMap.get(String(thread._id)) ?? []).join("\n");
     const solution = thread.solutionMsgId ? solutionMap.get(String(thread.solutionMsgId)) ?? "" : "";
     const summary =
       thread.aiResponse?.explanation ||
-      [thread.title, thread.body].filter(Boolean).join(" ").slice(0, 300);
+      [thread.title, thread.body, messagesText].filter(Boolean).join(" ").slice(0, 300);
     return {
       source: "thread" as const,
       docId: String(thread._id),
       threadId: String(thread._id),
       title: thread.title,
       tags: [...new Set([thread.subject, ...(thread.tags ?? [])].filter(Boolean))],
-      body: thread.body ?? "",
+      body: [thread.body, messagesText].filter(Boolean).join("\n\n"),
       solution,
       threadSummary: summary,
       similarity: 0,
@@ -273,15 +292,16 @@ async function rerankSimilarWithLlm(query: Query, candidates: Candidate[], limit
 
 export async function findSimilarProblems(query: Query): Promise<SimilarProblemData[]> {
   const limit = Math.max(1, Math.min(query.limit ?? 5, 10));
-  const [knowledgeCandidates, solvedThreadCandidates] = await Promise.all([
+  const [knowledgeCandidates, threadCandidates] = await Promise.all([
     loadKnowledgeCandidates(query),
-    loadSolvedThreadCandidates(query),
+    loadThreadCandidates(query),
   ]);
 
   const byThread = new Map<string, Candidate>();
-  for (const candidate of [...knowledgeCandidates, ...solvedThreadCandidates]) {
+  for (const candidate of [...knowledgeCandidates, ...threadCandidates]) {
     const scored = scoreCandidate(query, candidate);
-    if (scored.similarity < 0.12) continue;
+    const minimumSimilarity = scored.source === "thread" ? 0.08 : 0.12;
+    if (scored.similarity < minimumSimilarity) continue;
     const existing = byThread.get(scored.threadId);
     if (!existing || scored.combinedScore > existing.combinedScore) {
       byThread.set(scored.threadId, scored);

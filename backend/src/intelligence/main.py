@@ -84,6 +84,7 @@ async def suggest_tags(req: TagRequest):
 async def similar_problems(req: SimilarRequest):
     problems = await find_similar(
         title=req.title,
+        body=req.body,
         tags=req.tags,
         subject=req.subject,
         limit=req.limit,

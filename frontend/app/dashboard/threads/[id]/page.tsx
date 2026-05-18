@@ -132,6 +132,7 @@ export default function ThreadDetailPage() {
   const [expertPanel, setExpertPanel] = useState(true);
   const [similarPanel, setSimilarPanel] = useState(true);
   const [similarLoading, setSimilarLoading] = useState(false);
+  const [similarError, setSimilarError] = useState<string | null>(null);
   const [solveError, setSolveError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
@@ -161,22 +162,28 @@ export default function ThreadDetailPage() {
       .then(([threadRes, msgRes]) => {
         setThread(threadRes.data.thread);
         setMessages(msgRes.data.messages);
-        if (!threadRes.data.thread.similarProblems?.length) {
-          setSimilarLoading(true);
-          apiClient
-            .get<{ problems: SimilarProblem[] }>(`/api/threads/${threadId}/similar`)
-            .then((res) => {
-              setThread((prev) =>
-                prev ? { ...prev, similarProblems: res.data.problems } : prev
-              );
-            })
-            .catch(console.error)
-            .finally(() => setSimilarLoading(false));
-        }
+        if (!threadRes.data.thread.similarProblems?.length) loadSimilarProblems();
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [threadId]);
+
+  async function loadSimilarProblems() {
+    if (!threadId || similarLoading) return;
+    setSimilarLoading(true);
+    setSimilarError(null);
+    try {
+      const res = await apiClient.get<{ problems: SimilarProblem[] }>(
+        `/api/threads/${threadId}/similar`
+      );
+      setThread((prev) => (prev ? { ...prev, similarProblems: res.data.problems } : prev));
+      setSimilarPanel(true);
+    } catch (err: any) {
+      setSimilarError(err?.response?.data?.error?.message || "Failed to find similar problems");
+    } finally {
+      setSimilarLoading(false);
+    }
+  }
 
   // ── Socket setup ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -774,7 +781,7 @@ export default function ThreadDetailPage() {
         {/* ── Side panels (1/3) ───────────────────────────────────────── */}
         <div className="flex flex-col gap-4">
           {/* Similar Problems panel */}
-          {(hasSimilarProblems || similarLoading) && (
+          {(
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 dark:border-emerald-900/50 dark:bg-emerald-950/20">
               <button
                 className="flex w-full items-center justify-between px-4 py-3"
@@ -802,6 +809,22 @@ export default function ThreadDetailPage() {
                     <p className="text-sm text-emerald-800 dark:text-emerald-200">
                       Finding related solved threads...
                     </p>
+                  ) : similarError ? (
+                    <div className="space-y-3">
+                      <p className="text-sm text-rose-700 dark:text-rose-300">{similarError}</p>
+                      <Button variant="secondary" size="sm" onClick={loadSimilarProblems}>
+                        Try again
+                      </Button>
+                    </div>
+                  ) : !hasSimilarProblems ? (
+                    <div className="space-y-3">
+                      <p className="text-sm text-emerald-800 dark:text-emerald-200">
+                        No similar solved problems found yet.
+                      </p>
+                      <Button variant="secondary" size="sm" onClick={loadSimilarProblems}>
+                        Search again
+                      </Button>
+                    </div>
                   ) : (
                     <div className="space-y-3">
                       {similarProblems.map((problem) => (
