@@ -553,11 +553,11 @@ export default function ThreadDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         {/* ── Chat area (2/3) ─────────────────────────────────────────── */}
-        <div className="lg:col-span-2 flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           {/* Messages */}
-          <div className="flex flex-col gap-3 min-h-[400px] max-h-[60vh] overflow-y-auto rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-700 dark:bg-neutral-800/50">
+          <div className="flex min-h-[400px] max-h-[60dvh] flex-col gap-3 overflow-y-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-800/50 sm:p-4">
             {messages.map((msg) => {
               const msgId = getMessageId(msg);
               const isMe = user && (typeof msg.sender === "object"
@@ -600,7 +600,7 @@ export default function ThreadDetailPage() {
                       src={typeof msg.sender === "object" ? msg.sender.avatarUrl : undefined}
                     />
                   )}
-                  <div className={`flex max-w-[75%] flex-col gap-1 ${isMe ? "items-end" : ""}`}>
+                  <div className={`flex max-w-[86%] flex-col gap-1 sm:max-w-[75%] ${isMe ? "items-end" : ""}`}>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
                         {isAiMsg ? "Mekari AI" : senderName(msg.sender)}
@@ -745,7 +745,7 @@ export default function ThreadDetailPage() {
                 <input
                   ref={inputRef}
                   type="text"
-                  className="flex-1 rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder-neutral-500"
+                  className="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder-neutral-500"
                   placeholder={replyTo ? "Write a reply..." : "Type your message..."}
                   value={input}
                   onChange={(e) => handleInputChange(e.target.value)}
