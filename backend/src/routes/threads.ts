@@ -261,6 +261,33 @@ router.patch("/:threadId/tags", requireAuth, async (req: AuthRequest, res, next)
 router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, next) => {
   try {
     const parsed = createThreadSchema.parse(req.body);
+    const duplicateWindow = new Date(Date.now() - 30_000);
+    const recentSameTitle = await Thread.findOne({
+      createdBy: req.userId,
+      title: parsed.title.trim(),
+      subject: parsed.subject.trim(),
+      createdAt: { $gte: duplicateWindow },
+    }).sort({ createdAt: -1 });
+
+    if (recentSameTitle) {
+      const existingInitialMessage = await Message.findOne({
+        thread: recentSameTitle._id,
+        sender: req.userId,
+        body: parsed.initialMessage,
+      }).select("_id");
+
+      if (existingInitialMessage) {
+        await recentSameTitle.populate([
+          { path: "createdBy", select: "name avatarUrl" },
+          {
+            path: "matchedExperts",
+            select: "name avatarUrl expertise skillTags availabilityStatus points badges",
+          },
+        ]);
+        return res.status(200).json({ thread: recentSameTitle, duplicate: true });
+      }
+    }
+
     const tags = await generateContentTags({
       title: parsed.title,
       subject: parsed.subject,
@@ -271,7 +298,7 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
     const thread = await Thread.create({
       title: parsed.title,
       subject: parsed.subject,
-      body: parsed.body,
+      body: parsed.body || parsed.initialMessage,
       tags,
       createdBy: req.userId,
       participants: [req.userId],
