@@ -34,9 +34,10 @@ router.post("/tags", requireAuth, async (req: AuthRequest, res, next) => {
 
 router.post("/similar", requireAuth, async (req: AuthRequest, res, next) => {
   try {
-    const { title = "", tags = [], subject = "", limit = 5 } = req.body as Record<string, unknown>;
+    const { title = "", body = "", tags = [], subject = "", limit = 5 } = req.body as Record<string, unknown>;
     const problems = await intelligence.findSimilar({
       title: String(title),
+      body: String(body),
       tags: Array.isArray(tags) ? tags.map(String) : [],
       subject: String(subject),
       limit: Number(limit),

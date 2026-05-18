@@ -180,6 +180,7 @@ class TagRequest(BaseModel):
 
 class SimilarRequest(BaseModel):
     title: str
+    body: str = ""
     tags: list[str]
     subject: str
     limit: int = 5

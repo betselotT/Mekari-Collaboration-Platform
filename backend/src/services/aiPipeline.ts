@@ -2,6 +2,7 @@ import { Thread, IThread } from "../models/Thread";
 import { Notification } from "../models/Notification";
 import { broadcastToRoom, broadcastToUser, roomName } from "./realtime";
 import * as intelligence from "../intelligence/client";
+import { findSimilarProblems } from "./similarProblems";
 
 async function escalateFromAnalysis(
   thread: IThread,
@@ -57,6 +58,15 @@ export async function runAIPipeline(threadId: string): Promise<void> {
     });
 
     const { ai_response, escalation, suggested_tags, new_status } = result;
+    const combinedTags = [...new Set([...thread.tags, ...suggested_tags])];
+    const similarProblems = await findSimilarProblems({
+      threadId,
+      title: thread.title,
+      body: thread.body ?? "",
+      subject: thread.subject,
+      tags: combinedTags,
+      limit: 5,
+    });
 
     await Thread.findByIdAndUpdate(threadId, {
       $set: {
@@ -68,7 +78,8 @@ export async function runAIPipeline(threadId: string): Promise<void> {
           resolved: ai_response.resolved,
         },
         status: new_status,
-        tags: [...new Set([...thread.tags, ...suggested_tags])],
+        tags: combinedTags,
+        similarProblems,
       },
     });
 
@@ -82,6 +93,11 @@ export async function runAIPipeline(threadId: string): Promise<void> {
         resolved: ai_response.resolved,
       },
       status: new_status,
+    });
+
+    await broadcastToRoom(roomName("thread", threadId), "similar_problems_ready", {
+      threadId,
+      similarProblems,
     });
 
     if (escalation.should_escalate) {
@@ -99,6 +115,28 @@ export async function runAIPipeline(threadId: string): Promise<void> {
     }
   } catch (err) {
     console.error("[aiPipeline] intelligence service error for thread", threadId, err);
+
+    if (thread) {
+      try {
+        const similarProblems = await findSimilarProblems({
+          threadId,
+          title: thread.title,
+          body: thread.body ?? "",
+          subject: thread.subject,
+          tags: thread.tags,
+          limit: 5,
+        });
+        await Thread.findByIdAndUpdate(threadId, {
+          $set: { similarProblems },
+        });
+        await broadcastToRoom(roomName("thread", threadId), "similar_problems_ready", {
+          threadId,
+          similarProblems,
+        });
+      } catch (similarErr) {
+        console.error("[aiPipeline] similar problem fallback failed", similarErr);
+      }
+    }
 
     // Fallback: mark thread for expert review without AI response
     await Thread.findByIdAndUpdate(threadId, {
