@@ -41,6 +41,14 @@ function forbidden(message = "You do not have access to this conversation") {
   return error;
 }
 
+function mentorUnavailable() {
+  const error = new Error("Mentor isn't available right now. Try again later.") as Error & {
+    status?: number;
+  };
+  error.status = 409;
+  return error;
+}
+
 export async function getConversationForUser(conversationId: string, userId: string) {
   if (!mongoose.Types.ObjectId.isValid(conversationId)) return null;
   return DmConversation.findOne({ _id: conversationId, participants: userId });
@@ -63,6 +71,14 @@ export async function findOrCreateDmConversation(learnerId: string, expertId: st
     const error = new Error("Expert not found") as Error & { status?: number };
     error.status = 404;
     throw error;
+  }
+
+  const requester = await User.findById(learnerId).select("role");
+  if (
+    (requester?.role === "learner" || requester?.role === "user") &&
+    expert.availabilityStatus !== "online"
+  ) {
+    throw mentorUnavailable();
   }
 
   const key = participantKey(learnerId, expertId);
@@ -127,6 +143,13 @@ export async function createDmMessage(input: {
 }) {
   const conversation = await getConversationForUser(input.conversationId, input.userId);
   if (!conversation) throw forbidden();
+
+  if (String(conversation.learner) === String(input.userId)) {
+    const expert = await User.findById(conversation.expert).select("availabilityStatus");
+    if (expert?.availabilityStatus !== "online") {
+      throw mentorUnavailable();
+    }
+  }
 
   if (input.parentMessageId) {
     const parent = await Message.exists({
