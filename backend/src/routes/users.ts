@@ -220,6 +220,7 @@ router.get("/experts", requireAuth, async (_req: AuthRequest, res, next) => {
   try {
     const experts = await User.find({
       role: "expert",
+      "expertVerification.status": "approved",
     })
       .select("name avatarUrl bio expertise skillTags availabilityStatus points badges role expertVerification")
       .sort({ points: -1 });

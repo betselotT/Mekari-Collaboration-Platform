@@ -410,6 +410,7 @@ function MessagesContent() {
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DmMessage | null>(null);
   const [showEndSessionDialog, setShowEndSessionDialog] = useState(false);
+  const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -676,6 +677,15 @@ function MessagesContent() {
     const body = draft.trim();
     if ((!body && !attachment) || !activeId || sending) return;
 
+    if (
+      activeConversation &&
+      user?._id === activeConversation.learner?._id &&
+      activeConversation.expert?.availabilityStatus !== "online"
+    ) {
+      setAvailabilityModalOpen(true);
+      return;
+    }
+
     setSending(true);
     setError(null);
     const parentMessageId = replyTo ? getId(replyTo) : undefined;
@@ -700,11 +710,15 @@ function MessagesContent() {
       resetAttachment();
       setReplyTo(null);
     } catch (e: any) {
-      setError(
+      const message =
         e?.response?.data?.message ||
-          e?.response?.data?.error?.message ||
-          "Failed to send message"
-      );
+        e?.response?.data?.error?.message ||
+        "Failed to send message";
+      if (message === "Mentor isn't available right now. Try again later.") {
+        setAvailabilityModalOpen(true);
+      } else {
+        setError(message);
+      }
     } finally {
       setSending(false);
     }
@@ -823,6 +837,17 @@ function MessagesContent() {
           if (!deletingMessageId) setDeleteTarget(null);
         }}
         onConfirm={confirmDeleteMessage}
+      />
+
+      <ConfirmDialog
+        open={availabilityModalOpen}
+        title="Mentor unavailable"
+        description="Mentor isn't available right now. Try again later."
+        confirmLabel="OK"
+        cancelLabel="Close"
+        icon={<AlertTriangle className="h-5 w-5" />}
+        onCancel={() => setAvailabilityModalOpen(false)}
+        onConfirm={() => setAvailabilityModalOpen(false)}
       />
 
       <EndSessionDialog

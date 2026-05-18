@@ -694,7 +694,9 @@ export default function ThreadDetailPage() {
       <div className="mb-6">
         <div className="mb-2 flex items-center gap-2 flex-wrap">
           <Badge variant="info">{thread.subject.toUpperCase()}</Badge>
-          <Badge variant={statusVariant}>{thread.status.replace("_", " ")}</Badge>
+          <Badge variant={statusVariant}>
+            {thread.status === "SOLVED" ? "Solved" : thread.status.replace("_", " ")}
+          </Badge>
           {thread.tags.map((tag) => (
             <Badge key={tag} variant="default" className="text-xs">
               {tag}
@@ -933,7 +935,7 @@ export default function ThreadDetailPage() {
           )}
 
           {/* Input bar */}
-          {thread.status !== "SOLVED" && thread.status !== "CLOSED" && (
+          {thread.status !== "CLOSED" && (
             <div className="flex flex-col gap-2">
               {replyTo && (
                 <div className="flex items-start justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm dark:border-primary-900/50 dark:bg-primary-950/30">
@@ -1089,12 +1091,6 @@ export default function ThreadDetailPage() {
             </div>
           )}
 
-          {thread.status === "SOLVED" && (
-            <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300">
-              <CheckCircle className="h-4 w-4" />
-              This thread has been solved.
-            </div>
-          )}
         </div>
 
         {/* ── Side panels (1/3) ───────────────────────────────────────── */}
