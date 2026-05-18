@@ -77,6 +77,7 @@ export function registerChatHandlers(
           userId,
           body: parsed.data.body,
           type: parsed.data.type,
+          attachmentUrl: parsed.data.attachmentUrl,
           parentMessageId: parsed.data.parentMessageId,
         });
       } catch (err) {

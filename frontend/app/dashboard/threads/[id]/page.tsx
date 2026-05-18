@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useRef, useState, useCallback } from "react";
+import { ChangeEvent, ReactNode, useEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { DashboardLayout } from "../../../../components/layout";
 import { Button } from "../../../../components/ui/Button";
@@ -23,6 +23,11 @@ import {
   ArrowUp,
   X,
   BookOpen,
+  Code2,
+  FileText,
+  Image as ImageIcon,
+  Paperclip,
+  Smile,
   } from "lucide-react";
 import type { Socket } from "socket.io-client";
 
@@ -39,11 +44,22 @@ interface ChatMessage {
   sender: Sender | string;
   body: string;
   type: string;
+  attachmentUrl?: string;
   isFromAi: boolean;
   createdAt: string;
   upvotes?: string[];
   parentMessageId?: string;
 }
+
+type ComposerMode = "TEXT" | "CODE";
+
+type AttachmentDraft = {
+  type: "IMAGE" | "FILE";
+  name: string;
+  dataUrl: string;
+};
+
+const emojiOptions = ["👍", "🙏", "🎉", "💡", "✅", "🔥", "👀", "🚀"];
 
 interface AIResponse {
   explanation: string;
@@ -117,6 +133,84 @@ function getMessageId(message: ChatMessage): string {
   return message._id || message.id || "";
 }
 
+function attachmentLabel(message: ChatMessage) {
+  return message.body || (message.type === "IMAGE" ? "Shared image" : "Attached file");
+}
+
+function renderHighlightedCode(code: string) {
+  const tokens = code.split(/(\b(?:async|await|break|catch|const|continue|else|export|for|from|function|if|import|let|return|throw|try|type|while)\b|\/\/.*|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`|\b\d+(?:\.\d+)?\b)/g);
+
+  return tokens.map((token, index) => {
+    let className = "text-neutral-100";
+    if (/^(async|await|break|catch|const|continue|else|export|for|from|function|if|import|let|return|throw|try|type|while)$/.test(token)) {
+      className = "text-sky-300";
+    } else if (/^\/\//.test(token)) {
+      className = "text-neutral-500";
+    } else if (/^["'`]/.test(token)) {
+      className = "text-emerald-300";
+    } else if (/^\d/.test(token)) {
+      className = "text-amber-300";
+    }
+
+    return (
+      <span key={`${token}-${index}`} className={className}>
+        {token}
+      </span>
+    );
+  });
+}
+
+function MessageContent({ message }: { message: ChatMessage }) {
+  if (message.type === "CODE") {
+    return (
+      <div className="overflow-hidden rounded-lg border border-neutral-700 bg-neutral-950 text-left">
+        <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+            Code snippet
+          </span>
+          <Code2 className="h-3.5 w-3.5 text-neutral-500" />
+        </div>
+        <pre className="max-h-80 overflow-auto p-3 text-xs leading-5">
+          <code>{renderHighlightedCode(message.body)}</code>
+        </pre>
+      </div>
+    );
+  }
+
+  if (message.type === "IMAGE" && message.attachmentUrl) {
+    return (
+      <figure className="space-y-2">
+        <a href={message.attachmentUrl} target="_blank" rel="noopener noreferrer">
+          <img
+            src={message.attachmentUrl}
+            alt={attachmentLabel(message)}
+            className="max-h-72 rounded-lg border border-black/10 object-contain dark:border-white/10"
+          />
+        </a>
+        <figcaption className="text-xs opacity-80">{attachmentLabel(message)}</figcaption>
+      </figure>
+    );
+  }
+
+  if (message.type === "FILE" && message.attachmentUrl) {
+    return (
+      <a
+        href={message.attachmentUrl}
+        download={attachmentLabel(message)}
+        className="flex items-center gap-3 rounded-lg border border-current/15 bg-white/10 px-3 py-2 text-left hover:bg-white/15"
+      >
+        <FileText className="h-5 w-5 shrink-0" />
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-semibold">{attachmentLabel(message)}</span>
+          <span className="block text-xs opacity-70">Open or download attachment</span>
+        </span>
+      </a>
+    );
+  }
+
+  return <p className="whitespace-pre-wrap break-words">{message.body}</p>;
+}
+
 export default function ThreadDetailPage() {
   const params = useParams<{ id: string }>();
   const threadId = params?.id ?? "";
@@ -125,8 +219,12 @@ export default function ThreadDetailPage() {
   const [thread, setThread] = useState<Thread | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [input, setInput] = useState("");
+  const [composerMode, setComposerMode] = useState<ComposerMode>("TEXT");
+  const [attachment, setAttachment] = useState<AttachmentDraft | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [aiPanel, setAiPanel] = useState(true);
   const [expertPanel, setExpertPanel] = useState(true);
@@ -147,7 +245,9 @@ export default function ThreadDetailPage() {
   const [savingTags, setSavingTags] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
@@ -156,17 +256,55 @@ export default function ThreadDetailPage() {
   useEffect(() => {
     if (!threadId) return;
 
-    Promise.all([
-      apiClient.get<{ thread: Thread }>(`/api/threads/${threadId}`),
-      apiClient.get<{ messages: ChatMessage[] }>(`/api/threads/${threadId}/messages`),
-    ])
-      .then(([threadRes, msgRes]) => {
-        setThread(threadRes.data.thread);
-        setMessages(msgRes.data.messages);
-        if (!threadRes.data.thread.similarProblems?.length) loadSimilarProblems();
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    let mounted = true;
+
+    async function loadThreadDetail() {
+      setLoading(true);
+      setLoadError(null);
+
+      try {
+        const threadRes = await apiClient.get<{ thread: Thread }>(`/api/threads/${threadId}`);
+        if (!mounted) return;
+
+        const loadedThread = threadRes.data.thread;
+        setThread(loadedThread);
+
+        try {
+          const msgRes = await apiClient.get<{ messages: ChatMessage[] }>(
+            `/api/threads/${threadId}/messages`
+          );
+          if (mounted) setMessages(msgRes.data.messages || []);
+        } catch (messageErr: any) {
+          if (mounted) {
+            setMessages([]);
+            setLoadError(
+              messageErr?.response?.data?.error?.message ||
+                "Thread loaded, but messages could not be loaded."
+            );
+          }
+        }
+
+        if (!loadedThread.similarProblems?.length) loadSimilarProblems();
+      } catch (err: any) {
+        if (!mounted) return;
+        setThread(null);
+        setMessages([]);
+        const status = err?.response?.status;
+        setLoadError(
+          status === 404
+            ? "Thread not found."
+            : err?.response?.data?.error?.message || "Failed to load this thread."
+        );
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    loadThreadDetail();
+
+    return () => {
+      mounted = false;
+    };
   }, [threadId]);
 
   async function loadSimilarProblems() {
@@ -321,26 +459,81 @@ export default function ThreadDetailPage() {
   }, [threadId]);
 
   // ── Send message ────────────────────────────────────────────────────────
+  function addEmoji(emoji: string) {
+    handleInputChange(`${input}${emoji}`);
+    setShowEmojiPicker(false);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
+  function resetAttachment() {
+    setAttachment(null);
+    if (imageInputRef.current) imageInputRef.current.value = "";
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function handleAttachmentChange(event: ChangeEvent<HTMLInputElement>, kind: "IMAGE" | "FILE") {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const maxSize = 4 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setActionError("Attachments must be 4MB or smaller.");
+      event.target.value = "";
+      return;
+    }
+
+    if (kind === "IMAGE" && !file.type.startsWith("image/")) {
+      setActionError("Choose an image file for image messages.");
+      event.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAttachment({
+        type: kind,
+        name: file.name,
+        dataUrl: String(reader.result),
+      });
+      setComposerMode("TEXT");
+      setActionError(null);
+      if (!input.trim()) handleInputChange(file.name);
+    };
+    reader.onerror = () => setActionError("Could not read the selected attachment.");
+    reader.readAsDataURL(file);
+  }
+
   async function sendMessage() {
     const text = input.trim();
-    if (!text || sending) return;
+    if ((!text && !attachment) || sending) return;
 
     setSending(true);
     setInput("");
     const parentMessageId = replyTo ? getMessageId(replyTo) : undefined;
+    const messageType = attachment?.type || composerMode;
+    const messageBody = text || attachment?.name || "Attachment";
+    const attachmentUrl = attachment?.dataUrl;
     setReplyTo(null);
+    setShowEmojiPicker(false);
+    resetAttachment();
 
     const socket = socketRef.current;
-    if (socket?.connected) {
+    if (socket?.connected && !attachmentUrl) {
       socket.emit("typing_stop", threadId);
       isTypingRef.current = false;
-      socket.emit("send_message", { threadId, body: text, type: "TEXT", parentMessageId });
+      socket.emit("send_message", { threadId, body: messageBody, type: messageType, parentMessageId });
       setSending(false);
     } else {
       try {
-        await apiClient.post(`/api/threads/${threadId}/messages`, { body: text, parentMessageId });
+        await apiClient.post(`/api/threads/${threadId}/messages`, {
+          body: messageBody,
+          type: messageType,
+          attachmentUrl,
+          parentMessageId,
+        });
       } catch (err) {
         console.error(err);
+        setActionError("Failed to send message.");
       } finally {
         setSending(false);
       }
@@ -458,8 +651,10 @@ export default function ThreadDetailPage() {
 
   if (!thread) {
     return (
-      <DashboardLayout title="Thread not found" searchPlaceholder="Search...">
-        <div className="flex h-64 items-center justify-center text-neutral-500">Thread not found.</div>
+      <DashboardLayout title="Thread unavailable" searchPlaceholder="Search...">
+        <div className="flex h-64 items-center justify-center text-center text-neutral-500">
+          {loadError || "This thread could not be loaded."}
+        </div>
       </DashboardLayout>
     );
   }
@@ -488,6 +683,12 @@ export default function ThreadDetailPage() {
         }}
         onConfirm={confirmDeleteMessage}
       />
+
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+          {loadError}
+        </div>
+      )}
 
       {/* Thread header */}
       <div className="mb-6">
@@ -645,9 +846,7 @@ export default function ThreadDetailPage() {
     </p>
   </div>
 )}
-    <p className="whitespace-pre-wrap break-words">
-      {msg.body}
-    </p>
+    <MessageContent message={msg} />
   </div>
 
   
@@ -756,31 +955,136 @@ export default function ThreadDetailPage() {
                   </button>
                 </div>
               )}
-              <div className="flex gap-2">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  className="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder-neutral-500"
-                  placeholder={replyTo ? "Write a reply..." : "Type your message..."}
-                  value={input}
-                  onChange={(e) => handleInputChange(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      sendMessage();
+              <div className="rounded-xl border border-neutral-200 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-900">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setComposerMode((mode) => (mode === "CODE" ? "TEXT" : "CODE"))}
+                    className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                      composerMode === "CODE"
+                        ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-950"
+                        : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    }`}
+                    title="Send as code snippet"
+                  >
+                    <Code2 className="h-4 w-4" />
+                    Code
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => imageInputRef.current?.click()}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    title="Attach image"
+                  >
+                    <ImageIcon className="h-4 w-4" />
+                    Image
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    title="Attach file"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                    File
+                  </button>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowEmojiPicker((value) => !value)}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                      title="Add emoji"
+                    >
+                      <Smile className="h-4 w-4" />
+                      Emoji
+                    </button>
+                    {showEmojiPicker && (
+                      <div className="absolute bottom-11 left-0 z-20 grid grid-cols-4 gap-1 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+                        {emojiOptions.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => addEmoji(emoji)}
+                            className="flex h-9 w-9 items-center justify-center rounded text-lg hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                            aria-label={`Add ${emoji}`}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => handleAttachmentChange(event, "IMAGE")}
+                  />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(event) => handleAttachmentChange(event, "FILE")}
+                  />
+                </div>
+
+                {attachment && (
+                  <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm dark:border-primary-900/50 dark:bg-primary-950/30">
+                    <div className="flex min-w-0 items-center gap-2 text-primary-800 dark:text-primary-200">
+                      {attachment.type === "IMAGE" ? (
+                        <ImageIcon className="h-4 w-4 shrink-0" />
+                      ) : (
+                        <FileText className="h-4 w-4 shrink-0" />
+                      )}
+                      <span className="truncate">{attachment.name}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={resetAttachment}
+                      className="rounded p-1 text-primary-700 hover:bg-white dark:text-primary-200 dark:hover:bg-neutral-900"
+                      aria-label="Remove attachment"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <textarea
+                    ref={inputRef}
+                    rows={composerMode === "CODE" ? 5 : 2}
+                    className="min-w-0 flex-1 resize-none rounded-lg border border-neutral-300 bg-white px-4 py-2.5 font-sans text-sm outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100 dark:placeholder-neutral-500"
+                    placeholder={
+                      composerMode === "CODE"
+                        ? "Paste a code snippet..."
+                        : attachment
+                        ? "Add an optional caption..."
+                        : replyTo
+                        ? "Write a reply..."
+                        : "Type your message..."
                     }
-                  }}
-                  disabled={sending}
-                />
-                <Button
-                  variant="primary"
-                  size="md"
-                  onClick={sendMessage}
-                  disabled={!input.trim() || sending}
-                  isLoading={sending}
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
+                    value={input}
+                    onChange={(e) => handleInputChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey && composerMode !== "CODE") {
+                        e.preventDefault();
+                        sendMessage();
+                      }
+                    }}
+                    disabled={sending}
+                  />
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={sendMessage}
+                    disabled={(!input.trim() && !attachment) || sending}
+                    isLoading={sending}
+                    title="Send message"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           )}
