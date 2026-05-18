@@ -5,6 +5,7 @@ import { callLlm, isLlmAvailable } from "./llm";
 
 type Candidate = SimilarProblemData & {
   source: "knowledge" | "thread";
+  canOpenThread: boolean;
   body: string;
 };
 
@@ -128,6 +129,8 @@ function toSimilarProblem(candidate: Candidate): SimilarProblemData {
   return {
     docId: candidate.docId,
     threadId: candidate.threadId,
+    source: candidate.source,
+    canOpenThread: candidate.canOpenThread,
     title: candidate.title,
     tags: candidate.tags,
     solution: candidate.solution,
@@ -151,12 +154,19 @@ async function loadKnowledgeCandidates(query: Query): Promise<Candidate[]> {
     docs = await collection.find({}).sort({ createdAt: -1 }).limit(120).toArray();
   }
 
+  const questionIds = docs.map((doc) => String(doc.questionId ?? "")).filter(Boolean);
+  const existingThreads = questionIds.length
+    ? await Thread.find({ _id: { $in: questionIds } }).select("_id").lean()
+    : [];
+  const existingThreadIds = new Set(existingThreads.map((thread) => String(thread._id)));
+
   return docs
     .filter((doc) => String(doc.questionId ?? doc._id) !== String(query.threadId ?? ""))
     .map((doc) => ({
       source: "knowledge" as const,
       docId: String(doc._id),
       threadId: String(doc.questionId ?? doc._id),
+      canOpenThread: existingThreadIds.has(String(doc.questionId ?? "")),
       title: String(doc.title ?? "Untitled"),
       tags: Array.isArray(doc.tags) ? doc.tags.map(String) : [],
       body: String(doc.body ?? ""),
@@ -210,6 +220,7 @@ async function loadThreadCandidates(query: Query): Promise<Candidate[]> {
       source: "thread" as const,
       docId: String(thread._id),
       threadId: String(thread._id),
+      canOpenThread: true,
       title: thread.title,
       tags: [...new Set([thread.subject, ...(thread.tags ?? [])].filter(Boolean))],
       body: [thread.body, messagesText].filter(Boolean).join("\n\n"),
