@@ -13,6 +13,8 @@ export interface AIResponseData {
 export interface SimilarProblemData {
   docId: string;
   threadId: string;
+  source?: "knowledge" | "thread";
+  canOpenThread?: boolean;
   title: string;
   tags: string[];
   solution: string;
@@ -58,6 +60,8 @@ const SimilarProblemSchema = new Schema<SimilarProblemData>(
   {
     docId: { type: String, required: true },
     threadId: { type: String, required: true },
+    source: { type: String, enum: ["knowledge", "thread"], default: "thread" },
+    canOpenThread: { type: Boolean, default: true },
     title: { type: String, required: true },
     tags: { type: [String], default: [] },
     solution: { type: String, default: "" },
