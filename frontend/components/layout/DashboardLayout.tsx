@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 // Props for configuring the dashboard layout structure and header content
@@ -15,18 +15,24 @@ export function DashboardLayout({
   title = "Dashboard",
   searchPlaceholder = "Search...",
 }: DashboardLayoutProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
-    <div className="flex h-screen bg-neutral-50 dark:bg-neutral-950">
+    <div className="min-h-dvh bg-neutral-50 dark:bg-neutral-950">
       {/* Sidebar */}
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Content */}
-      <main className="flex flex-col flex-1 ml-60">
+      <main className="flex min-h-dvh flex-col lg:ml-60">
         {/* Header */}
-        <Header title={title} searchPlaceholder={searchPlaceholder} />
+        <Header
+          title={title}
+          searchPlaceholder={searchPlaceholder}
+          onMenuClick={() => setSidebarOpen(true)}
+        />
 
         {/* Page Content */}
-        <div className="flex-1 overflow-y-auto pt-20 pb-8 px-8">
+        <div className="flex-1 overflow-y-auto px-4 pb-8 pt-20 sm:px-6 lg:px-8">
           {children}
         </div>
       </main>
