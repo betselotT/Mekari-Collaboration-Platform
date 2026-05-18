@@ -1,8 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { ThemeToggle } from "../components/theme/ThemeToggle";
+import { GoogleAuthButton } from "../components/auth/GoogleAuthButton";
+import { GithubAuthButton } from "../components/auth/GithubAuthButton";
 import { Button } from "../components/ui/Button";
+import { apiClient } from "../lib/api";
 import {
   Zap,
   Users,
@@ -16,6 +20,26 @@ import {
 } from "lucide-react";
 
 export default function LandingPage() {
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  async function onGoogleSignIn(credential: string) {
+    setAuthError(null);
+    try {
+      const res = await apiClient.post("/api/auth/google", {
+        credential,
+        accountType: "learner",
+      });
+      localStorage.setItem("mekari_token", res.data.token);
+      window.location.href = "/dashboard";
+    } catch (err: any) {
+      setAuthError(
+        err.response?.data?.message ||
+          err.response?.data?.error?.message ||
+          "Google sign-in failed"
+      );
+    }
+  }
+
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950">
       {/* Navigation */}
@@ -239,9 +263,16 @@ export default function LandingPage() {
               <div className="flex-1 border-t border-neutral-200 dark:border-neutral-700" />
             </div>
 
-            <Button variant="secondary" size="lg" className="w-full">
-              Continue with Google
-            </Button>
+            {authError && (
+              <p className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200">
+                {authError}
+              </p>
+            )}
+
+            <div className="space-y-3">
+              <GoogleAuthButton onCredential={onGoogleSignIn} onError={setAuthError} />
+              <GithubAuthButton accountType="learner" mode="login" />
+            </div>
           </div>
 
           <p className="mt-6 text-xs text-neutral-600 dark:text-neutral-400">
