@@ -265,7 +265,7 @@ export default function AIAssistantPage() {
 
   return (
     <DashboardLayout title="Mekari AI" searchPlaceholder="Search engineering topics...">
-      <div className="mx-auto flex h-full max-w-5xl flex-col">
+      <div className="mx-auto flex min-h-[calc(100dvh-8rem)] max-w-5xl flex-col">
         <div className="mb-6 flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
           <span>MEKARI</span>
           <span>/</span>
@@ -274,7 +274,7 @@ export default function AIAssistantPage() {
 
         <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 className="text-3xl font-bold text-neutral-900 dark:text-white">
+            <h2 className="text-2xl font-bold text-neutral-900 dark:text-white sm:text-3xl">
               Engineering concept assistant
             </h2>
             <p className="mt-2 max-w-2xl text-sm text-neutral-600 dark:text-neutral-400">
@@ -294,16 +294,16 @@ export default function AIAssistantPage() {
           </div>
         </div>
 
-        <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[1fr_280px]">
-          <section className="flex min-h-0 flex-col rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900">
-            <div ref={scrollRef} className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+        <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <section className="flex min-h-[520px] min-w-0 flex-col rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900">
+            <div ref={scrollRef} className="min-h-0 flex-1 space-y-5 overflow-y-auto p-3 sm:p-5">
               {messages.map((message, index) => (
                 <div
                   key={`${message.timestamp}-${index}`}
                   className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[78%] rounded-lg px-4 py-3 ${
+                    className={`max-w-[90%] rounded-lg px-3 py-3 sm:max-w-[78%] sm:px-4 ${
                       message.role === "user"
                         ? "bg-primary-600 text-white"
                         : "border border-neutral-200 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
@@ -340,14 +340,14 @@ export default function AIAssistantPage() {
 
             <form
               onSubmit={handleSubmit}
-              className="flex gap-2 border-t border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800"
+              className="flex gap-2 border-t border-neutral-200 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-800 sm:p-4"
             >
               <input
                 type="text"
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 placeholder="Ask an engineering question..."
-                className="input m-0 flex-1 border-0 p-0"
+                className="input m-0 min-w-0 flex-1 border-0 p-0"
                 disabled={isSending}
               />
               <Button type="submit" variant="primary" size="sm" isLoading={isSending}>
@@ -356,7 +356,7 @@ export default function AIAssistantPage() {
             </form>
           </section>
 
-          <aside className="space-y-4">
+          <aside className="space-y-4 lg:max-h-[calc(100dvh-13rem)] lg:overflow-y-auto">
             <h3 className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">
               Quick prompts
             </h3>

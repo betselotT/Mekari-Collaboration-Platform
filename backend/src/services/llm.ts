@@ -25,12 +25,7 @@ export function isLlmAvailable(): boolean {
 
 export async function callLlm(
   messages: LlmMessage[],
-  options: {
-    maxTokens?: number;
-    jsonMode?: boolean;
-    responseSchema?: Record<string, unknown>;
-    thinkingBudget?: number;
-  } = {}
+  options: { maxTokens?: number; jsonMode?: boolean; thinkingBudget?: number } = {}
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -52,9 +47,6 @@ export async function callLlm(
   };
   if (options.jsonMode) {
     generationConfig.responseMimeType = "application/json";
-  }
-  if (options.responseSchema) {
-    generationConfig.responseSchema = options.responseSchema;
   }
   if (typeof options.thinkingBudget === "number") {
     generationConfig.thinkingConfig = { thinkingBudget: options.thinkingBudget };

@@ -109,6 +109,7 @@ export async function suggestTags(params: {
 
 export async function findSimilar(params: {
   title: string;
+  body?: string;
   tags: string[];
   subject: string;
   limit?: number;

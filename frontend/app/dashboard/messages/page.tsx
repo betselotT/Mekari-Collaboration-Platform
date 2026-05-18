@@ -686,7 +686,7 @@ function MessagesContent() {
         </div>
       )}
 
-      <div className="grid min-h-[calc(100vh-180px)] overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900 lg:grid-cols-[320px_1fr]">
+      <div className="grid min-h-[calc(100dvh-180px)] overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900 lg:grid-cols-[320px_1fr]">
         <aside className="border-b border-neutral-200 dark:border-neutral-700 lg:border-b-0 lg:border-r">
           <div className="border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
             <h2 className="text-sm font-bold text-neutral-900 dark:text-white">Conversations</h2>
@@ -731,7 +731,7 @@ function MessagesContent() {
           </div>
         </aside>
 
-        <section className="flex min-h-[520px] flex-col">
+        <section className="flex min-h-[520px] min-w-0 flex-col">
           {activeConversation ? (
             <>
               <div className="flex flex-col gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-700 sm:flex-row sm:items-center sm:justify-between">
@@ -827,13 +827,13 @@ function MessagesContent() {
                       );
                     }
                     return (
-                      <div key={messageId} className={`flex gap-3 ${isMine ? "flex-row-reverse" : ""}`}>
+                    <div key={messageId} className={`flex gap-2 sm:gap-3 ${isMine ? "flex-row-reverse" : ""}`}>
                         <Avatar
                           size="sm"
                           src={message.sender?.avatarUrl}
                           initials={senderInitials(message.sender)}
                         />
-                        <div className={`flex max-w-[75%] flex-col gap-1 ${isMine ? "items-end" : ""}`}>
+                        <div className={`flex max-w-[86%] flex-col gap-1 sm:max-w-[75%] ${isMine ? "items-end" : ""}`}>
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
                               {senderName(message.sender)}
@@ -935,7 +935,7 @@ function MessagesContent() {
                     value={draft}
                     onChange={(event) => handleDraftChange(event.target.value)}
                     placeholder={replyTo ? "Write a reply..." : "Type a private message..."}
-                    className="flex-1 rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100"
+                    className="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100"
                     disabled={sending}
                   />
                   <Button type="submit" variant="primary" size="md" disabled={!draft.trim() || sending}>

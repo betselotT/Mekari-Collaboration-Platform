@@ -354,20 +354,19 @@ export async function recommendExperts(params: {
   availabilityPreference: MatchAvailabilityPreference;
   limit?: number;
 }): Promise<ExpertRecommendation[]> {
-  const {
-    requesterId,
-    subject,
-    tags,
-    title = "",
-    body = "",
-    availabilityPreference,
-    limit = 5,
-  } = params;
-  const contentText = [title, body].filter(Boolean).join("\n\n");
-  const rawTerms = [subject, ...tags, ...extractContentSignals(contentText)]
-    .map((t) => t.trim())
-    .filter(Boolean);
-  const queryTerms = buildTermSet(rawTerms);
+  const { requesterId, subject, tags, title = "", body = "", availabilityPreference, limit = 5 } = params;
+  const contentSignals: string[] = [];
+  const combinedText = `${subject} ${title} ${body} ${tags.join(" ")}`.toLowerCase();
+  if (/\bdsa\b|data structures?|algorithms?|dynamic programming|graphs?|trees?|stacks?|queues?/i.test(combinedText)) {
+    contentSignals.push("DSA", "Data Structures & Algorithms", "algorithms", "data structures");
+  }
+  if (/agentic|llm|ai automation|tool call|workflow automation/i.test(combinedText)) {
+    contentSignals.push("Agentic AI Engineer", "agentic ai", "llm agents", "ai automation");
+  }
+  const rawTerms = [subject, ...tags, ...contentSignals].map((t) => t.trim()).filter(Boolean);
+  const tagSet = new Set(rawTerms.map((t) => t.toLowerCase()));
+  // Case-insensitive regex for each term
+  const tagRegexes = rawTerms.map((t) => new RegExp(`^${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"));
 
   const baseFilter = {
     ...(requesterId ? { _id: { $ne: requesterId } } : {}),

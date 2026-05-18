@@ -11,12 +11,10 @@ import { captureKnowledge } from "../services/knowledgeCapture";
 import { runAIPipeline } from "../services/aiPipeline";
 import { broadcastToRoom, roomName } from "../services/realtime";
 import { createThreadMessage, threadMessageSchema } from "../services/threadMessages";
-
 import { generateContentTags, normalizeContentTags } from "../services/tagExtraction";
-
+import { findSimilarProblems } from "../services/similarProblems";
 import { recommendExperts } from "../services/matching";
 import { createNotification } from "../services/notifications";
-
 
 const router = Router();
 
@@ -218,12 +216,69 @@ router.get("/", requireAuth, async (req: AuthRequest, res, next) => {
 // GET /:threadId — single thread with populated experts
 router.get("/:threadId", requireAuth, async (req: AuthRequest, res, next) => {
   try {
+    let threadDoc = await Thread.findById(req.params.threadId);
+    if (!threadDoc) return res.status(404).json({ error: { message: "Thread not found" } });
+
+    if (!threadDoc.matchedExperts?.length) {
+      const recommendations = await recommendExperts({
+        requesterId: String(threadDoc.createdBy),
+        subject: threadDoc.subject,
+        tags: threadDoc.tags,
+        title: threadDoc.title,
+        body: threadDoc.body ?? "",
+        availabilityPreference: "any",
+        limit: 3,
+      });
+      if (recommendations.length > 0) {
+        threadDoc = await Thread.findByIdAndUpdate(
+          req.params.threadId,
+          { $set: { matchedExperts: recommendations.map((rec) => rec.expertId) } },
+          { new: true }
+        );
+      }
+    }
+
     const thread = await Thread.findById(req.params.threadId)
       .populate("createdBy", "name avatarUrl")
-      .populate("matchedExperts", "name avatarUrl expertise availabilityStatus points badges");
+      .populate("matchedExperts", "name avatarUrl expertise skillTags availabilityStatus points badges");
 
     if (!thread) return res.status(404).json({ error: { message: "Thread not found" } });
     res.json({ thread });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /:threadId/similar - retrieve solved threads/knowledge docs related to this thread
+router.get("/:threadId/similar", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const thread = await Thread.findById(req.params.threadId);
+    if (!thread) return res.status(404).json({ error: { message: "Thread not found" } });
+    const messages = await Message.find({ thread: thread._id })
+      .sort({ createdAt: 1 })
+      .limit(4)
+      .select("body type")
+      .lean();
+    const messageText = messages
+      .filter((message) => message.type !== "SYSTEM_EVENT")
+      .map((message) => message.body)
+      .filter(Boolean)
+      .join("\n\n");
+
+    const similarProblems = await findSimilarProblems({
+      threadId: String(thread._id),
+      title: thread.title,
+      body: [thread.body, messageText].filter(Boolean).join("\n\n"),
+      subject: thread.subject,
+      tags: thread.tags,
+      limit: Math.min(10, Math.max(1, Number(req.query.limit ?? 5))),
+    });
+
+    await Thread.findByIdAndUpdate(thread._id, {
+      $set: { similarProblems },
+    });
+
+    res.json({ problems: similarProblems });
   } catch (err) {
     next(err);
   }
@@ -267,6 +322,33 @@ router.patch("/:threadId/tags", requireAuth, async (req: AuthRequest, res, next)
 router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, next) => {
   try {
     const parsed = createThreadSchema.parse(req.body);
+    const duplicateWindow = new Date(Date.now() - 30_000);
+    const recentSameTitle = await Thread.findOne({
+      createdBy: req.userId,
+      title: parsed.title.trim(),
+      subject: parsed.subject.trim(),
+      createdAt: { $gte: duplicateWindow },
+    }).sort({ createdAt: -1 });
+
+    if (recentSameTitle) {
+      const existingInitialMessage = await Message.findOne({
+        thread: recentSameTitle._id,
+        sender: req.userId,
+        body: parsed.initialMessage,
+      }).select("_id");
+
+      if (existingInitialMessage) {
+        await recentSameTitle.populate([
+          { path: "createdBy", select: "name avatarUrl" },
+          {
+            path: "matchedExperts",
+            select: "name avatarUrl expertise skillTags availabilityStatus points badges",
+          },
+        ]);
+        return res.status(200).json({ thread: recentSameTitle, duplicate: true });
+      }
+    }
+
     const tags = await generateContentTags({
       title: parsed.title,
       subject: parsed.subject,
@@ -288,7 +370,7 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
     const thread = await Thread.create({
       title: parsed.title,
       subject: parsed.subject,
-      body: parsed.body,
+      body: parsed.body || parsed.initialMessage,
       tags,
       createdBy: req.userId,
       participants: [req.userId],
@@ -312,11 +394,7 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
       .map((rec) => {
         const expert = expertMap.get(rec.expertId);
         if (!expert) return null;
-        return {
-          expert,
-          score: rec.score,
-          reasons: rec.reasons,
-        };
+        return { expert, score: rec.score, reasons: rec.reasons };
       })
       .filter(Boolean);
 
