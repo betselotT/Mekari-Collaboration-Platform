@@ -92,6 +92,7 @@ router.post(
         userId: String(req.userId),
         body: parsed.body,
         type: parsed.type,
+        attachmentUrl: parsed.attachmentUrl,
         parentMessageId: parsed.parentMessageId,
       });
       res.status(201).json({ message });

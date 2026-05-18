@@ -1,14 +1,19 @@
 "use client";
 
-import { FormEvent, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   CheckCircle2,
+  Code2,
   ExternalLink,
+  FileText,
+  Image as ImageIcon,
   MessageCircle,
+  Paperclip,
   Reply,
   Send,
+  Smile,
   Square,
   Trash2,
   Video,
@@ -58,9 +63,33 @@ interface DmMessage {
   sender: DmUser;
   body: string;
   type: "TEXT" | "CODE" | "IMAGE" | "FILE" | "SYSTEM_EVENT";
+  attachmentUrl?: string;
   parentMessageId?: string;
   createdAt: string;
 }
+
+type ComposerMode = "TEXT" | "CODE";
+
+type AttachmentDraft = {
+  type: "IMAGE" | "FILE";
+  name: string;
+  dataUrl: string;
+};
+
+const emojiOptions = [
+  "\u{1F44D}",
+  "\u{1F64F}",
+  "\u{1F389}",
+  "\u{1F4A1}",
+  "\u{2705}",
+  "\u{1F525}",
+  "\u{1F440}",
+  "\u{1F680}",
+  "\u{1F642}",
+  "\u{1F4AF}",
+  "\u{1F914}",
+  "\u{1F4AA}",
+];
 
 function getId(value: { _id?: string; id?: string }) {
   return value._id || value.id || "";
@@ -77,6 +106,84 @@ function senderInitials(sender?: DmUser) {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+}
+
+function attachmentLabel(message: DmMessage) {
+  return message.body || (message.type === "IMAGE" ? "Shared image" : "Attached file");
+}
+
+function renderHighlightedCode(code: string) {
+  const tokens = code.split(/(\b(?:async|await|break|catch|const|continue|else|export|for|from|function|if|import|let|return|throw|try|type|while)\b|\/\/.*|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`|\b\d+(?:\.\d+)?\b)/g);
+
+  return tokens.map((token, index) => {
+    let className = "text-neutral-100";
+    if (/^(async|await|break|catch|const|continue|else|export|for|from|function|if|import|let|return|throw|try|type|while)$/.test(token)) {
+      className = "text-sky-300";
+    } else if (/^\/\//.test(token)) {
+      className = "text-neutral-500";
+    } else if (/^["'`]/.test(token)) {
+      className = "text-emerald-300";
+    } else if (/^\d/.test(token)) {
+      className = "text-amber-300";
+    }
+
+    return (
+      <span key={`${token}-${index}`} className={className}>
+        {token}
+      </span>
+    );
+  });
+}
+
+function MessageContent({ message }: { message: DmMessage }) {
+  if (message.type === "CODE") {
+    return (
+      <div className="overflow-hidden rounded-lg border border-neutral-700 bg-neutral-950 text-left">
+        <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+            Code snippet
+          </span>
+          <Code2 className="h-3.5 w-3.5 text-neutral-500" />
+        </div>
+        <pre className="max-h-80 overflow-auto p-3 text-xs leading-5">
+          <code>{renderHighlightedCode(message.body)}</code>
+        </pre>
+      </div>
+    );
+  }
+
+  if (message.type === "IMAGE" && message.attachmentUrl) {
+    return (
+      <figure className="space-y-2">
+        <a href={message.attachmentUrl} target="_blank" rel="noopener noreferrer">
+          <img
+            src={message.attachmentUrl}
+            alt={attachmentLabel(message)}
+            className="max-h-72 max-w-full rounded-lg border border-black/10 object-contain dark:border-white/10"
+          />
+        </a>
+        <figcaption className="text-xs opacity-80">{attachmentLabel(message)}</figcaption>
+      </figure>
+    );
+  }
+
+  if (message.type === "FILE" && message.attachmentUrl) {
+    return (
+      <a
+        href={message.attachmentUrl}
+        download={attachmentLabel(message)}
+        className="flex items-center gap-3 rounded-lg border border-current/15 bg-white/10 px-3 py-2 text-left hover:bg-white/15"
+      >
+        <FileText className="h-5 w-5 shrink-0" />
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-semibold">{attachmentLabel(message)}</span>
+          <span className="block text-xs opacity-70">Open or download attachment</span>
+        </span>
+      </a>
+    );
+  }
+
+  return <p className="whitespace-pre-wrap break-words">{message.body}</p>;
 }
 
 export default function MessagesPage() {
@@ -288,6 +395,9 @@ function MessagesContent() {
   const [activeId, setActiveId] = useState(requestedConversation);
   const [messages, setMessages] = useState<DmMessage[]>([]);
   const [draft, setDraft] = useState("");
+  const [composerMode, setComposerMode] = useState<ComposerMode>("TEXT");
+  const [attachment, setAttachment] = useState<AttachmentDraft | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -301,7 +411,9 @@ function MessagesContent() {
   const [deleteTarget, setDeleteTarget] = useState<DmMessage | null>(null);
   const [showEndSessionDialog, setShowEndSessionDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const activeIdRef = useRef(activeId);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -516,17 +628,64 @@ function MessagesContent() {
     }, 2000);
   }
 
+  function addEmoji(emoji: string) {
+    handleDraftChange(`${draft}${emoji}`);
+    setShowEmojiPicker(false);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
+  function resetAttachment() {
+    setAttachment(null);
+    if (imageInputRef.current) imageInputRef.current.value = "";
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function handleAttachmentChange(event: ChangeEvent<HTMLInputElement>, kind: "IMAGE" | "FILE") {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const maxSize = 4 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setError("Attachments must be 4MB or smaller.");
+      event.target.value = "";
+      return;
+    }
+
+    if (kind === "IMAGE" && !file.type.startsWith("image/")) {
+      setError("Choose an image file for image messages.");
+      event.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAttachment({
+        type: kind,
+        name: file.name,
+        dataUrl: String(reader.result),
+      });
+      setComposerMode("TEXT");
+      setError(null);
+      if (!draft.trim()) handleDraftChange(file.name);
+    };
+    reader.onerror = () => setError("Could not read the selected attachment.");
+    reader.readAsDataURL(file);
+  }
+
   async function submitMessage() {
     const body = draft.trim();
-    if (!body || !activeId || sending) return;
+    if ((!body && !attachment) || !activeId || sending) return;
 
     setSending(true);
     setError(null);
     const parentMessageId = replyTo ? getId(replyTo) : undefined;
+    const messageType = attachment?.type || composerMode;
+    const messageBody = body || attachment?.name || "Attachment";
+    const attachmentUrl = attachment?.dataUrl;
     try {
       const res = await apiClient.post<{ message: DmMessage }>(
         `/api/dms/conversations/${activeId}/messages`,
-        { body, parentMessageId }
+        { body: messageBody, type: messageType, attachmentUrl, parentMessageId }
       );
       setMessages((prev) => {
         const messageId = getId(res.data.message);
@@ -536,6 +695,9 @@ function MessagesContent() {
       socketRef.current?.emit("dm_typing_stop", activeId);
       isTypingRef.current = false;
       setDraft("");
+      setComposerMode("TEXT");
+      setShowEmojiPicker(false);
+      resetAttachment();
       setReplyTo(null);
     } catch (e: any) {
       setError(
@@ -863,7 +1025,7 @@ function MessagesContent() {
                                   </p>
                                 </div>
                               )}
-                              <p className="whitespace-pre-wrap break-words">{message.body}</p>
+                              <MessageContent message={message} />
                             </div>
 
                             <div className="absolute -top-3 right-2 hidden items-center gap-2 rounded-lg border border-neutral-200 bg-white px-2 py-1 shadow-md group-hover:flex dark:border-neutral-700 dark:bg-neutral-900">
@@ -907,7 +1069,7 @@ function MessagesContent() {
                 <div ref={messagesEndRef} />
               </div>
 
-              <form onSubmit={sendMessage} className="flex flex-col gap-2 border-t border-neutral-200 p-4 dark:border-neutral-700">
+              <form onSubmit={sendMessage} className="flex flex-col gap-2 border-t border-neutral-200 p-3 dark:border-neutral-700 sm:p-4">
                 {replyTo && (
                   <div className="flex items-start justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm dark:border-primary-900/50 dark:bg-primary-950/30">
                     <div className="min-w-0">
@@ -928,19 +1090,131 @@ function MessagesContent() {
                     </button>
                   </div>
                 )}
-                <div className="flex gap-2">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={draft}
-                    onChange={(event) => handleDraftChange(event.target.value)}
-                    placeholder={replyTo ? "Write a reply..." : "Type a private message..."}
-                    className="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100"
-                    disabled={sending}
-                  />
-                  <Button type="submit" variant="primary" size="md" disabled={!draft.trim() || sending}>
-                    <Send className="h-4 w-4" />
-                  </Button>
+                <div className="rounded-xl border border-neutral-200 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-900">
+                  <div className="mb-2 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setComposerMode((mode) => (mode === "CODE" ? "TEXT" : "CODE"))}
+                      className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-colors sm:px-3 ${
+                        composerMode === "CODE"
+                          ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-950"
+                          : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                      }`}
+                      title="Send as code snippet"
+                    >
+                      <Code2 className="h-4 w-4" />
+                      <span className="hidden sm:inline">Code</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => imageInputRef.current?.click()}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 sm:px-3"
+                      title="Attach image"
+                    >
+                      <ImageIcon className="h-4 w-4" />
+                      <span className="hidden sm:inline">Image</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 sm:px-3"
+                      title="Attach file"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                      <span className="hidden sm:inline">File</span>
+                    </button>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowEmojiPicker((value) => !value)}
+                        className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 sm:px-3"
+                        title="Add emoji"
+                      >
+                        <Smile className="h-4 w-4" />
+                        <span className="hidden sm:inline">Emoji</span>
+                      </button>
+                      {showEmojiPicker && (
+                        <div className="absolute bottom-11 left-0 z-30 w-52 rounded-lg border border-neutral-200 bg-white p-2 shadow-xl dark:border-neutral-700 dark:bg-neutral-900 sm:w-60">
+                          <div className="grid grid-cols-6 gap-1">
+                            {emojiOptions.map((emoji) => (
+                              <button
+                                key={emoji}
+                                type="button"
+                                onClick={() => addEmoji(emoji)}
+                                className="flex h-8 w-8 items-center justify-center rounded text-lg leading-none transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800 sm:h-9 sm:w-9"
+                                aria-label={`Add ${emoji}`}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(event) => handleAttachmentChange(event, "IMAGE")}
+                    />
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={(event) => handleAttachmentChange(event, "FILE")}
+                    />
+                  </div>
+
+                  {attachment && (
+                    <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm dark:border-primary-900/50 dark:bg-primary-950/30">
+                      <div className="flex min-w-0 items-center gap-2 text-primary-800 dark:text-primary-200">
+                        {attachment.type === "IMAGE" ? (
+                          <ImageIcon className="h-4 w-4 shrink-0" />
+                        ) : (
+                          <FileText className="h-4 w-4 shrink-0" />
+                        )}
+                        <span className="truncate">{attachment.name}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={resetAttachment}
+                        className="rounded p-1 text-primary-700 hover:bg-white dark:text-primary-200 dark:hover:bg-neutral-900"
+                        aria-label="Remove attachment"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <textarea
+                      ref={inputRef}
+                      rows={composerMode === "CODE" ? 5 : 2}
+                      value={draft}
+                      onChange={(event) => handleDraftChange(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && !event.shiftKey && composerMode !== "CODE") {
+                          event.preventDefault();
+                          submitMessage();
+                        }
+                      }}
+                      placeholder={
+                        composerMode === "CODE"
+                          ? "Paste a code snippet..."
+                          : attachment
+                          ? "Add an optional caption..."
+                          : replyTo
+                          ? "Write a reply..."
+                          : "Type a private message..."
+                      }
+                      className="min-w-0 flex-1 resize-none rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                      disabled={sending}
+                    />
+                    <Button type="submit" variant="primary" size="md" disabled={(!draft.trim() && !attachment) || sending}>
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </form>
             </>
