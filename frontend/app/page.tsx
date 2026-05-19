@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { ThemeToggle } from "../components/theme/ThemeToggle";
 import { GoogleAuthButton } from "../components/auth/GoogleAuthButton";
 import { GithubAuthButton } from "../components/auth/GithubAuthButton";
+import { Captcha, CaptchaRef } from "../components/auth/Captcha";
 import { Button } from "../components/ui/Button";
 import { apiClient } from "../lib/api";
 import {
@@ -21,6 +22,44 @@ import {
 
 export default function LandingPage() {
   const [authError, setAuthError] = useState<string | null>(null);
+  const [landingEmail, setLandingEmail] = useState("");
+  const [landingPassword, setLandingPassword] = useState("");
+  const [landingCaptchaToken, setLandingCaptchaToken] = useState<string | null>(null);
+  const [landingLoading, setLandingLoading] = useState(false);
+  const landingCaptchaRef = useRef<CaptchaRef>(null);
+
+  function getAuthErrorMessage(err: any, fallback: string) {
+    return err.response?.data?.message || err.response?.data?.error?.message || fallback;
+  }
+
+  async function onLandingSignIn(e: FormEvent) {
+    e.preventDefault();
+    setLandingLoading(true);
+    setAuthError(null);
+
+    if (!landingCaptchaToken) {
+      setAuthError("Please complete the CAPTCHA verification.");
+      setLandingLoading(false);
+      return;
+    }
+
+    try {
+      const res = await apiClient.post("/api/auth/login", {
+        email: landingEmail,
+        password: landingPassword,
+        accountType: "learner",
+        captchaToken: landingCaptchaToken,
+      });
+      localStorage.setItem("mekari_token", res.data.token);
+      window.location.href = "/dashboard";
+    } catch (err: any) {
+      setAuthError(getAuthErrorMessage(err, "Failed to sign in"));
+      landingCaptchaRef.current?.reset();
+      setLandingCaptchaToken(null);
+    } finally {
+      setLandingLoading(false);
+    }
+  }
 
   async function onGoogleSignIn(credential: string) {
     setAuthError(null);
@@ -237,25 +276,47 @@ export default function LandingPage() {
             Access your technical community
           </p>
 
-          <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-8 dark:border-neutral-700 dark:bg-neutral-800">
+          <form
+            onSubmit={onLandingSignIn}
+            className="rounded-2xl border border-neutral-200 bg-neutral-50 p-8 dark:border-neutral-700 dark:bg-neutral-800"
+          >
             <div className="mb-6">
               <input
                 type="email"
                 placeholder="name@company.com"
                 className="input mb-4"
+                value={landingEmail}
+                onChange={(e) => setLandingEmail(e.target.value)}
+                required
               />
               <input
                 type="password"
                 placeholder="••••••••"
                 className="input"
+                value={landingPassword}
+                onChange={(e) => setLandingPassword(e.target.value)}
+                required
               />
             </div>
 
-            <Link href="/dashboard/threads" className="block mb-4">
-              <Button variant="primary" size="lg" className="w-full">
-                Sign in
-              </Button>
-            </Link>
+            <div className="mb-4 flex justify-center overflow-hidden">
+              <Captcha
+                ref={landingCaptchaRef}
+                onChange={setLandingCaptchaToken}
+                onExpired={() => setLandingCaptchaToken(null)}
+                onError={() => setAuthError("CAPTCHA verification failed. Please try again.")}
+              />
+            </div>
+
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              className="mb-4 w-full"
+              disabled={landingLoading}
+            >
+              {landingLoading ? "Signing in..." : "Sign in"}
+            </Button>
 
             <div className="relative mb-6 flex items-center gap-4">
               <div className="flex-1 border-t border-neutral-200 dark:border-neutral-700" />
@@ -273,7 +334,7 @@ export default function LandingPage() {
               <GoogleAuthButton onCredential={onGoogleSignIn} onError={setAuthError} />
               <GithubAuthButton accountType="learner" mode="login" />
             </div>
-          </div>
+          </form>
 
           <p className="mt-6 text-xs text-neutral-600 dark:text-neutral-400">
             &copy; 2026 Mekari Inc. All rights reserved.

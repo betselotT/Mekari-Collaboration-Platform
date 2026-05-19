@@ -1,3 +1,5 @@
+import "../config/env";
+
 type RecaptchaSiteVerifyResponse = {
   success: boolean;
   challenge_ts?: string;

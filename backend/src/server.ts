@@ -1,6 +1,6 @@
+import "./config/env";
 import http from "http";
 import path from "path";
-import dotenv from "dotenv";
 import { Server } from "socket.io";
 import mongoose from "mongoose";
 import { createClient } from "redis";
@@ -8,8 +8,6 @@ import { createApp } from "./app";
 import { setIo } from "./sockets/ioInstance";
 import { registerChatHandlers } from "./sockets/chat";
 import { initRealtime, startPresenceExpiryLoop } from "./services/realtime";
-
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/mekari";
