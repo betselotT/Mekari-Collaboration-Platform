@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useState } from "react";
 import { ThemeToggle } from "../components/theme/ThemeToggle";
 import { GoogleAuthButton } from "../components/auth/GoogleAuthButton";
 import { GithubAuthButton } from "../components/auth/GithubAuthButton";
-import { Captcha, CaptchaRef } from "../components/auth/Captcha";
 import { Button } from "../components/ui/Button";
 import { apiClient } from "../lib/api";
 import {
@@ -24,9 +23,7 @@ export default function LandingPage() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [landingEmail, setLandingEmail] = useState("");
   const [landingPassword, setLandingPassword] = useState("");
-  const [landingCaptchaToken, setLandingCaptchaToken] = useState<string | null>(null);
   const [landingLoading, setLandingLoading] = useState(false);
-  const landingCaptchaRef = useRef<CaptchaRef>(null);
 
   function getAuthErrorMessage(err: any, fallback: string) {
     return err.response?.data?.message || err.response?.data?.error?.message || fallback;
@@ -37,25 +34,16 @@ export default function LandingPage() {
     setLandingLoading(true);
     setAuthError(null);
 
-    if (!landingCaptchaToken) {
-      setAuthError("Please complete the CAPTCHA verification.");
-      setLandingLoading(false);
-      return;
-    }
-
     try {
       const res = await apiClient.post("/api/auth/login", {
         email: landingEmail,
         password: landingPassword,
         accountType: "learner",
-        captchaToken: landingCaptchaToken,
       });
       localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
     } catch (err: any) {
       setAuthError(getAuthErrorMessage(err, "Failed to sign in"));
-      landingCaptchaRef.current?.reset();
-      setLandingCaptchaToken(null);
     } finally {
       setLandingLoading(false);
     }
@@ -296,15 +284,6 @@ export default function LandingPage() {
                 value={landingPassword}
                 onChange={(e) => setLandingPassword(e.target.value)}
                 required
-              />
-            </div>
-
-            <div className="mb-4 flex justify-center overflow-hidden">
-              <Captcha
-                ref={landingCaptchaRef}
-                onChange={setLandingCaptchaToken}
-                onExpired={() => setLandingCaptchaToken(null)}
-                onError={() => setAuthError("CAPTCHA verification failed. Please try again.")}
               />
             </div>
 
