@@ -14,16 +14,10 @@ export interface CaptchaRef {
   execute: () => void;
 }
 
-const HCAPTCHA_SCRIPT_URL =
-  "https://js.hcaptcha.com/1/api.js?render=explicit";
-
 export const Captcha = forwardRef<CaptchaRef, CaptchaProps>(
   ({ onChange, onExpired, onError }, ref) => {
     const recaptchaRef = useRef<ReCAPTCHA>(null);
     const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
-
-    const isCaptchaConfigured =
-      siteKey && siteKey !== "your-hcaptcha-site-key";
 
     useImperativeHandle(ref, () => ({
       reset: () => recaptchaRef.current?.reset(),
