@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, ReactNode, useEffect, useRef, useState, useCallback } from "react";
+import { ChangeEvent, ReactNode, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { DashboardLayout } from "../../../../components/layout";
 import { Button } from "../../../../components/ui/Button";
@@ -14,6 +14,7 @@ import {
   Bot,
   Users,
   CheckCircle,
+  CheckCheck,
   Video,
   ChevronDown,
   ChevronUp,
@@ -49,6 +50,10 @@ interface ChatMessage {
   createdAt: string;
   upvotes?: string[];
   parentMessageId?: string;
+  readBy?: Array<{
+    user: string | Sender;
+    readAt: string;
+  }>;
 }
 
 type ComposerMode = "TEXT" | "CODE";
@@ -134,6 +139,19 @@ function getMessageId(message: ChatMessage): string {
 
 function attachmentLabel(message: ChatMessage) {
   return message.body || (message.type === "IMAGE" ? "Shared image" : "Attached file");
+}
+
+function readReceiptUserId(receipt: NonNullable<ChatMessage["readBy"]>[number]) {
+  return typeof receipt.user === "string" ? receipt.user : receipt.user?._id;
+}
+
+function senderId(sender: Sender | string) {
+  return typeof sender === "string" ? sender : sender._id;
+}
+
+function messageReadByUser(message: ChatMessage, userId?: string) {
+  if (!userId) return false;
+  return (message.readBy || []).some((receipt) => readReceiptUserId(receipt) === userId);
 }
 
 function renderHighlightedCode(code: string) {
@@ -250,6 +268,7 @@ export default function ThreadDetailPage() {
   const socketRef = useRef<Socket | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
+  const readRequestKeyRef = useRef("");
 
   // ── Load thread + messages ──────────────────────────────────────────────
   useEffect(() => {
@@ -405,6 +424,24 @@ export default function ThreadDetailPage() {
         }
       );
 
+      socket.on(
+        "thread_messages_read",
+        (data: { threadId: string; userId: string; messageIds: string[]; readAt: string }) => {
+          if (data.threadId !== threadId) return;
+          const readMessageIds = new Set(data.messageIds);
+          setMessages((prev) =>
+            prev.map((msg) => {
+              const id = getMessageId(msg);
+              if (!readMessageIds.has(id) || messageReadByUser(msg, data.userId)) return msg;
+              return {
+                ...msg,
+                readBy: [...(msg.readBy || []), { user: data.userId, readAt: data.readAt }],
+              };
+            })
+          );
+        }
+      );
+
       socket.on("user_typing", ({ userId }: { userId: string; threadId: string }) => {
         if (userId === user?._id) return;
         setTypingUsers((prev) => (prev.includes(userId) ? prev : [...prev, userId]));
@@ -428,6 +465,7 @@ export default function ThreadDetailPage() {
         socket.off("thread_tags_updated");
         socket.off("message_deleted");
         socket.off("message_upvoted");
+        socket.off("thread_messages_read");
         socket.off("user_typing");
         socket.off("user_stopped_typing");
       }
@@ -440,6 +478,51 @@ export default function ThreadDetailPage() {
   }, [messages]);
 
   // ── Typing indicator ────────────────────────────────────────────────────
+  const latestOwnReadMessageId = useMemo(() => {
+    if (!user?._id) return "";
+
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const msg = messages[index];
+      if (msg.type === "SYSTEM_EVENT" || msg.isFromAi || senderId(msg.sender) !== user._id) {
+        continue;
+      }
+
+      const hasAnotherReader = (msg.readBy || []).some(
+        (receipt) => readReceiptUserId(receipt) !== user._id
+      );
+      if (hasAnotherReader) return getMessageId(msg);
+    }
+
+    return "";
+  }, [messages, user?._id]);
+
+  useEffect(() => {
+    if (!threadId || !user?._id) return;
+
+    const unreadIncomingIds = messages
+      .filter(
+        (msg) =>
+          msg.type !== "SYSTEM_EVENT" &&
+          senderId(msg.sender) !== user._id &&
+          !messageReadByUser(msg, user._id)
+      )
+      .map(getMessageId)
+      .filter(Boolean);
+
+    if (unreadIncomingIds.length === 0) return;
+
+    const requestKey = `${threadId}:${unreadIncomingIds.join(",")}`;
+    if (readRequestKeyRef.current === requestKey) return;
+    readRequestKeyRef.current = requestKey;
+
+    apiClient
+      .post(`/api/threads/${threadId}/read`)
+      .catch(() => {
+        const socket = socketRef.current;
+        if (socket?.connected) socket.emit("thread_mark_read", threadId);
+      });
+  }, [messages, threadId, user?._id]);
+
   const handleInputChange = useCallback((value: string) => {
     setInput(value);
     const socket = socketRef.current;
@@ -837,6 +920,13 @@ export default function ThreadDetailPage() {
 )}
     <MessageContent message={msg} />
   </div>
+
+  {isMe && msgId === latestOwnReadMessageId && (
+    <div className="mt-1 flex items-center justify-end gap-1 text-[11px] font-medium text-primary-600 dark:text-primary-300">
+      <CheckCheck className="h-3.5 w-3.5" />
+      Seen
+    </div>
+  )}
 
   
   {!isAiMsg && (

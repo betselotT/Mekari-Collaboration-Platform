@@ -60,6 +60,7 @@ router.post("/request", requireAuth, async (req: AuthRequest, res, next) => {
       thread: thread.id,
       sender: req.userId,
       body: parsed.initialMessage,
+      readBy: [{ user: req.userId, readAt: new Date() }],
       isFromAi: false,
     });
 

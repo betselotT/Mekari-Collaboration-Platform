@@ -39,6 +39,7 @@ export async function createThreadMessage(input: ThreadMessageInput) {
     type: input.type || "TEXT",
     attachmentUrl: input.attachmentUrl,
     parentMessageId: input.parentMessageId || undefined,
+    readBy: [{ user: input.userId, readAt: new Date() }],
     isFromAi: false,
   });
 
@@ -76,6 +77,7 @@ export async function createThreadMessage(input: ThreadMessageInput) {
     type: message.type,
     attachmentUrl: message.attachmentUrl,
     parentMessageId: message.parentMessageId,
+    readBy: message.readBy,
     upvotes: [],
     isFromAi: false,
     createdAt: message.createdAt,
@@ -123,4 +125,42 @@ export async function createThreadMessage(input: ThreadMessageInput) {
   }
 
   return { message: populated, payload, thread };
+}
+
+export async function markThreadMessagesRead(threadId: string, userId: string) {
+  const thread = await Thread.findById(threadId).select("_id");
+  if (!thread) {
+    const error = new Error("Thread not found") as Error & { status?: number };
+    error.status = 404;
+    throw error;
+  }
+
+  const readAt = new Date();
+  const unreadMessages = await Message.find({
+    thread: threadId,
+    sender: { $ne: userId },
+    type: { $ne: "SYSTEM_EVENT" },
+    "readBy.user": { $ne: userId },
+  }).select("_id");
+
+  const messageIds = unreadMessages.map((message) => String(message._id));
+  if (messageIds.length === 0) {
+    return { threadId, userId, messageIds, readAt };
+  }
+
+  await Message.updateMany(
+    { _id: { $in: messageIds } },
+    { $push: { readBy: { user: userId, readAt } } }
+  );
+
+  const payload = {
+    threadId,
+    userId,
+    messageIds,
+    readAt: readAt.toISOString(),
+  };
+
+  await broadcastToRoom(roomName("thread", threadId), "thread_messages_read", payload);
+
+  return payload;
 }
