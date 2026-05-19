@@ -168,18 +168,18 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search...", o
             )}
           </button>
           {open && (
-            <div className="absolute right-0 mt-3 w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900 sm:w-96">
-              <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
-                <h2 className="text-sm font-bold text-neutral-900 dark:text-white">Notifications</h2>
+            <div className="fixed left-4 right-4 top-16 mt-2 max-h-[calc(100vh-5rem)] overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-3 sm:w-96 sm:max-w-sm">
+              <div className="flex min-w-0 items-center justify-between gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
+                <h2 className="min-w-0 truncate text-sm font-bold text-neutral-900 dark:text-white">Notifications</h2>
                 <button
                   type="button"
                   onClick={markAllRead}
-                  className="text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400"
+                  className="shrink-0 text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400"
                 >
                   Mark all read
                 </button>
               </div>
-              <div className="max-h-96 overflow-y-auto">
+              <div className="max-h-[calc(100vh-9rem)] overflow-y-auto sm:max-h-96">
                 {notifications.length === 0 ? (
                   <div className="px-4 py-6 text-sm text-neutral-500 dark:text-neutral-400">
                     No notifications yet.
@@ -194,17 +194,17 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search...", o
                         notification.read ? "" : "bg-primary-50/70 dark:bg-primary-950/20"
                       }`}
                     >
-                      <div className="flex gap-3">
+                      <div className="flex min-w-0 gap-3">
                         <span
-                          className={`mt-1 h-2 w-2 rounded-full ${
+                          className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
                             notification.read ? "bg-neutral-300" : "bg-primary-600"
                           }`}
                         />
                         <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-medium text-neutral-900 dark:text-white">
+                          <span className="block break-words text-sm font-medium text-neutral-900 dark:text-white">
                             {notification.message}
                           </span>
-                          <span className="mt-1 block text-xs text-neutral-500 dark:text-neutral-400">
+                          <span className="mt-1 block break-words text-xs text-neutral-500 dark:text-neutral-400">
                             {new Date(notification.createdAt).toLocaleString()}
                           </span>
                         </span>
