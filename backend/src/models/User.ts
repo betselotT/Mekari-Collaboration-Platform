@@ -48,6 +48,15 @@ export type BadgeAchievement = {
   earnedAt: Date;
 };
 
+export type CertificateAchievement = {
+  certificateId: string;
+  title: string;
+  description: string;
+  milestone: string;
+  issuedAt: Date;
+  refId?: string;
+};
+
 export interface IUser extends Document {
   name: string;
   email: string;
@@ -73,6 +82,7 @@ export interface IUser extends Document {
   badges: string[];
   badgeCounts: Map<string, number>;
   badgeAchievements: BadgeAchievement[];
+  certificates: CertificateAchievement[];
   role: "user" | "admin" | "learner" | "expert" | "mod";
   createdAt: Date;
   updatedAt: Date;
@@ -155,6 +165,18 @@ const BadgeAchievementSchema = new Schema<BadgeAchievement>(
   { _id: false }
 );
 
+const CertificateAchievementSchema = new Schema<CertificateAchievement>(
+  {
+    certificateId: { type: String, required: true },
+    title: { type: String, required: true },
+    description: { type: String, required: true },
+    milestone: { type: String, required: true },
+    issuedAt: { type: Date, default: Date.now },
+    refId: { type: String },
+  },
+  { _id: false }
+);
+
 const UserSchema = new Schema<IUser>(
   {
     name: { type: String, required: true },
@@ -195,6 +217,7 @@ const UserSchema = new Schema<IUser>(
       default: () => ({}),
     },
     badgeAchievements: { type: [BadgeAchievementSchema], default: [] },
+    certificates: { type: [CertificateAchievementSchema], default: [] },
     role: {
       type: String,
       enum: ["user", "admin", "learner", "expert", "mod"],
@@ -205,5 +228,6 @@ const UserSchema = new Schema<IUser>(
 );
 
 UserSchema.index({ _id: 1, "badgeAchievements.badge": 1, "badgeAchievements.refId": 1 });
+UserSchema.index({ _id: 1, "certificates.certificateId": 1 });
 
 export const User = mongoose.model<IUser>("User", UserSchema);

@@ -90,6 +90,108 @@ async function checkAndAwardBadges(userId: string): Promise<void> {
   }
 }
 
+async function issueCertificateIfMissing(
+  userId: string,
+  certificate: {
+    certificateId: string;
+    title: string;
+    description: string;
+    milestone: string;
+    refId?: string;
+  }
+) {
+  const issued = await User.findOneAndUpdate(
+    {
+      _id: userId,
+      "certificates.certificateId": { $ne: certificate.certificateId },
+    },
+    {
+      $push: {
+        certificates: {
+          ...certificate,
+          issuedAt: new Date(),
+        },
+      },
+    },
+    { new: true }
+  ).select("_id");
+
+  if (!issued) return false;
+
+  const notif = await Notification.create({
+    userId,
+    type: "certificate_earned",
+    message: `You earned the "${certificate.title}" certificate!`,
+    link: "/dashboard/profile",
+    read: false,
+  });
+  await emitNotification(userId, {
+    id: String(notif._id),
+    type: notif.type,
+    message: notif.message,
+    link: notif.link,
+    createdAt: notif.createdAt,
+  });
+  return true;
+}
+
+async function checkAndAwardCertificates(userId: string): Promise<void> {
+  const user = await User.findById(userId).select("points role");
+  if (!user) return;
+
+  const solutionCount = await PointEvent.countDocuments({
+    userId,
+    eventType: "ANSWER_MARKED_SOLUTION",
+  });
+  if (solutionCount >= 100) {
+    await issueCertificateIfMissing(userId, {
+      certificateId: "100-solutions",
+      title: "100 Solutions",
+      description: "Awarded for having 100 answers marked as accepted solutions.",
+      milestone: "100 accepted solutions",
+    });
+  }
+
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  const nextMonthStart = new Date(monthStart);
+  nextMonthStart.setUTCMonth(nextMonthStart.getUTCMonth() + 1);
+  const monthKey = `${monthStart.getUTCFullYear()}-${String(monthStart.getUTCMonth() + 1).padStart(2, "0")}`;
+  const monthlyPoints = await PointEvent.aggregate<{ _id: string; points: number }>([
+    {
+      $match: {
+        userId: new Types.ObjectId(userId),
+        createdAt: { $gte: monthStart, $lt: nextMonthStart },
+      },
+    },
+    { $group: { _id: "$userId", points: { $sum: "$points" } } },
+  ]);
+  const currentMonthlyPoints = monthlyPoints[0]?.points || 0;
+  if (currentMonthlyPoints >= 100) {
+    const higherScoringUsers = await PointEvent.aggregate<{ _id: Types.ObjectId; points: number }>([
+      {
+        $match: {
+          createdAt: { $gte: monthStart, $lt: nextMonthStart },
+        },
+      },
+      { $group: { _id: "$userId", points: { $sum: "$points" } } },
+      { $match: { points: { $gt: currentMonthlyPoints } } },
+      { $limit: 1 },
+    ]);
+
+    if (higherScoringUsers.length === 0) {
+      await issueCertificateIfMissing(userId, {
+        certificateId: `top-helper-${monthKey}`,
+        title: "Top Helper of the Month",
+        description: `Awarded for leading monthly helper activity in ${monthKey}.`,
+        milestone: "Monthly top helper",
+        refId: monthKey,
+      });
+    }
+  }
+}
+
 export async function awardPoints(
   userId: string,
   eventType: PointEventType,
@@ -108,6 +210,7 @@ export async function awardPoints(
     throw error;
   }
   await checkAndAwardBadges(userId);
+  await checkAndAwardCertificates(userId);
   return { pointsAwarded: pts, totalPoints: updated.points };
 }
 
@@ -145,6 +248,15 @@ export async function awardRepeatableBadge(
   ).select("badgeCounts");
 
   if (updated) {
+    if (badge === "Speed Demon") {
+      await issueCertificateIfMissing(userId, {
+        certificateId: "fast-responder",
+        title: "Fast Responder",
+        description: "Awarded for delivering a solution within five minutes.",
+        milestone: "Solved a thread in under five minutes",
+        refId,
+      });
+    }
     return { awarded: true, count: updated.badgeCounts?.get(badge) || 0 };
   }
 

@@ -11,7 +11,7 @@ import { Button } from "../../../components/ui/Button";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Badge } from "../../../components/ui/Badge";
 import { Input } from "../../../components/ui/Input";
-import { Edit, Lock, Globe, Bell, Save, X, Plus, CheckCircle2, Clock, Moon, Video, Award, Zap, Bot, Trophy, Star, TrendingUp } from "lucide-react";
+import { Edit, Lock, Globe, Bell, Save, X, Plus, CheckCircle2, Clock, Moon, Video, Award, Zap, Bot, Trophy, Star, TrendingUp, FileText } from "lucide-react";
 
 type AccountType = "learner" | "mentor";
 
@@ -1114,6 +1114,50 @@ export default function ProfilePage() {
                 )}
               </div>
             </div>
+
+            <div className="mt-8 border-t border-neutral-200 pt-6 dark:border-neutral-800">
+              <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                Certificates ({user.certificates?.length || 0})
+              </p>
+              <div className="space-y-3">
+                {user.certificates && user.certificates.length > 0 ? (
+                  user.certificates.map((certificate: any) => (
+                    <div
+                      key={certificate.certificateId}
+                      className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-900/60 dark:bg-amber-950/20"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-orange-600 text-white shadow">
+                          <FileText className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-neutral-900 dark:text-white">
+                            {certificate.title}
+                          </p>
+                          <p className="mt-1 text-xs leading-5 text-neutral-600 dark:text-neutral-300">
+                            {certificate.description}
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-amber-800 dark:text-amber-200">
+                            <span className="rounded bg-white px-2 py-1 dark:bg-neutral-900">
+                              {certificate.milestone}
+                            </span>
+                            <span className="rounded bg-white px-2 py-1 dark:bg-neutral-900">
+                              Issued {new Date(certificate.issuedAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-xl border border-dashed border-neutral-200 p-4 text-center dark:border-neutral-800">
+                    <p className="text-xs text-neutral-500 italic">
+                      No certificates earned yet. Reach milestones like 100 solutions or Fast Responder to unlock one.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
           </Card>
 
           <Card>
@@ -1129,6 +1173,10 @@ export default function ProfilePage() {
               <div className="flex justify-between">
                 <span className="text-sm text-neutral-600 dark:text-neutral-400">Badges Collected</span>
                 <span className="font-bold text-neutral-900 dark:text-white">{user.badges?.length || 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-neutral-600 dark:text-neutral-400">Certificates Earned</span>
+                <span className="font-bold text-neutral-900 dark:text-white">{user.certificates?.length || 0}</span>
               </div>
               <div className="flex justify-between pt-3 border-t border-neutral-200 dark:border-neutral-700">
                 <span className="text-sm text-neutral-600 dark:text-neutral-400 font-medium">Global Rank</span>
