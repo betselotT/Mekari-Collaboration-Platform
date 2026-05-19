@@ -23,7 +23,7 @@ export function DashboardLayout({
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Content */}
-      <main className="flex min-h-dvh flex-col lg:ml-60">
+      <main className="flex min-h-dvh min-w-0 flex-col lg:ml-60">
         {/* Header */}
         <Header
           title={title}
@@ -32,7 +32,7 @@ export function DashboardLayout({
         />
 
         {/* Page Content */}
-        <div className="flex-1 overflow-y-auto px-4 pb-8 pt-20 sm:px-6 lg:px-8">
+        <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-6 pt-20 sm:px-6 sm:pb-8 lg:px-8">
           {children}
         </div>
       </main>

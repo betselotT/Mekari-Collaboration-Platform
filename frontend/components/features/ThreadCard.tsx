@@ -77,15 +77,15 @@ export function ThreadCard({
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-4 border-t border-neutral-200 dark:border-neutral-700">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 border-t border-neutral-200 pt-4 dark:border-neutral-700 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
           <Avatar size="sm" initials={author.split(" ").map(n => n[0]).join("")} />
-          <div className="text-xs">
-            <p className="font-medium text-neutral-900 dark:text-white">{author}</p>
-            <p className="text-neutral-500 dark:text-neutral-400">{timestamp}</p>
+          <div className="min-w-0 text-xs">
+            <p className="truncate font-medium text-neutral-900 dark:text-white">{author}</p>
+            <p className="truncate text-neutral-500 dark:text-neutral-400">{timestamp}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+        <div className="flex shrink-0 items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
           <MessageCircle className="h-4 w-4" />
           <span className="font-medium">{replyCount} replies</span>
         </div>

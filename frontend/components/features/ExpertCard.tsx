@@ -40,7 +40,7 @@ export function ExpertCard(props: ExpertCardProps) {
       {/* Header with status */}
       <div className="relative h-32 bg-gradient-to-br from-emerald-300 to-teal-400">
         <div
-          className={`absolute top-3 right-3 rounded-full px-2 py-1 text-xs font-bold text-white ${config.color}`}
+          className={`absolute right-3 top-3 max-w-[calc(100%-1.5rem)] truncate rounded-full px-2 py-1 text-xs font-bold text-white ${config.color}`}
         >
           {config.text}
         </div>
@@ -55,8 +55,8 @@ export function ExpertCard(props: ExpertCardProps) {
 
         {/* Name and Title */}
         <div className="mb-4 text-center">
-          <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{name}</h3>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">{title}</p>
+          <h3 className="break-words text-lg font-bold text-neutral-900 dark:text-white">{name}</h3>
+          <p className="break-words text-sm text-neutral-600 dark:text-neutral-400">{title}</p>
           {company && (
             <p className="text-xs text-neutral-500 dark:text-neutral-500">at {company}</p>
           )}
@@ -89,7 +89,7 @@ export function ExpertCard(props: ExpertCardProps) {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 min-[360px]:flex-row">
           <Button variant="primary" className="flex-1" onClick={onConsult}>
             Consult
           </Button>

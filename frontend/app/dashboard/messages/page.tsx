@@ -960,12 +960,12 @@ function MessagesContent() {
         </div>
       )}
 
-      <div className="grid min-h-[calc(100dvh-180px)] min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900 lg:grid-cols-[320px_1fr]">
+      <div className="grid min-h-[calc(100dvh-156px)] min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900 sm:min-h-[calc(100dvh-180px)] lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)]">
         <aside className={`${activeConversation ? "hidden lg:block" : "block"} border-b border-neutral-200 dark:border-neutral-700 lg:border-b-0 lg:border-r`}>
           <div className="border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
             <h2 className="text-sm font-bold text-neutral-900 dark:text-white">Conversations</h2>
           </div>
-          <div className="max-h-[320px] overflow-y-auto lg:max-h-[calc(100vh-232px)]">
+          <div className="max-h-[calc(100dvh-220px)] overflow-y-auto sm:max-h-[320px] lg:max-h-[calc(100vh-232px)]">
             {loadingConversations ? (
               <div className="p-4 text-sm text-neutral-500">Loading conversations...</div>
             ) : conversations.length === 0 ? (
@@ -1005,7 +1005,7 @@ function MessagesContent() {
           </div>
         </aside>
 
-        <section className={`${activeConversation ? "flex" : "hidden lg:flex"} min-h-[calc(100dvh-180px)] min-w-0 flex-col lg:min-h-[520px]`}>
+        <section className={`${activeConversation ? "flex" : "hidden lg:flex"} min-h-[calc(100dvh-156px)] min-w-0 flex-col sm:min-h-[calc(100dvh-180px)] lg:min-h-[520px]`}>
           {activeConversation ? (
             <>
               <div className="flex flex-col gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-700 sm:flex-row sm:items-center sm:justify-between">
@@ -1034,11 +1034,11 @@ function MessagesContent() {
                   </div>
                 </div>
                 <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
-                  <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                  <span className="hidden text-xs font-medium text-neutral-500 dark:text-neutral-400 sm:inline">
                     Need deeper discussion?
                   </span>
                   {activeConversation.activeSession?.status === "active" ? (
-                    <div className="flex w-full gap-2 sm:w-auto">
+                    <div className="flex w-full flex-col gap-2 min-[380px]:flex-row sm:w-auto">
                       <button
                         type="button"
                         onClick={joinSession}
@@ -1105,7 +1105,7 @@ function MessagesContent() {
                     if (isSystemEvent) {
                       return (
                         <div key={messageId} className="flex justify-center">
-                          <div className="max-w-[90%] rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs font-medium text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200">
+                          <div className="max-w-full rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs font-medium text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200 sm:max-w-[90%]">
                             {message.body}
                           </div>
                         </div>
@@ -1157,7 +1157,7 @@ function MessagesContent() {
                               </div>
                             )}
 
-                            <div className="absolute -top-3 right-2 hidden items-center gap-2 rounded-lg border border-neutral-200 bg-white px-2 py-1 shadow-md group-hover:flex dark:border-neutral-700 dark:bg-neutral-900">
+                            <div className="mt-1 flex flex-wrap items-center justify-end gap-2 rounded-lg text-xs sm:absolute sm:-top-3 sm:right-2 sm:mt-0 sm:hidden sm:border sm:border-neutral-200 sm:bg-white sm:px-2 sm:py-1 sm:shadow-md sm:group-hover:flex sm:dark:border-neutral-700 sm:dark:bg-neutral-900">
                               <button
                                 type="button"
                                 onClick={() => startReply(message)}
@@ -1316,7 +1316,7 @@ function MessagesContent() {
                     </div>
                   )}
 
-                  <div className="flex gap-2">
+                  <div className="flex items-end gap-2">
                     <textarea
                       ref={inputRef}
                       rows={composerMode === "CODE" ? 5 : 2}
@@ -1340,7 +1340,7 @@ function MessagesContent() {
                       className="min-w-0 flex-1 resize-none rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
                       disabled={sending}
                     />
-                    <Button type="submit" variant="primary" size="md" disabled={(!draft.trim() && !attachment) || sending}>
+                    <Button type="submit" variant="primary" size="md" className="h-[42px] shrink-0 px-3 sm:px-4" disabled={(!draft.trim() && !attachment) || sending}>
                       <Send className="h-4 w-4" />
                     </Button>
                   </div>

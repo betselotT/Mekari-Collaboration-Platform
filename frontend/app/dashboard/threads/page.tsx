@@ -103,14 +103,14 @@ function ThreadsContent() {
   return (
     <DashboardLayout title="Threads" searchPlaceholder="Search threads, experts...">
       {/* Header with filters */}
-      <div className="mb-8 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2">
           <MessageCircle className="h-5 w-5 text-primary-600" />
           <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">
             THREADS
           </span>
         </div>
-        <Button variant="primary" size="md" onClick={() => setShowNewThread(true)}>
+        <Button variant="primary" size="md" className="w-full sm:w-auto" onClick={() => setShowNewThread(true)}>
           <Plus className="h-4 w-4 mr-2" />
           New Thread
         </Button>
@@ -124,8 +124,8 @@ function ThreadsContent() {
 
       {latestMatch && (
         <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-950/30">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-2">
               <Users className="h-5 w-5 text-amber-700 dark:text-amber-300" />
               <div>
                 <h3 className="text-sm font-bold text-amber-950 dark:text-amber-100">
@@ -138,7 +138,7 @@ function ThreadsContent() {
             </div>
             <a
               href={`/dashboard/threads/${latestMatch.thread?._id || latestMatch.thread?.id}`}
-              className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+              className="inline-flex min-h-[36px] shrink-0 items-center justify-center rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
             >
               Open thread
             </a>
@@ -180,9 +180,9 @@ function ThreadsContent() {
 
       {/* New thread modal */}
       {showNewThread && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-xl rounded-xl border border-neutral-200 bg-white p-6 shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
-            <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 px-3 py-6 sm:px-4">
+          <div className="max-h-[calc(100dvh-3rem)] w-full max-w-xl overflow-y-auto rounded-xl border border-neutral-200 bg-white p-4 shadow-xl dark:border-neutral-700 dark:bg-neutral-900 sm:p-6">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
               <div>
                 <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Create a new thread</h3>
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">
@@ -218,7 +218,7 @@ function ThreadsContent() {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
                 <Button variant="secondary" size="md" onClick={() => setShowNewThread(false)}>
                   Cancel
                 </Button>
