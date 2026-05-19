@@ -255,7 +255,6 @@ export default function ThreadDetailPage() {
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [upvotingMessageId, setUpvotingMessageId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [sessionStarting, setSessionStarting] = useState(false);
   const [isEditingTags, setIsEditingTags] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
   const [tagError, setTagError] = useState<string | null>(null);
@@ -636,18 +635,6 @@ export default function ThreadDetailPage() {
   }
 
   // ── Start session ───────────────────────────────────────────────────────
-  async function startSession() {
-    setSessionStarting(true);
-    try {
-      const res = await apiClient.post<{ meetLink: string }>(`/api/threads/${threadId}/session`);
-      window.open(res.data.meetLink, "_blank", "noopener,noreferrer");
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSessionStarting(false);
-    }
-  }
-
   function startTagEdit() {
     setTagDraft(thread?.tags.join(", ") || "");
     setTagError(null);
@@ -825,20 +812,6 @@ export default function ThreadDetailPage() {
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">{thread.body}</p>
         )}
 
-        {/* Actions row */}
-        <div className="mt-4 flex items-center gap-3 flex-wrap">
-          {isAuthor && thread.status !== "SOLVED" && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={startSession}
-              isLoading={sessionStarting}
-            >
-              <Video className="mr-1.5 h-4 w-4" />
-              Start Session
-            </Button>
-          )}
-        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
