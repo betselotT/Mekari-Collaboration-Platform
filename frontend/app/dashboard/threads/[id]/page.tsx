@@ -255,7 +255,6 @@ export default function ThreadDetailPage() {
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [upvotingMessageId, setUpvotingMessageId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [sessionStarting, setSessionStarting] = useState(false);
   const [isEditingTags, setIsEditingTags] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
   const [tagError, setTagError] = useState<string | null>(null);
@@ -636,18 +635,6 @@ export default function ThreadDetailPage() {
   }
 
   // ── Start session ───────────────────────────────────────────────────────
-  async function startSession() {
-    setSessionStarting(true);
-    try {
-      const res = await apiClient.post<{ meetLink: string }>(`/api/threads/${threadId}/session`);
-      window.open(res.data.meetLink, "_blank", "noopener,noreferrer");
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSessionStarting(false);
-    }
-  }
-
   function startTagEdit() {
     setTagDraft(thread?.tags.join(", ") || "");
     setTagError(null);
@@ -896,6 +883,12 @@ export default function ThreadDetailPage() {
                       <span className="shrink-0 text-xs text-neutral-400">
                         {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
+                      {isSolutionMessage && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+                          <CheckCircle className="h-3 w-3" />
+                          Marked as answer
+                        </span>
+                      )}
                     </div>
                    <div className="group relative max-w-full">
   <div
@@ -919,6 +912,12 @@ export default function ThreadDetailPage() {
   </div>
 )}
     <MessageContent message={msg} />
+    {isSolutionMessage && (
+      <div className="mt-3 flex items-center gap-1.5 border-t border-emerald-200 pt-2 text-xs font-semibold text-emerald-700 dark:border-emerald-500/30 dark:text-emerald-300">
+        <CheckCircle className="h-3.5 w-3.5" />
+        This message was marked as the answer
+      </div>
+    )}
   </div>
 
   {isMe && msgId === latestOwnReadMessageId && (

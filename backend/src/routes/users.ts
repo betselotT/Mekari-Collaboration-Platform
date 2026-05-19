@@ -56,6 +56,39 @@ const profileSetupSchema = z.object({
   verificationDocument: verificationDocumentSchema.optional(),
 });
 
+const reviewCreateSchema = z.object({
+  stars: z
+    .number()
+    .min(1)
+    .max(5)
+    .refine((value) => Number.isInteger(value * 2), {
+      message: "Stars must use 0.5 increments.",
+    }),
+  comment: z
+    .string()
+    .trim()
+    .max(1000)
+    .optional()
+    .transform((value) => (value ? value : undefined)),
+});
+
+type ReviewStatsInput = { stars: number }[];
+
+function buildReviewStats(reviews: ReviewStatsInput = []) {
+  const expertReviewCount = reviews.length;
+  const expertRatingAverage =
+    expertReviewCount === 0
+      ? undefined
+      : Number(
+          (
+            reviews.reduce((sum, review) => sum + review.stars, 0) /
+            expertReviewCount
+          ).toFixed(1)
+        );
+
+  return { expertRatingAverage, expertReviewCount };
+}
+
 router.get("/me", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const user = await User.findById(req.userId).select("-passwordHash -badgeAchievements").lean();
@@ -222,9 +255,19 @@ router.get("/experts", requireAuth, async (_req: AuthRequest, res, next) => {
       role: "expert",
       "expertVerification.status": "approved",
     })
-      .select("name avatarUrl bio expertise skillTags availabilityStatus points badges role expertVerification")
-      .sort({ points: -1 });
-    res.json({ experts });
+      .select("name avatarUrl bio expertise skillTags availabilityStatus points badges role expertVerification reviews")
+      .sort({ points: -1 })
+      .lean();
+
+    res.json({
+      experts: experts.map((expert) => {
+        const { reviews = [], ...safeExpert } = expert;
+        return {
+          ...safeExpert,
+          ...buildReviewStats(reviews),
+        };
+      }),
+    });
   } catch (err) {
     next(err);
   }
@@ -269,6 +312,63 @@ router.get("/directory", requireAuth, async (req: AuthRequest, res, next) => {
         total,
         totalPages: Math.max(1, Math.ceil(total / limit)),
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/:expertId/reviews", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const parsed = reviewCreateSchema.parse(req.body);
+
+    if (req.params.expertId === req.userId) {
+      return res.status(400).json({ error: { message: "Experts cannot review themselves." } });
+    }
+
+    const expert = await User.findOneAndUpdate(
+      { _id: req.params.expertId, role: "expert" },
+      {
+        $push: {
+          reviews: {
+            by: req.userId,
+            stars: parsed.stars,
+            comment: parsed.comment,
+            createdAt: new Date(),
+          },
+        },
+      },
+      { new: true, runValidators: true }
+    ).select("reviews");
+
+    if (!expert) {
+      return res.status(404).json({ error: { message: "Expert not found." } });
+    }
+
+    res.status(201).json({
+      ...buildReviewStats(expert.reviews || []),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/:expertId/reviews", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const expert = await User.findOne({ _id: req.params.expertId, role: "expert" })
+      .select("reviews")
+      .populate("reviews.by", "name avatarUrl")
+      .lean();
+
+    if (!expert) {
+      return res.status(404).json({ error: { message: "Expert not found." } });
+    }
+
+    const reviews = expert.reviews || [];
+
+    res.json({
+      reviews,
+      ...buildReviewStats(reviews),
     });
   } catch (err) {
     next(err);
