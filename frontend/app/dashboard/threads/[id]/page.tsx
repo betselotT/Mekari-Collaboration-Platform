@@ -869,11 +869,19 @@ export default function ThreadDetailPage() {
                       <span className="text-xs text-neutral-400">
                         {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
+                      {isSolutionMessage && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+                          <CheckCircle className="h-3 w-3" />
+                          Marked as answer
+                        </span>
+                      )}
                     </div>
                    <div className="group relative">
   <div
     className={`rounded-xl px-4 py-2.5 text-sm ${
-      isMe
+      isSolutionMessage
+        ? "border border-emerald-300 bg-emerald-50 text-neutral-900 shadow-sm shadow-emerald-500/10 ring-2 ring-emerald-100 dark:border-emerald-500/40 dark:bg-emerald-950/30 dark:text-neutral-100 dark:ring-emerald-500/10"
+        : isMe
         ? "bg-primary-600 text-white"
         : isAiMsg
         ? "border border-primary-200 bg-primary-50 text-neutral-900 dark:border-primary-800 dark:bg-primary-950/30 dark:text-neutral-100"
@@ -892,6 +900,12 @@ export default function ThreadDetailPage() {
   </div>
 )}
     <MessageContent message={msg} />
+    {isSolutionMessage && (
+      <div className="mt-3 flex items-center gap-1.5 border-t border-emerald-200 pt-2 text-xs font-semibold text-emerald-700 dark:border-emerald-500/30 dark:text-emerald-300">
+        <CheckCircle className="h-3.5 w-3.5" />
+        This message was marked as the answer
+      </div>
+    )}
   </div>
 
   {isMe && msgId === latestOwnReadMessageId && (
