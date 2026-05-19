@@ -180,15 +180,15 @@ function renderHighlightedCode(code: string) {
 function MessageContent({ message }: { message: ChatMessage }) {
   if (message.type === "CODE") {
     return (
-      <div className="overflow-hidden rounded-lg border border-neutral-700 bg-neutral-950 text-left">
+      <div className="max-w-full overflow-hidden rounded-lg border border-neutral-700 bg-neutral-950 text-left">
         <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-1.5">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
             Code snippet
           </span>
           <Code2 className="h-3.5 w-3.5 text-neutral-500" />
         </div>
-        <pre className="max-h-80 overflow-auto p-3 text-xs leading-5">
-          <code>{renderHighlightedCode(message.body)}</code>
+        <pre className="max-h-80 max-w-full overflow-x-auto overflow-y-auto overscroll-contain p-3 text-xs leading-5">
+          <code className="block min-w-0 whitespace-pre">{renderHighlightedCode(message.body)}</code>
         </pre>
       </div>
     );
@@ -201,7 +201,7 @@ function MessageContent({ message }: { message: ChatMessage }) {
           <img
             src={message.attachmentUrl}
             alt={attachmentLabel(message)}
-            className="max-h-72 rounded-lg border border-black/10 object-contain dark:border-white/10"
+            className="max-h-72 max-w-full rounded-lg border border-black/10 object-contain dark:border-white/10"
           />
         </a>
         <figcaption className="text-xs opacity-80">{attachmentLabel(message)}</figcaption>
@@ -759,8 +759,8 @@ export default function ThreadDetailPage() {
       )}
 
       {/* Thread header */}
-      <div className="mb-6">
-        <div className="mb-2 flex items-center gap-2 flex-wrap">
+      <div className="mb-6 min-w-0">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
           <Badge variant="info">{thread.subject.toUpperCase()}</Badge>
           <Badge variant={statusVariant}>
             {thread.status === "SOLVED" ? "Solved" : thread.status.replace("_", " ")}
@@ -774,7 +774,7 @@ export default function ThreadDetailPage() {
             <button
               type="button"
               onClick={startTagEdit}
-              className="rounded border border-neutral-300 px-2 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              className="min-h-[30px] rounded border border-neutral-300 px-2 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
             >
               Edit tags
             </button>
@@ -792,7 +792,7 @@ export default function ThreadDetailPage() {
               className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
             />
             {tagError && <p className="mt-2 text-xs text-rose-600 dark:text-rose-300">{tagError}</p>}
-            <div className="mt-3 flex justify-end gap-2">
+            <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button
                 variant="secondary"
                 size="sm"
@@ -807,18 +807,32 @@ export default function ThreadDetailPage() {
             </div>
           </div>
         )}
-        <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">{thread.title}</h1>
+        <h1 className="break-words text-xl font-bold text-neutral-900 dark:text-white sm:text-2xl">{thread.title}</h1>
         {thread.body && (
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">{thread.body}</p>
         )}
 
+        {/* Actions row */}
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {isAuthor && thread.status !== "SOLVED" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={startSession}
+              isLoading={sessionStarting}
+            >
+              <Video className="mr-1.5 h-4 w-4" />
+              Start Session
+            </Button>
+          )}
+        </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         {/* ── Chat area (2/3) ─────────────────────────────────────────── */}
         <div className="flex min-w-0 flex-col gap-4">
           {/* Messages */}
-          <div className="flex min-h-[400px] max-h-[60dvh] flex-col gap-3 overflow-y-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-800/50 sm:p-4">
+          <div className="flex min-h-[360px] max-h-[62dvh] flex-col gap-3 overflow-y-auto overflow-x-hidden rounded-xl border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-800/50 sm:min-h-[400px] sm:p-4">
             {messages.map((msg) => {
               const msgId = getMessageId(msg);
               const isMe = user && (typeof msg.sender === "object"
@@ -837,7 +851,7 @@ export default function ThreadDetailPage() {
               if (isSys) {
                 return (
                   <div key={msgId} className="flex justify-center">
-                    <div className="flex items-center gap-2 rounded-full bg-blue-50 px-4 py-1.5 text-xs text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                    <div className="flex max-w-full items-center gap-2 break-words rounded-lg bg-blue-50 px-3 py-1.5 text-xs text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 sm:rounded-full sm:px-4">
                       <Video className="h-3.5 w-3.5" />
                       {msg.body}
                     </div>
@@ -848,7 +862,7 @@ export default function ThreadDetailPage() {
               return (
                 <div
                   key={msgId}
-                  className={`flex gap-3 ${isMe ? "flex-row-reverse" : ""}`}
+                  className={`flex min-w-0 gap-2 sm:gap-3 ${isMe ? "flex-row-reverse" : ""}`}
                 >
                   {isAiMsg ? (
                     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900">
@@ -861,12 +875,12 @@ export default function ThreadDetailPage() {
                       src={typeof msg.sender === "object" ? msg.sender.avatarUrl : undefined}
                     />
                   )}
-                  <div className={`flex max-w-[86%] flex-col gap-1 sm:max-w-[75%] ${isMe ? "items-end" : ""}`}>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                  <div className={`flex min-w-0 max-w-[calc(100%-2.5rem)] flex-col gap-1 sm:max-w-[75%] ${isMe ? "items-end" : ""}`}>
+                    <div className="flex max-w-full items-center gap-2">
+                      <span className="truncate text-xs font-medium text-neutral-500 dark:text-neutral-400">
                         {isAiMsg ? "Mekari AI" : senderName(msg.sender)}
                       </span>
-                      <span className="text-xs text-neutral-400">
+                      <span className="shrink-0 text-xs text-neutral-400">
                         {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
                       {isSolutionMessage && (
@@ -876,12 +890,10 @@ export default function ThreadDetailPage() {
                         </span>
                       )}
                     </div>
-                   <div className="group relative">
+                   <div className="group relative max-w-full">
   <div
-    className={`rounded-xl px-4 py-2.5 text-sm ${
-      isSolutionMessage
-        ? "border border-emerald-300 bg-emerald-50 text-neutral-900 shadow-sm shadow-emerald-500/10 ring-2 ring-emerald-100 dark:border-emerald-500/40 dark:bg-emerald-950/30 dark:text-neutral-100 dark:ring-emerald-500/10"
-        : isMe
+    className={`max-w-full overflow-hidden rounded-xl px-4 py-2.5 text-sm ${
+      isMe
         ? "bg-primary-600 text-white"
         : isAiMsg
         ? "border border-primary-200 bg-primary-50 text-neutral-900 dark:border-primary-800 dark:bg-primary-950/30 dark:text-neutral-100"
@@ -917,7 +929,7 @@ export default function ThreadDetailPage() {
 
   
   {!isAiMsg && (
-    <div className="absolute -top-3 right-2 hidden items-center gap-2 rounded-lg border border-neutral-200 bg-white px-2 py-1 shadow-md group-hover:flex dark:border-neutral-700 dark:bg-neutral-900">
+    <div className="mt-1 flex flex-wrap items-center justify-end gap-2 rounded-lg text-xs sm:absolute sm:-top-3 sm:right-2 sm:mt-0 sm:hidden sm:border sm:border-neutral-200 sm:bg-white sm:px-2 sm:py-1 sm:shadow-md sm:group-hover:flex sm:dark:border-neutral-700 sm:dark:bg-neutral-900">
       
       
       <button
@@ -1022,11 +1034,11 @@ export default function ThreadDetailPage() {
                 </div>
               )}
               <div className="rounded-xl border border-neutral-200 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-900">
-                <div className="mb-2 flex flex-wrap items-center gap-2">
+                <div className="mb-2 flex flex-wrap items-center gap-1.5 sm:gap-2">
                   <button
                     type="button"
                     onClick={() => setComposerMode((mode) => (mode === "CODE" ? "TEXT" : "CODE"))}
-                    className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                    className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-colors sm:px-3 ${
                       composerMode === "CODE"
                         ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-950"
                         : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
@@ -1034,35 +1046,35 @@ export default function ThreadDetailPage() {
                     title="Send as code snippet"
                   >
                     <Code2 className="h-4 w-4" />
-                    Code
+                    <span className="hidden sm:inline">Code</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => imageInputRef.current?.click()}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 sm:px-3"
                     title="Attach image"
                   >
                     <ImageIcon className="h-4 w-4" />
-                    Image
+                    <span className="hidden sm:inline">Image</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 sm:px-3"
                     title="Attach file"
                   >
                     <Paperclip className="h-4 w-4" />
-                    File
+                    <span className="hidden sm:inline">File</span>
                   </button>
                   <div className="relative">
                     <button
                       type="button"
                       onClick={() => setShowEmojiPicker((value) => !value)}
-                      className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 sm:px-3"
                       title="Add emoji"
                     >
                       <Smile className="h-4 w-4" />
-                      Emoji
+                      <span className="hidden sm:inline">Emoji</span>
                     </button>
                     {showEmojiPicker && (
                       <div className="absolute bottom-11 left-0 z-20 grid grid-cols-4 gap-1 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
@@ -1116,7 +1128,7 @@ export default function ThreadDetailPage() {
                   </div>
                 )}
 
-                <div className="flex gap-2">
+                <div className="flex items-end gap-2">
                   <textarea
                     ref={inputRef}
                     rows={composerMode === "CODE" ? 5 : 2}
@@ -1143,6 +1155,7 @@ export default function ThreadDetailPage() {
                   <Button
                     variant="primary"
                     size="md"
+                    className="h-[42px] shrink-0 px-3 sm:px-4"
                     onClick={sendMessage}
                     disabled={(!input.trim() && !attachment) || sending}
                     isLoading={sending}

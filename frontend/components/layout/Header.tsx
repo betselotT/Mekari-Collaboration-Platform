@@ -127,9 +127,9 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search...", o
   }
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-neutral-200 bg-white px-4 dark:border-neutral-700 dark:bg-neutral-900 sm:px-6 lg:left-60 lg:px-8">
+    <header className="fixed left-0 right-0 top-0 z-30 flex h-16 min-w-0 items-center justify-between gap-2 border-b border-neutral-200 bg-white px-3 dark:border-neutral-700 dark:bg-neutral-900 sm:gap-3 sm:px-6 lg:left-60 lg:px-8">
       {/* Left side - Title and Search */}
-      <div className="flex min-w-0 items-center gap-4">
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
         <button
           type="button"
           onClick={onMenuClick}
@@ -139,7 +139,7 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search...", o
         >
           <Menu className="h-5 w-5" />
         </button>
-        <h1 className="truncate text-base font-bold text-neutral-900 dark:text-white sm:text-lg">{title}</h1>
+        <h1 className="min-w-0 truncate text-sm font-bold text-neutral-900 dark:text-white sm:text-lg">{title}</h1>
         <div className="relative hidden md:flex md:w-64 xl:w-80">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
           <input
@@ -151,7 +151,7 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search...", o
       </div>
 
       {/* Right side - Actions and Profile */}
-      <div className="flex shrink-0 items-center gap-1 sm:gap-2 lg:gap-4">
+      <div className="flex shrink-0 items-center gap-0.5 sm:gap-2 lg:gap-4">
         <div ref={panelRef} className="relative">
           <button
             type="button"
@@ -238,7 +238,7 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search...", o
           <LogOut className="h-5 w-5" />
         </button>
 
-        <div className="ml-1 flex items-center gap-3 border-l border-neutral-200 pl-2 dark:border-neutral-700 sm:ml-2 sm:pl-4">
+        <div className="ml-0 flex items-center gap-2 border-l border-neutral-200 pl-1 dark:border-neutral-700 sm:ml-2 sm:gap-3 sm:pl-4">
           <div className="hidden text-right sm:block">
             <p className="text-sm font-medium text-neutral-900 dark:text-white">{displayName}</p>
             <p className="text-xs text-neutral-600 dark:text-neutral-400">{displayRole}</p>
@@ -247,10 +247,10 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search...", o
             <img
               src={user.avatarUrl}
               alt={displayName}
-              className="h-9 w-9 rounded-full object-cover sm:h-10 sm:w-10"
+              className="h-8 w-8 rounded-full object-cover sm:h-10 sm:w-10"
             />
           ) : (
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-pink-400 to-red-500 font-bold text-white sm:h-10 sm:w-10">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-pink-400 to-red-500 text-sm font-bold text-white sm:h-10 sm:w-10 sm:text-base">
               {initials}
             </div>
           )}

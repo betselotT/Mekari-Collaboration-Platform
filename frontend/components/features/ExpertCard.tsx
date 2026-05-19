@@ -72,7 +72,7 @@ export function ExpertCard(props: ExpertCardProps) {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.35),transparent_28%),radial-gradient(circle_at_80%_0%,rgba(255,255,255,0.22),transparent_26%)]" />
         <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white/85 to-transparent dark:from-neutral-900/90" />
         <div
-          className={`absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide backdrop-blur-md ${config.color}`}
+          className={`absolute right-3 top-3 max-w-[calc(100%-1.5rem)] truncate rounded-full px-2 py-1 text-xs font-bold text-white ${config.color}`}
         >
           <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} />
           {config.text}
@@ -95,8 +95,8 @@ export function ExpertCard(props: ExpertCardProps) {
 
         {/* Name and Title */}
         <div className="mb-4 text-center">
-          <h3 className="text-xl font-bold tracking-tight text-neutral-950 dark:text-white">{name}</h3>
-          <p className="mt-1 text-sm font-medium text-neutral-600 dark:text-neutral-300">{title}</p>
+          <h3 className="break-words text-lg font-bold text-neutral-900 dark:text-white">{name}</h3>
+          <p className="break-words text-sm text-neutral-600 dark:text-neutral-400">{title}</p>
           {company && (
             <p className="text-xs text-neutral-500 dark:text-neutral-500">at {company}</p>
           )}
@@ -152,13 +152,8 @@ export function ExpertCard(props: ExpertCardProps) {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-2">
-          <Button
-            variant="primary"
-            className="flex-1 rounded-2xl shadow-lg shadow-primary-600/20 transition-transform hover:scale-[1.02]"
-            onClick={onConsult}
-          >
-            <Sparkles className="mr-1.5 h-4 w-4" />
+        <div className="flex flex-col gap-2 min-[360px]:flex-row">
+          <Button variant="primary" className="flex-1" onClick={onConsult}>
             Consult
           </Button>
           <Button

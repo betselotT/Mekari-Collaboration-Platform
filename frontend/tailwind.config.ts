@@ -93,7 +93,7 @@ const config: Config = {
         "3xl": "1.5rem",
       },
       fontSize: {
-        xs: ["12px", { lineHeight: "16px", letterSpacing: "-0.5px" }],
+        xs: ["12px", { lineHeight: "16px", letterSpacing: "0" }],
         sm: ["14px", { lineHeight: "20px" }],
         base: ["16px", { lineHeight: "24px" }],
         lg: ["18px", { lineHeight: "28px" }],
