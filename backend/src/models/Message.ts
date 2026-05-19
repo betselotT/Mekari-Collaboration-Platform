@@ -60,6 +60,7 @@ MessageSchema.pre("validate", function (next) {
 
 MessageSchema.index({ thread: 1, createdAt: 1 });
 MessageSchema.index({ conversation: 1, createdAt: 1 });
+MessageSchema.index({ thread: 1, sender: 1, "readBy.user": 1 });
 MessageSchema.index({ conversation: 1, sender: 1, "readBy.user": 1 });
 
 export const Message = mongoose.model<IMessage>("Message", MessageSchema);

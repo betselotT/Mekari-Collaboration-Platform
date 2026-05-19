@@ -10,7 +10,7 @@ import { awardPoints, awardRepeatableBadge } from "../services/awardPoints";
 import { captureKnowledge } from "../services/knowledgeCapture";
 import { runAIPipeline } from "../services/aiPipeline";
 import { broadcastToRoom, roomName } from "../services/realtime";
-import { createThreadMessage, threadMessageSchema } from "../services/threadMessages";
+import { createThreadMessage, markThreadMessagesRead, threadMessageSchema } from "../services/threadMessages";
 import { generateContentTags, normalizeContentTags } from "../services/tagExtraction";
 import { findSimilarProblems } from "../services/similarProblems";
 import { recommendExperts } from "../services/matching";
@@ -383,6 +383,7 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
       sender: req.userId,
       body: parsed.initialMessage,
       type: "TEXT",
+      readBy: [{ user: req.userId, readAt: new Date() }],
       isFromAi: false,
     });
 
@@ -435,10 +436,22 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
 // GET /:threadId/messages
 router.get("/:threadId/messages", requireAuth, async (req: AuthRequest, res, next) => {
   try {
+    await markThreadMessagesRead(req.params.threadId, String(req.userId));
     const messages = await Message.find({ thread: req.params.threadId })
       .sort({ createdAt: 1 })
+      .select("-readBy")
       .populate("sender", "name avatarUrl");
     res.json({ messages });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /:threadId/read - mark incoming thread messages as read
+router.post("/:threadId/read", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const result = await markThreadMessagesRead(req.params.threadId, String(req.userId));
+    res.json(result);
   } catch (err) {
     next(err);
   }
@@ -616,6 +629,7 @@ router.post("/:threadId/session", requireAuth, async (req: AuthRequest, res, nex
       sender: req.userId,
       body: `Live session started! Join here: ${meetLink}`,
       type: "SYSTEM_EVENT",
+      readBy: [{ user: req.userId, readAt: new Date() }],
       isFromAi: false,
     });
 
@@ -626,6 +640,7 @@ router.post("/:threadId/session", requireAuth, async (req: AuthRequest, res, nex
       sender: req.userId,
       body: systemMsg.body,
       type: "SYSTEM_EVENT",
+      readBy: systemMsg.readBy,
       isFromAi: false,
       createdAt: systemMsg.createdAt,
     });

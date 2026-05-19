@@ -2,7 +2,7 @@ import { Server, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
 import { RedisClientType } from "redis";
 import { z } from "zod";
-import { createThreadMessage, threadMessageSchema } from "../services/threadMessages";
+import { createThreadMessage, markThreadMessagesRead, threadMessageSchema } from "../services/threadMessages";
 import {
   broadcastToRoom,
   forgetSocketPresence,
@@ -100,6 +100,16 @@ export function registerChatHandlers(
       const userId = socket.data.userId as string | undefined;
       if (!userId || !threadId) return;
       broadcastToRoom(roomName("thread", threadId), "user_stopped_typing", { userId, threadId });
+    });
+
+    socket.on("thread_mark_read", async (threadId: string) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId || !threadId) return;
+      try {
+        await markThreadMessagesRead(threadId, userId);
+      } catch (err) {
+        console.error("[socket thread_mark_read]", err);
+      }
     });
 
     socket.on("join_dm", async (conversationId: string) => {
