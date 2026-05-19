@@ -1,10 +1,9 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useState } from "react";
 import { apiClient } from "../../lib/api";
 import { GoogleAuthButton } from "./GoogleAuthButton";
 import { GithubAuthButton } from "./GithubAuthButton";
-import { Captcha, CaptchaRef } from "./Captcha";
 
 type AccountType = "learner" | "mentor";
 
@@ -18,33 +17,22 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const captchaRef = useRef<CaptchaRef>(null);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    if (!captchaToken) {
-      setError("Please complete the CAPTCHA verification.");
-      setLoading(false);
-      return;
-    }
-
     try {
       const res = await apiClient.post("/api/auth/login", {
         email,
         password,
         accountType,
-        captchaToken,
       });
       localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
     } catch (err: any) {
       setError(getAuthErrorMessage(err, "Failed to log in"));
-      captchaRef.current?.reset();
-      setCaptchaToken(null);
     } finally {
       setLoading(false);
     }
@@ -109,14 +97,6 @@ export function LoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-        />
-      </div>
-      <div className="flex justify-center overflow-hidden">
-        <Captcha
-          ref={captchaRef}
-          onChange={setCaptchaToken}
-          onExpired={() => setCaptchaToken(null)}
-          onError={() => setError("CAPTCHA verification failed. Please try again.")}
         />
       </div>
       <button
