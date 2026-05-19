@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { ReactNode } from "react";
 import { ThemeProvider } from "../components/theme/ThemeProvider";
+import { SecurityVerificationGate } from "../components/security/SecurityVerificationGate";
 
 export const metadata = {
   title: "Mekari - Enterprise Hub",
@@ -12,10 +13,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <body>
         <ThemeProvider>
-          {children}
+          <SecurityVerificationGate>{children}</SecurityVerificationGate>
         </ThemeProvider>
       </body>
     </html>
   );
 }
-

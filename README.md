@@ -165,7 +165,13 @@ Common frontend variables include:
 NEXT_PUBLIC_API_BASE_URL=http://localhost:4000/api
 NEXT_PUBLIC_SOCKET_URL=http://localhost:4000
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id
-NEXT_PUBLIC_HCAPTCHA_SITE_KEY=your_hcaptcha_site_key
+NEXT_PUBLIC_RECAPTCHA_SITE_KEY=your_recaptcha_site_key
+```
+
+Backend reCAPTCHA variable:
+
+```env
+RECAPTCHA_SECRET_KEY=your_recaptcha_secret_key
 ```
 
 Admin-related variables include:

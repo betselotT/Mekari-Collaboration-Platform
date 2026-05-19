@@ -4,7 +4,6 @@ import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { OAuth2Client } from "google-auth-library";
 import { IUser, User } from "../models/User";
-import { verifyCaptchaToken } from "../services/captcha";
 import { logAuditEvent } from "../services/auditLog";
 import { loginRateLimiter } from "../middleware/loginRateLimiter";
 
@@ -39,14 +38,12 @@ const registerSchema = z.object({
     .enum(["online", "busy", "offline", "in_session"])
     .default("offline"),
   verificationDocument: verificationDocumentSchema.optional(),
-  captchaToken: z.string().min(1),
 });
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   accountType: accountTypeSchema,
-  captchaToken: z.string().min(1),
 });
 
 const googleAuthSchema = z.object({
@@ -121,8 +118,6 @@ router.post("/register", async (req, res, next) => {
   try {
     const parsed = registerSchema.parse(req.body);
 
-    await verifyCaptchaToken(parsed.captchaToken);
-
     const existing = await User.findOne({ email: parsed.email });
     if (existing) {
       return res.status(409).json({ error: { message: "Email already in use" } });
@@ -191,8 +186,6 @@ router.post("/register", async (req, res, next) => {
 router.post("/login", loginRateLimiter, async (req, res, next) => {
   try {
     const parsed = loginSchema.parse(req.body);
-
-    await verifyCaptchaToken(parsed.captchaToken);
 
     const user = await User.findOne({ email: parsed.email });
     if (!user) {
