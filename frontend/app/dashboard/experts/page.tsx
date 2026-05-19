@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "../../../components/layout/DashboardLayout";
 import { ExpertCard } from "../../../components/features/ExpertCard";
-import { Users } from "lucide-react";
+import { X } from "lucide-react";
 import { apiClient } from "../../../lib/api";
 
 interface DBExpert {
@@ -60,6 +60,7 @@ export default function ExpertsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState("All");
+  const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
 
   useEffect(() => {
     apiClient
@@ -97,6 +98,11 @@ export default function ExpertsPage() {
   }
 
   async function handleDm(expert: DBExpert) {
+    if (expert.availabilityStatus !== "online") {
+      setAvailabilityModalOpen(true);
+      return;
+    }
+
     try {
       const res = await apiClient.post<{ conversation: { _id: string } }>(
         "/api/dms/conversations",
@@ -104,12 +110,59 @@ export default function ExpertsPage() {
       );
       router.push(`/dashboard/messages?conversation=${res.data.conversation._id}`);
     } catch (e: any) {
-      setError(e?.response?.data?.error?.message || "Failed to start direct message");
+      const message = e?.response?.data?.error?.message || "Failed to start direct message";
+      if (message === "Mentor isn't available right now. Try again later.") {
+        setAvailabilityModalOpen(true);
+      } else {
+        setError(message);
+      }
     }
   }
 
   return (
     <DashboardLayout title="Expert Network" searchPlaceholder="Search experts by name or skills...">
+      {availabilityModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/50 px-4 py-6 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mentor-unavailable-title"
+            className="w-full max-w-md rounded-lg border border-neutral-200 bg-white p-5 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 ring-1 ring-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-900/50">
+                !
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 id="mentor-unavailable-title" className="text-base font-bold text-neutral-900 dark:text-white">
+                  Mentor unavailable
+                </h2>
+                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                  Mentor isn't available right now. Try again later.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAvailabilityModalOpen(false)}
+                className="rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                aria-label="Close dialog"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setAvailabilityModalOpen(false)}
+                className="inline-flex min-h-[40px] items-center justify-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mb-8">
         <h2 className="mb-2 text-2xl font-bold text-neutral-900 dark:text-white">
           Meet Our Experts

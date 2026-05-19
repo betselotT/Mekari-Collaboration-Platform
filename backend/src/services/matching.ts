@@ -376,7 +376,8 @@ export async function recommendExperts(params: {
 
   const baseFilter = {
     ...(requesterId ? { _id: { $ne: requesterId } } : {}),
-    role: { $in: ["expert", "admin"] },
+    role: "expert",
+    "expertVerification.status": "approved",
   };
 
   const candidates = await User.find({
