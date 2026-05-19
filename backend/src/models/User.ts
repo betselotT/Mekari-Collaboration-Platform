@@ -48,6 +48,13 @@ export type BadgeAchievement = {
   earnedAt: Date;
 };
 
+export type ExpertReview = {
+  by: mongoose.Types.ObjectId;
+  stars: number;
+  comment?: string;
+  createdAt: Date;
+};
+
 export type CertificateAchievement = {
   certificateId: string;
   title: string;
@@ -82,6 +89,7 @@ export interface IUser extends Document {
   badges: string[];
   badgeCounts: Map<string, number>;
   badgeAchievements: BadgeAchievement[];
+  reviews?: ExpertReview[];
   certificates: CertificateAchievement[];
   role: "user" | "admin" | "learner" | "expert" | "mod";
   createdAt: Date;
@@ -165,6 +173,25 @@ const BadgeAchievementSchema = new Schema<BadgeAchievement>(
   { _id: false }
 );
 
+const ExpertReviewSchema = new Schema<ExpertReview>(
+  {
+    by: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    stars: {
+      type: Number,
+      required: true,
+      min: 1,
+      max: 5,
+      validate: {
+        validator: (value: number) => Number.isInteger(value * 2),
+        message: "Stars must use 0.5 increments.",
+      },
+    },
+    comment: { type: String, trim: true, maxlength: 1000 },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: true }
+);
+
 const CertificateAchievementSchema = new Schema<CertificateAchievement>(
   {
     certificateId: { type: String, required: true },
@@ -217,6 +244,7 @@ const UserSchema = new Schema<IUser>(
       default: () => ({}),
     },
     badgeAchievements: { type: [BadgeAchievementSchema], default: [] },
+    reviews: { type: [ExpertReviewSchema], default: undefined },
     certificates: { type: [CertificateAchievementSchema], default: [] },
     role: {
       type: String,
