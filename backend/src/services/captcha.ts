@@ -1,4 +1,4 @@
-type HcaptchaSiteVerifyResponse = {
+type RecaptchaSiteVerifyResponse = {
   success: boolean;
   challenge_ts?: string;
   hostname?: string;
@@ -17,8 +17,7 @@ export async function verifyCaptchaToken(token?: string) {
     }
   }
 
-  const secret = process.env.HCAPTCHA_SECRET_KEY;
-  const sitekey = process.env.HCAPTCHA_SITE_KEY;
+  const secret = process.env.RECAPTCHA_SECRET_KEY;
 
   if (!token) {
     throw Object.assign(new Error("captchaToken is required"), {
@@ -26,8 +25,8 @@ export async function verifyCaptchaToken(token?: string) {
     });
   }
 
-  if (!secret || secret === "your-hcaptcha-secret-key") {
-    throw Object.assign(new Error("HCAPTCHA_SECRET_KEY is not configured"), {
+  if (!secret || secret === "your-recaptcha-secret-key") {
+    throw Object.assign(new Error("RECAPTCHA_SECRET_KEY is not configured"), {
       status: 500,
     });
   }
@@ -36,11 +35,8 @@ export async function verifyCaptchaToken(token?: string) {
     secret,
     response: token,
   });
-  if (sitekey) {
-    body.set("sitekey", sitekey);
-  }
 
-  const response = await fetch("https://api.hcaptcha.com/siteverify", {
+  const response = await fetch("https://www.google.com/recaptcha/api/siteverify", {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -54,7 +50,7 @@ export async function verifyCaptchaToken(token?: string) {
     });
   }
 
-  const result = (await response.json()) as HcaptchaSiteVerifyResponse;
+  const result = (await response.json()) as RecaptchaSiteVerifyResponse;
 
   if (!result.success) {
     throw Object.assign(new Error("CAPTCHA verification failed"), {

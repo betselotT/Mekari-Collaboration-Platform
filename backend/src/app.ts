@@ -18,6 +18,7 @@ import { reportRouter } from "./routes/reports";
 import { adminRouter } from "./routes/admin";
 import { intelligenceRouter } from "./routes/intelligence";
 import { dmRouter } from "./routes/dms";
+import { securityRouter } from "./routes/security";
 import swaggerUi from "swagger-ui-express";
 import { createOpenApiSpec } from "./swagger";
 
@@ -66,6 +67,7 @@ export const createApp = () => {
 
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(createOpenApiSpec()));
 
+  app.use("/api/security", securityRouter);
   app.use("/api/auth", authRouter);
   app.use("/api/users", userRouter);
   app.use("/api/threads", threadRouter);
