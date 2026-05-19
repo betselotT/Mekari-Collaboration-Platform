@@ -10,7 +10,12 @@ import {
   rememberSocketUser,
   roomName,
 } from "../services/realtime";
-import { createDmMessage, dmMessageSchema, userCanAccessDm } from "../services/dmMessages";
+import {
+  createDmMessage,
+  dmMessageSchema,
+  markDmMessagesRead,
+  userCanAccessDm,
+} from "../services/dmMessages";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
 const socketThreadMessageSchema = threadMessageSchema.extend({
@@ -144,6 +149,16 @@ export function registerChatHandlers(
         conversationId,
         userId,
       });
+    });
+
+    socket.on("dm_mark_read", async (conversationId: string) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId) return;
+      try {
+        await markDmMessagesRead(conversationId, userId);
+      } catch (err) {
+        console.error("[socket dm_mark_read]", err);
+      }
     });
 
     socket.on("update_presence", async (status: string) => {

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   ArrowLeft,
+  CheckCheck,
   CheckCircle2,
   Code2,
   ExternalLink,
@@ -66,6 +67,10 @@ interface DmMessage {
   type: "TEXT" | "CODE" | "IMAGE" | "FILE" | "SYSTEM_EVENT";
   attachmentUrl?: string;
   parentMessageId?: string;
+  readBy?: Array<{
+    user: string | DmUser;
+    readAt: string;
+  }>;
   createdAt: string;
 }
 
@@ -111,6 +116,15 @@ function senderInitials(sender?: DmUser) {
 
 function attachmentLabel(message: DmMessage) {
   return message.body || (message.type === "IMAGE" ? "Shared image" : "Attached file");
+}
+
+function readReceiptUserId(receipt: NonNullable<DmMessage["readBy"]>[number]) {
+  return typeof receipt.user === "string" ? receipt.user : receipt.user?._id;
+}
+
+function messageReadByUser(message: DmMessage, userId?: string) {
+  if (!userId) return false;
+  return (message.readBy || []).some((receipt) => readReceiptUserId(receipt) === userId);
 }
 
 function renderHighlightedCode(code: string) {
@@ -418,6 +432,7 @@ function MessagesContent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const activeIdRef = useRef(activeId);
+  const readRequestKeyRef = useRef("");
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
 
@@ -543,6 +558,27 @@ function MessagesContent() {
         appendMessage(data.message);
       }
     };
+    const handleMessagesRead = (data: {
+      conversationId: string;
+      userId: string;
+      messageIds: string[];
+      readAt: string;
+    }) => {
+      if (data.conversationId !== activeIdRef.current || data.messageIds.length === 0) return;
+      const readMessageIds = new Set(data.messageIds);
+      setMessages((prev) =>
+        prev.map((message) => {
+          const messageId = getId(message);
+          if (!readMessageIds.has(messageId) || messageReadByUser(message, data.userId)) {
+            return message;
+          }
+          return {
+            ...message,
+            readBy: [...(message.readBy || []), { user: data.userId, readAt: data.readAt }],
+          };
+        })
+      );
+    };
 
     ensureSocket().then((socket) => {
       if (!mounted) return;
@@ -558,6 +594,7 @@ function MessagesContent() {
       socket.on("dm_user_typing", handleTyping);
       socket.on("dm_user_stopped_typing", handleStoppedTyping);
       socket.on("dm_session_updated", handleSessionUpdated);
+      socket.on("dm_messages_read", handleMessagesRead);
       cleanup = () => {
         if (activeIdRef.current) socket.emit("leave_dm", activeIdRef.current);
         socket.off("connect", joinActive);
@@ -567,6 +604,7 @@ function MessagesContent() {
         socket.off("dm_user_typing", handleTyping);
         socket.off("dm_user_stopped_typing", handleStoppedTyping);
         socket.off("dm_session_updated", handleSessionUpdated);
+        socket.off("dm_messages_read", handleMessagesRead);
       };
     });
 
@@ -585,6 +623,50 @@ function MessagesContent() {
     () => conversations.find((conversation) => conversation._id === activeId) || null,
     [activeId, conversations]
   );
+
+  const latestOwnReadMessageId = useMemo(() => {
+    if (!activeConversation || !user?._id) return "";
+    const otherId = otherParticipant(activeConversation)?._id;
+    if (!otherId) return "";
+
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (
+        message.type !== "SYSTEM_EVENT" &&
+        message.sender?._id === user._id &&
+        messageReadByUser(message, otherId)
+      ) {
+        return getId(message);
+      }
+    }
+    return "";
+  }, [activeConversation, messages, user?._id]);
+
+  useEffect(() => {
+    if (!activeId || !user?._id) return;
+
+    const unreadIncomingIds = messages
+      .filter(
+        (message) =>
+          message.type !== "SYSTEM_EVENT" &&
+          message.sender?._id !== user._id &&
+          !messageReadByUser(message, user._id)
+      )
+      .map(getId)
+      .filter(Boolean);
+
+    if (unreadIncomingIds.length === 0) return;
+
+    const requestKey = `${activeId}:${unreadIncomingIds.join(",")}`;
+    if (readRequestKeyRef.current === requestKey) return;
+    readRequestKeyRef.current = requestKey;
+
+    apiClient
+      .post(`/api/dms/conversations/${activeId}/read`)
+      .catch(() => {
+        readRequestKeyRef.current = "";
+      });
+  }, [activeId, messages, user?._id]);
 
   function otherParticipant(conversation: DmConversation) {
     return (
@@ -1018,6 +1100,8 @@ function MessagesContent() {
                     const isMine = message.sender?._id === user?._id;
                     const isSystemEvent = message.type === "SYSTEM_EVENT";
                     const parent = getParentMessage(message.parentMessageId);
+                    const isLatestSeenOwnMessage =
+                      isMine && messageId === latestOwnReadMessageId;
                     if (isSystemEvent) {
                       return (
                         <div key={messageId} className="flex justify-center">
@@ -1066,6 +1150,12 @@ function MessagesContent() {
                               )}
                               <MessageContent message={message} />
                             </div>
+                            {isLatestSeenOwnMessage && (
+                              <div className="mt-1 flex items-center justify-end gap-1 text-[11px] font-medium text-primary-600 dark:text-primary-300">
+                                <CheckCheck className="h-3.5 w-3.5" />
+                                Seen
+                              </div>
+                            )}
 
                             <div className="absolute -top-3 right-2 hidden items-center gap-2 rounded-lg border border-neutral-200 bg-white px-2 py-1 shadow-md group-hover:flex dark:border-neutral-700 dark:bg-neutral-900">
                               <button
