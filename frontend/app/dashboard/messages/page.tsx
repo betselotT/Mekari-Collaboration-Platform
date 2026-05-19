@@ -4,6 +4,7 @@ import { ChangeEvent, FormEvent, ReactNode, Suspense, useEffect, useMemo, useRef
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
+  ArrowLeft,
   CheckCircle2,
   Code2,
   ExternalLink,
@@ -138,15 +139,15 @@ function renderHighlightedCode(code: string) {
 function MessageContent({ message }: { message: DmMessage }) {
   if (message.type === "CODE") {
     return (
-      <div className="overflow-hidden rounded-lg border border-neutral-700 bg-neutral-950 text-left">
+      <div className="max-w-full overflow-hidden rounded-lg border border-neutral-700 bg-neutral-950 text-left">
         <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-1.5">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
             Code snippet
           </span>
           <Code2 className="h-3.5 w-3.5 text-neutral-500" />
         </div>
-        <pre className="max-h-80 overflow-auto p-3 text-xs leading-5">
-          <code>{renderHighlightedCode(message.body)}</code>
+        <pre className="max-h-80 max-w-full overflow-x-auto overflow-y-auto overscroll-contain p-3 text-xs leading-5">
+          <code className="block min-w-0 whitespace-pre">{renderHighlightedCode(message.body)}</code>
         </pre>
       </div>
     );
@@ -433,10 +434,6 @@ function MessagesContent() {
       );
       const loaded = res.data.conversations || [];
       setConversations(loaded);
-      if (!activeIdRef.current && loaded[0]) {
-        setActiveId(loaded[0]._id);
-        router.replace(`/dashboard/messages?conversation=${loaded[0]._id}`);
-      }
     } catch (e: any) {
       setError(e?.response?.data?.error?.message || "Failed to load conversations");
     } finally {
@@ -600,7 +597,15 @@ function MessagesContent() {
   function selectConversation(conversationId: string) {
     setActiveId(conversationId);
     setReplyTo(null);
+    setShowEmojiPicker(false);
     router.replace(`/dashboard/messages?conversation=${conversationId}`);
+  }
+
+  function showConversationList() {
+    setActiveId("");
+    setReplyTo(null);
+    setShowEmojiPicker(false);
+    router.replace("/dashboard/messages");
   }
 
   function getParentMessage(parentMessageId?: string) {
@@ -873,8 +878,8 @@ function MessagesContent() {
         </div>
       )}
 
-      <div className="grid min-h-[calc(100dvh-180px)] overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900 lg:grid-cols-[320px_1fr]">
-        <aside className="border-b border-neutral-200 dark:border-neutral-700 lg:border-b-0 lg:border-r">
+      <div className="grid min-h-[calc(100dvh-180px)] min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900 lg:grid-cols-[320px_1fr]">
+        <aside className={`${activeConversation ? "hidden lg:block" : "block"} border-b border-neutral-200 dark:border-neutral-700 lg:border-b-0 lg:border-r`}>
           <div className="border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
             <h2 className="text-sm font-bold text-neutral-900 dark:text-white">Conversations</h2>
           </div>
@@ -918,11 +923,20 @@ function MessagesContent() {
           </div>
         </aside>
 
-        <section className="flex min-h-[520px] min-w-0 flex-col">
+        <section className={`${activeConversation ? "flex" : "hidden lg:flex"} min-h-[calc(100dvh-180px)] min-w-0 flex-col lg:min-h-[520px]`}>
           {activeConversation ? (
             <>
               <div className="flex flex-col gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-700 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={showConversationList}
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 lg:hidden"
+                    aria-label="Back to conversations"
+                    title="Back to conversations"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </button>
                   <Avatar
                     size="sm"
                     src={otherParticipant(activeConversation)?.avatarUrl}
@@ -991,7 +1005,7 @@ function MessagesContent() {
                 </div>
               </div>
 
-              <div className="flex-1 space-y-3 overflow-y-auto bg-neutral-50 p-4 dark:bg-neutral-950">
+              <div className="min-w-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden bg-neutral-50 p-3 dark:bg-neutral-950 sm:p-4">
                 {loadingMessages ? (
                   <div className="text-sm text-neutral-500">Loading messages...</div>
                 ) : messages.length === 0 ? (
@@ -1014,27 +1028,27 @@ function MessagesContent() {
                       );
                     }
                     return (
-                    <div key={messageId} className={`flex gap-2 sm:gap-3 ${isMine ? "flex-row-reverse" : ""}`}>
+                    <div key={messageId} className={`flex min-w-0 gap-2 sm:gap-3 ${isMine ? "flex-row-reverse" : ""}`}>
                         <Avatar
                           size="sm"
                           src={message.sender?.avatarUrl}
                           initials={senderInitials(message.sender)}
                         />
-                        <div className={`flex max-w-[86%] flex-col gap-1 sm:max-w-[75%] ${isMine ? "items-end" : ""}`}>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                        <div className={`flex min-w-0 max-w-[calc(100%-2.5rem)] flex-col gap-1 sm:max-w-[75%] ${isMine ? "items-end" : ""}`}>
+                          <div className="flex max-w-full items-center gap-2">
+                            <span className="truncate text-xs font-medium text-neutral-500 dark:text-neutral-400">
                               {senderName(message.sender)}
                             </span>
-                            <span className="text-xs text-neutral-400">
+                            <span className="shrink-0 text-xs text-neutral-400">
                               {new Date(message.createdAt).toLocaleTimeString([], {
                                 hour: "2-digit",
                                 minute: "2-digit",
                               })}
                             </span>
                           </div>
-                          <div className="group relative">
+                          <div className="group relative max-w-full">
                             <div
-                              className={`rounded-xl px-4 py-2.5 text-sm ${
+                              className={`max-w-full overflow-hidden rounded-xl px-4 py-2.5 text-sm ${
                                 isMine
                                   ? "bg-primary-600 text-white"
                                   : "border border-neutral-200 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
