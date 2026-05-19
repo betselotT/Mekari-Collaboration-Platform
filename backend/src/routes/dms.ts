@@ -13,6 +13,7 @@ import {
   getConversationForUser,
   listDmConversations,
   listDmMessages,
+  markDmMessagesRead,
   startDmSession,
 } from "../services/dmMessages";
 
@@ -96,6 +97,23 @@ router.post(
         parentMessageId: parsed.parentMessageId,
       });
       res.status(201).json({ message });
+    } catch (err) {
+      const status = statusFromError(err);
+      if (status !== 500) {
+        return res.status(status).json({ error: { message: (err as Error).message } });
+      }
+      next(err);
+    }
+  }
+);
+
+router.post(
+  "/conversations/:conversationId/read",
+  requireAuth,
+  async (req: AuthRequest, res, next) => {
+    try {
+      const result = await markDmMessagesRead(req.params.conversationId, String(req.userId));
+      res.json(result);
     } catch (err) {
       const status = statusFromError(err);
       if (status !== 500) {

@@ -113,9 +113,47 @@ export async function listDmMessages(conversationId: string, userId: string) {
   const conversation = await getConversationForUser(conversationId, userId);
   if (!conversation) throw forbidden();
 
+  await markDmMessagesRead(conversationId, userId);
+
   return Message.find({ conversation: conversationId })
     .sort({ createdAt: 1 })
     .populate("sender", "name avatarUrl role");
+}
+
+export async function markDmMessagesRead(conversationId: string, userId: string) {
+  const conversation = await getConversationForUser(conversationId, userId);
+  if (!conversation) throw forbidden();
+
+  const readAt = new Date();
+  const unreadMessages = await Message.find({
+    conversation: conversationId,
+    sender: { $ne: userId },
+    "readBy.user": { $ne: userId },
+  }).select("_id");
+
+  const messageIds = unreadMessages.map((message) => String(message._id));
+  if (messageIds.length === 0) {
+    return { conversationId, userId, messageIds, readAt };
+  }
+
+  await Message.updateMany(
+    { _id: { $in: messageIds } },
+    { $push: { readBy: { user: userId, readAt } } }
+  );
+
+  const payload = {
+    conversationId,
+    userId,
+    messageIds,
+    readAt: readAt.toISOString(),
+  };
+
+  await broadcastToRoom(roomName("dm", conversationId), "dm_messages_read", payload);
+  for (const participantId of conversation.participants) {
+    await broadcastToUser(String(participantId), "dm_messages_read", payload);
+  }
+
+  return payload;
 }
 
 function serializeDmSession(conversation: Awaited<ReturnType<typeof getConversationForUser>>) {
@@ -170,6 +208,7 @@ export async function createDmMessage(input: {
     type: input.type || "TEXT",
     attachmentUrl: input.attachmentUrl,
     parentMessageId: input.parentMessageId || undefined,
+    readBy: [{ user: input.userId, readAt: new Date() }],
   });
 
   await DmConversation.findByIdAndUpdate(input.conversationId, {
@@ -190,6 +229,7 @@ export async function createDmMessage(input: {
     type: message.type,
     attachmentUrl: message.attachmentUrl,
     parentMessageId: message.parentMessageId,
+    readBy: message.readBy,
     createdAt: message.createdAt,
   };
 
