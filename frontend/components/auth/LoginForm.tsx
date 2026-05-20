@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { apiClient } from "../../lib/api";
 import { GoogleAuthButton } from "./GoogleAuthButton";
 import { GithubAuthButton } from "./GithubAuthButton";
@@ -14,11 +15,13 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setNeedsEmailVerification(false);
 
     try {
       const res = await apiClient.post("/api/auth/login", {
@@ -28,7 +31,9 @@ export function LoginForm() {
       localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
     } catch (err: any) {
-      setError(getAuthErrorMessage(err, "Failed to log in"));
+      const message = getAuthErrorMessage(err, "Failed to log in");
+      setError(message);
+      setNeedsEmailVerification(message.toLowerCase().includes("verify your email"));
     } finally {
       setLoading(false);
     }
@@ -37,6 +42,7 @@ export function LoginForm() {
   async function onGoogleSignIn(credential: string) {
     setLoading(true);
     setError(null);
+    setNeedsEmailVerification(false);
     try {
       const res = await apiClient.post("/api/auth/google", { credential });
       localStorage.setItem("mekari_token", res.data.token);
@@ -51,9 +57,17 @@ export function LoginForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-3 text-sm">
       {error && (
-        <p className="rounded bg-red-500/10 px-3 py-2 text-xs text-red-300">
-          {error}
-        </p>
+        <div className="rounded bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          <p>{error}</p>
+          {needsEmailVerification && (
+            <Link
+              href={`/verify-email${email ? `?email=${encodeURIComponent(email)}` : ""}`}
+              className="mt-2 inline-flex font-semibold text-red-200 underline underline-offset-2 hover:text-white"
+            >
+              Verify your email
+            </Link>
+          )}
+        </div>
       )}
       <div className="space-y-1">
         <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">

@@ -77,6 +77,7 @@ function initials(name: string) {
     .slice(0, 2)
     .map((part) => part[0])
     .join("")
+    .slice(0, 2)
     .toUpperCase();
 }
 
@@ -90,7 +91,7 @@ function ReviewStars({ rating }: { rating: number }) {
         return (
           <Icon
             key={index}
-            className={`h-4 w-4 ${
+            className={`h-3.5 w-3.5 ${
               filled || half
                 ? "fill-amber-400 text-amber-400"
                 : "text-neutral-300 dark:text-neutral-600"
@@ -123,7 +124,7 @@ function StarRatingInput({
   return (
     <div className="space-y-2" onMouseLeave={() => setHoverValue(null)}>
       <div className="flex items-center gap-3">
-        <div className="flex rounded-2xl bg-white p-1.5 shadow-lg shadow-neutral-900/5 ring-1 ring-neutral-200 dark:bg-white/5 dark:ring-white/10">
+        <div className="flex rounded-xl bg-white p-1.5 shadow-sm ring-1 ring-neutral-200 dark:bg-white/5 dark:ring-white/10">
           {Array.from({ length: 5 }).map((_, index) => {
             const filled = displayValue !== null && index + 1 <= displayValue;
             const half = displayValue !== null && !filled && displayValue - index >= 0.5;
@@ -136,11 +137,11 @@ function StarRatingInput({
                 onMouseMove={(event) => setHoverValue(valueFromPointer(event, index))}
                 onFocus={() => setHoverValue(value ?? index + 1)}
                 onClick={(event) => onChange(valueFromPointer(event, index))}
-                className="rounded-xl p-1.5 text-amber-400 transition-all hover:scale-110 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-400/40 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-amber-400/10"
+                className="rounded-lg p-1.5 text-amber-400 transition-all hover:scale-110 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-400/40 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-amber-400/10"
                 aria-label={`${index + 1} star${index === 0 ? "" : "s"}`}
               >
                 <Icon
-                  className={`h-7 w-7 ${
+                  className={`h-6 w-6 ${
                     filled || half
                       ? "fill-amber-400 text-amber-400"
                       : "fill-transparent text-neutral-300 dark:text-neutral-600"
@@ -150,11 +151,11 @@ function StarRatingInput({
             );
           })}
         </div>
-        <span className="min-w-[4.5rem] rounded-full bg-amber-50 px-3 py-1 text-center text-sm font-bold text-amber-800 shadow-sm ring-1 ring-amber-100 dark:bg-amber-400/10 dark:text-amber-200 dark:ring-amber-400/20">
+        <span className="min-w-[4rem] rounded-full bg-amber-50 px-2.5 py-1 text-center text-xs font-bold text-amber-800 shadow-sm ring-1 ring-amber-100 dark:bg-amber-400/10 dark:text-amber-200 dark:ring-amber-400/20">
           {displayValue === null ? "-- / 5" : `${displayValue.toFixed(1)} / 5`}
         </span>
       </div>
-      <div className="text-xs text-neutral-500 dark:text-neutral-400">
+      <div className="text-[11px] text-neutral-400 dark:text-neutral-555">
         Click the left or right half of a star to choose half-step ratings.
       </div>
     </div>
@@ -184,7 +185,7 @@ export default function ExpertsPage() {
       .get<{ experts: DBExpert[] }>("/api/users/experts")
       .then((res) => setExperts(res.data.experts || []))
       .catch((e) =>
-        setError(e?.response?.data?.error?.message || "Failed to load experts")
+          setError(e?.response?.data?.error?.message || "Failed to load experts")
       )
       .finally(() => setLoading(false));
   }, []);
@@ -214,7 +215,6 @@ export default function ExpertsPage() {
   const availableExperts = experts.filter((expert) => expert.availabilityStatus === "online").length;
 
   function handleConsult(expert: DBExpert) {
-    // Pre-fill the match page with this expert's top subject and tags
     const subject = expert.expertise[0]?.subject || "";
     const tags = buildSkills(expert).join(",");
     router.push(
@@ -295,7 +295,7 @@ export default function ExpertsPage() {
         current.map((expert) => (expert._id === nextExpert._id ? nextExpert : expert))
       );
       setReviewComment("");
-      setReviewMessage("Review posted.");
+      setReviewMessage("Review posted successfully.");
 
       const reviewsRes = await apiClient.get<{ reviews: ExpertReview[] }>(
         `/api/users/${selectedExpert._id}/reviews`
@@ -313,29 +313,29 @@ export default function ExpertsPage() {
   return (
     <DashboardLayout title="Expert Network" searchPlaceholder="Search experts by name or skills...">
       {availabilityModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/60 px-4 py-6 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/50 px-4 py-6 backdrop-blur-sm">
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="mentor-unavailable-title"
-            className="w-full max-w-md rounded-3xl border border-white/70 bg-white/95 p-5 shadow-2xl shadow-neutral-950/20 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/95"
+            className="w-full max-w-sm rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-neutral-800 dark:bg-neutral-900"
           >
             <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 shadow-sm ring-1 ring-amber-100 dark:bg-amber-400/10 dark:text-amber-300 dark:ring-amber-400/20">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 shadow-sm ring-1 ring-amber-100 dark:bg-amber-400/10 dark:text-amber-300 dark:ring-amber-400/20">
                 !
               </div>
               <div className="min-w-0 flex-1">
-                <h2 id="mentor-unavailable-title" className="text-base font-bold text-neutral-900 dark:text-white">
+                <h2 id="mentor-unavailable-title" className="text-sm font-bold text-neutral-900 dark:text-white">
                   Mentor unavailable
                 </h2>
-                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
                   Mentor isn't available right now. Try again later.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setAvailabilityModalOpen(false)}
-                className="rounded-full p-1.5 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-white/10 dark:hover:text-neutral-200"
+                className="rounded-full p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-white/10 dark:hover:text-neutral-200"
                 aria-label="Close dialog"
               >
                 <X className="h-4 w-4" />
@@ -345,7 +345,7 @@ export default function ExpertsPage() {
               <button
                 type="button"
                 onClick={() => setAvailabilityModalOpen(false)}
-                className="inline-flex min-h-[40px] items-center justify-center rounded-2xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-primary-600/20 transition-all hover:scale-[1.02] hover:bg-primary-700"
+                className="inline-flex min-h-[36px] items-center justify-center rounded-xl bg-primary-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-primary-700 active:scale-[0.99]"
               >
                 OK
               </button>
@@ -354,257 +354,393 @@ export default function ExpertsPage() {
         </div>
       )}
 
-      {reviewsOpen && selectedExpert && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/65 px-4 py-6 backdrop-blur-md">
+      {reviewsOpen && selectedExpert && (() => {
+        /* ── Compute rating distribution for the bar chart ── */
+        const distribution = [5, 4, 3, 2, 1].map((star) => {
+          const count = reviews.filter((r) => Math.round(r.stars) === star).length;
+          return { star, count, pct: reviews.length ? (count / reviews.length) * 100 : 0 };
+        });
+
+        return (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/60 px-4 py-6 backdrop-blur-md"
+          onClick={(e) => { if (e.target === e.currentTarget) setReviewsOpen(false); }}
+        >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="expert-reviews-title"
-            className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/70 bg-white/95 shadow-2xl shadow-neutral-950/20 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/95"
+            className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-neutral-200/80 bg-white shadow-2xl dark:border-neutral-700/60 dark:bg-neutral-900"
+            style={{ animation: "reviewModalIn 0.25s cubic-bezier(0.16,1,0.3,1)" }}
           >
-            <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-cyan-400/20 blur-3xl" />
-            <div className="pointer-events-none absolute -left-12 top-10 h-36 w-36 rounded-full bg-emerald-400/20 blur-3xl" />
-            <div className="relative flex items-start justify-between gap-4 border-b border-neutral-200/80 bg-gradient-to-br from-white via-emerald-50/70 to-cyan-50/60 p-6 dark:border-white/10 dark:from-neutral-950 dark:via-emerald-950/30 dark:to-cyan-950/20">
-              <div>
-                <h2 id="expert-reviews-title" className="text-xl font-bold tracking-tight text-neutral-950 dark:text-white">
-                  Reviews for {selectedExpert.name}
-                </h2>
-                {selectedExpert.expertReviewCount ? (
-                  <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white/80 px-3 py-1.5 shadow-sm backdrop-blur dark:border-amber-400/20 dark:bg-white/10">
-                    <ReviewStars rating={selectedExpert.expertRatingAverage || 0} />
-                    <span className="text-sm font-bold text-neutral-950 dark:text-white">
-                      {selectedExpert.expertRatingAverage?.toFixed(1)}
-                    </span>
-                    <span className="text-sm text-neutral-500">
-                      ({selectedExpert.expertReviewCount} review{selectedExpert.expertReviewCount === 1 ? "" : "s"})
-                    </span>
-                  </div>
-                ) : (
-                  <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">No reviews yet</p>
-                )}
-              </div>
+            {/* ── Inline keyframes for entrance animation ── */}
+            <style>{`
+              @keyframes reviewModalIn {
+                from { opacity: 0; transform: translateY(12px) scale(0.97); }
+                to   { opacity: 1; transform: translateY(0) scale(1); }
+              }
+              @keyframes starPulse {
+                0%, 100% { transform: scale(1); }
+                50%      { transform: scale(1.08); }
+              }
+            `}</style>
+
+            {/* ════════════════════════════════════════════════
+                 SECTION 1 — Rating Summary Hero
+                ════════════════════════════════════════════════ */}
+            <div className="relative shrink-0 border-b border-neutral-100 dark:border-neutral-800">
+              {/* Ambient glow */}
+              <div className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-amber-300/8 blur-3xl dark:bg-amber-500/5" />
+              <div className="pointer-events-none absolute -left-16 top-6 h-36 w-36 rounded-full bg-primary-400/6 blur-3xl dark:bg-primary-500/4" />
+
+              {/* Close button */}
               <button
                 type="button"
                 onClick={() => setReviewsOpen(false)}
-                className="rounded-full border border-neutral-200 bg-white/80 p-2 text-neutral-400 shadow-sm transition-all hover:scale-105 hover:bg-white hover:text-neutral-700 focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15 dark:hover:text-neutral-200"
+                className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100/80 text-neutral-400 backdrop-blur transition-all hover:bg-neutral-200 hover:text-neutral-700 dark:bg-neutral-800/80 dark:hover:bg-neutral-700 dark:hover:text-neutral-200"
                 aria-label="Close reviews"
               >
                 <X className="h-4 w-4" />
               </button>
+
+              <div className="relative px-6 pb-5 pt-6">
+                <h2
+                  id="expert-reviews-title"
+                  className="pr-10 text-lg font-bold tracking-tight text-neutral-900 dark:text-white"
+                >
+                  {selectedExpert.name}
+                </h2>
+                <p className="mt-0.5 text-[13px] font-medium text-neutral-400 dark:text-neutral-500">
+                  Expert Reviews
+                </p>
+
+                {/* Rating summary card */}
+                {selectedExpert.expertReviewCount ? (
+                  <div className="mt-5 flex items-start gap-5">
+                    {/* Big rating number */}
+                    <div className="flex flex-col items-center">
+                      <span className="text-[42px] font-extrabold leading-none tracking-tighter text-neutral-900 dark:text-white">
+                        {selectedExpert.expertRatingAverage?.toFixed(1)}
+                      </span>
+                      <div className="mt-1.5 flex items-center gap-0.5">
+                        {Array.from({ length: 5 }).map((_, i) => {
+                          const rating = selectedExpert.expertRatingAverage || 0;
+                          const filled = i + 1 <= rating;
+                          const half = !filled && rating - i >= 0.5;
+                          const Icon = half ? StarHalf : Star;
+                          return (
+                            <Icon
+                              key={i}
+                              className={`h-4 w-4 ${
+                                filled || half
+                                  ? "fill-amber-400 text-amber-400"
+                                  : "text-neutral-200 dark:text-neutral-700"
+                              }`}
+                            />
+                          );
+                        })}
+                      </div>
+                      <span className="mt-1.5 text-[11px] font-semibold text-neutral-400 dark:text-neutral-500">
+                        {selectedExpert.expertReviewCount} review{selectedExpert.expertReviewCount === 1 ? "" : "s"}
+                      </span>
+                    </div>
+
+                    {/* Distribution bars */}
+                    {!reviewsLoading && reviews.length > 0 && (
+                      <div className="flex flex-1 flex-col justify-center gap-[6px] pt-1">
+                        {distribution.map((d) => (
+                          <div key={d.star} className="flex items-center gap-2">
+                            <span className="w-4 text-right text-[11px] font-semibold text-neutral-400 dark:text-neutral-500">
+                              {d.star}
+                            </span>
+                            <Star className="h-3 w-3 fill-amber-400 text-amber-400 shrink-0" />
+                            <div className="relative h-[6px] flex-1 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
+                              <div
+                                className="absolute inset-y-0 left-0 rounded-full bg-amber-400 transition-all duration-500 ease-out"
+                                style={{ width: `${d.pct}%` }}
+                              />
+                            </div>
+                            <span className="w-6 text-right text-[10px] font-medium text-neutral-300 dark:text-neutral-600">
+                              {d.count}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-5 flex items-center gap-3 rounded-2xl border border-dashed border-neutral-200 bg-neutral-50/60 px-4 py-4 dark:border-neutral-800 dark:bg-neutral-800/30">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-400 dark:bg-amber-400/10">
+                      <Star className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">No ratings yet</p>
+                      <p className="text-[11px] text-neutral-400 dark:text-neutral-500">Be the first to share your experience.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="relative overflow-y-auto p-5">
-              <div className="mb-5 overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50/80 shadow-sm dark:border-white/10 dark:bg-white/5">
-                <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h3 className="text-sm font-bold text-neutral-950 dark:text-white">
-                      Share your experience
-                    </h3>
-                    <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                      Reviews help learners find the right expert faster.
-                    </p>
+            {/* ════════════════════════════════════════════════
+                 SECTION 2 — Scrollable Body
+                ════════════════════════════════════════════════ */}
+            <div className="relative flex-1 overflow-y-auto scroll-smooth">
+              <div className="px-6 py-5 space-y-5">
+
+                {/* ── Leave a Review Section ── */}
+                <div className="rounded-2xl border border-neutral-100 bg-gradient-to-b from-neutral-50/80 to-white dark:border-neutral-800 dark:from-neutral-800/40 dark:to-neutral-900 overflow-hidden">
+                  <div className="flex items-center justify-between gap-3 px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400">
+                        <Star className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-[13px] font-bold text-neutral-800 dark:text-neutral-100">
+                          Share your experience
+                        </h3>
+                        <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
+                          Help others find great mentors
+                        </p>
+                      </div>
+                    </div>
+                    {!showReviewForm && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowReviewForm(true);
+                          setReviewMessage("");
+                          setReviewError("");
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-primary-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-primary-700 hover:shadow-md active:scale-[0.97] dark:bg-primary-500 dark:hover:bg-primary-400"
+                      >
+                        Write review
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
-                  {!showReviewForm && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowReviewForm(true);
-                        setReviewMessage("");
-                        setReviewError("");
-                      }}
-                      className="group inline-flex w-fit items-center gap-2 text-sm font-semibold text-primary-600 transition-colors hover:text-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:text-primary-400 dark:hover:text-primary-300"
+
+                  {reviewMessage && !showReviewForm && (
+                    <div className="mx-5 mb-4 flex items-center gap-2.5 rounded-xl border border-emerald-200/60 bg-emerald-50/80 px-4 py-2.5 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                      <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-200">{reviewMessage}</span>
+                    </div>
+                  )}
+
+                  {showReviewForm && (
+                    <form
+                      onSubmit={submitReview}
+                      className="border-t border-neutral-100 bg-white px-5 py-4 dark:border-neutral-800 dark:bg-neutral-900"
                     >
-                      <span className="border-b border-primary-300 pb-0.5 transition-colors group-hover:border-primary-600 dark:border-primary-700 dark:group-hover:border-primary-300">
-                        Leave a review
-                      </span>
-                      <ArrowRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                      <span aria-hidden="true" className="hidden">
-                        →
-                      </span>
-                    </button>
+                      <div className="mb-5">
+                        <span className="mb-2.5 block text-[11px] font-bold uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+                          Your rating
+                        </span>
+                        <StarRatingInput
+                          value={reviewStars}
+                          onChange={setReviewStars}
+                          disabled={reviewSubmitting}
+                        />
+                      </div>
+                      <label className="block">
+                        <span className="mb-2 block text-[11px] font-bold uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+                          Comment <span className="normal-case tracking-normal font-medium">(optional)</span>
+                        </span>
+                        <textarea
+                          value={reviewComment}
+                          onChange={(event) => setReviewComment(event.target.value)}
+                          maxLength={1000}
+                          rows={3}
+                          disabled={reviewSubmitting}
+                          placeholder="What stood out about this expert's guidance?"
+                          className="w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50/50 px-4 py-3 text-[13px] leading-relaxed text-neutral-900 placeholder:text-neutral-400 transition-colors focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/10 dark:border-neutral-700 dark:bg-neutral-800/50 dark:text-white dark:placeholder:text-neutral-600 dark:focus:border-primary-500"
+                        />
+                      </label>
+                      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-h-[18px] text-xs">
+                          {reviewError && (
+                            <span className="inline-flex items-center gap-1 font-semibold text-red-500">
+                              <span className="inline-block h-1 w-1 rounded-full bg-red-500" />
+                              {reviewError}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            disabled={reviewSubmitting}
+                            onClick={() => {
+                              setShowReviewForm(false);
+                              setReviewStars(null);
+                              setReviewComment("");
+                              setReviewError("");
+                            }}
+                            className="rounded-xl px-4 py-2 text-xs font-semibold text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-50 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={reviewStars === null || reviewSubmitting}
+                            className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-primary-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 dark:bg-primary-500 dark:hover:bg-primary-400"
+                          >
+                            {reviewSubmitting && (
+                              <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                            )}
+                            {reviewSubmitting ? "Posting…" : "Post review"}
+                          </button>
+                        </div>
+                      </div>
+                    </form>
                   )}
                 </div>
 
-                {reviewMessage && !showReviewForm && (
-                  <div className="mx-4 mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 shadow-sm dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200">
-                    {reviewMessage}
+                {/* ── Reviews List ── */}
+                {reviewsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((item) => (
+                      <div
+                        key={item}
+                        className="rounded-2xl border border-neutral-100 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-800/30"
+                      >
+                        <div className="flex gap-3.5">
+                          <div className="h-10 w-10 animate-pulse rounded-full bg-neutral-200 dark:bg-neutral-700" />
+                          <div className="flex-1 space-y-2.5">
+                            <div className="flex justify-between">
+                              <div className="h-3.5 w-28 animate-pulse rounded-md bg-neutral-200 dark:bg-neutral-700" />
+                              <div className="h-3 w-16 animate-pulse rounded-md bg-neutral-100 dark:bg-neutral-800" />
+                            </div>
+                            <div className="h-3 w-20 animate-pulse rounded-md bg-neutral-100 dark:bg-neutral-800" />
+                            <div className="h-4 w-full animate-pulse rounded-md bg-neutral-100 dark:bg-neutral-800" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                )}
-
-                {showReviewForm && (
-                  <form
-                    onSubmit={submitReview}
-                    className="border-t border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-neutral-950"
-                  >
-                    <div className="mb-4">
-                      <StarRatingInput
-                        value={reviewStars}
-                        onChange={setReviewStars}
-                        disabled={reviewSubmitting}
-                      />
+                ) : reviews.length === 0 ? (
+                  <div className="flex flex-col items-center rounded-2xl border border-dashed border-neutral-200 bg-neutral-50/30 py-10 text-center dark:border-neutral-800 dark:bg-neutral-800/20">
+                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-400 dark:bg-amber-500/10 dark:text-amber-300">
+                      <Star className="h-5 w-5" />
                     </div>
-                    <label className="block">
-                      <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                        Comment optional
-                      </span>
-                      <textarea
-                        value={reviewComment}
-                        onChange={(event) => setReviewComment(event.target.value)}
-                        maxLength={1000}
-                        rows={4}
-                        disabled={reviewSubmitting}
-                        placeholder="What stood out about this expert's help?"
-                        className="w-full resize-none rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-3 text-sm leading-6 text-neutral-900 shadow-inner shadow-white/40 placeholder:text-neutral-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-white/10 dark:bg-white/5 dark:text-white dark:shadow-none"
-                      />
-                    </label>
-                    <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="min-h-5 text-xs">
-                        {reviewError && <span className="text-red-600 dark:text-red-400">{reviewError}</span>}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          disabled={reviewSubmitting}
-                          onClick={() => {
-                            setShowReviewForm(false);
-                            setReviewStars(null);
-                            setReviewComment("");
-                            setReviewError("");
-                          }}
+                    <p className="text-sm font-bold text-neutral-900 dark:text-white">No reviews yet</p>
+                    <p className="mt-1 max-w-[240px] text-xs text-neutral-400 dark:text-neutral-500">
+                      Ratings will appear here after learners review this expert.
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <h3 className="mb-3 text-[11px] font-bold uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+                      All Reviews ({reviews.length})
+                    </h3>
+                    <div className="space-y-3">
+                      {reviews.map((review) => (
+                        <div
+                          key={review._id}
+                          className="group rounded-2xl border border-neutral-100 bg-white p-4 transition-all hover:border-neutral-200 hover:shadow-sm dark:border-neutral-800 dark:bg-neutral-800/20 dark:hover:border-neutral-700"
                         >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="submit"
-                          size="sm"
-                          isLoading={reviewSubmitting}
-                          disabled={reviewStars === null}
-                          className="rounded-xl shadow-lg shadow-primary-600/20"
-                        >
-                          Post review
-                        </Button>
-                      </div>
+                          <div className="flex items-start gap-3.5">
+                            <Avatar
+                              size="md"
+                              src={review.by.avatarUrl}
+                              initials={initials(review.by.name)}
+                              className="shrink-0 ring-2 ring-white shadow-sm dark:ring-neutral-800"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-[13px] font-bold text-neutral-900 dark:text-white">
+                                  {review.by.name}
+                                </p>
+                                <time className="shrink-0 text-[11px] font-medium text-neutral-400 dark:text-neutral-500">
+                                  {review.createdAt
+                                    ? new Intl.DateTimeFormat("en", {
+                                        month: "short",
+                                        day: "numeric",
+                                        year: "numeric",
+                                      }).format(new Date(review.createdAt))
+                                    : "Recently"}
+                                </time>
+                              </div>
+                              <div className="mt-1.5 flex items-center gap-2">
+                                <div className="flex items-center gap-0.5">
+                                  {Array.from({ length: 5 }).map((_, i) => {
+                                    const filled = i + 1 <= review.stars;
+                                    const half = !filled && review.stars - i >= 0.5;
+                                    const Icon = half ? StarHalf : Star;
+                                    return (
+                                      <Icon
+                                        key={i}
+                                        className={`h-3.5 w-3.5 ${
+                                          filled || half
+                                            ? "fill-amber-400 text-amber-400"
+                                            : "text-neutral-200 dark:text-neutral-700"
+                                        }`}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                                <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">
+                                  {review.stars.toFixed(1)}
+                                </span>
+                              </div>
+                              {review.comment && (
+                                <p className="mt-2.5 text-[13px] leading-[1.6] text-neutral-600 dark:text-neutral-400">
+                                  {review.comment}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </form>
+                  </div>
                 )}
               </div>
-
-              {reviewsLoading ? (
-                <div className="space-y-3">
-                  {[1, 2, 3].map((item) => (
-                    <div
-                      key={item}
-                      className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/5"
-                    >
-                      <div className="flex gap-3">
-                        <div className="h-10 w-10 animate-pulse rounded-full bg-neutral-200 dark:bg-neutral-800" />
-                        <div className="flex-1 space-y-3">
-                          <div className="h-4 w-32 animate-pulse rounded-full bg-neutral-200 dark:bg-neutral-800" />
-                          <div className="h-3 w-24 animate-pulse rounded-full bg-neutral-100 dark:bg-neutral-800" />
-                          <div className="h-12 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : reviews.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-neutral-300 bg-white/70 p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/5">
-                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-500 ring-1 ring-amber-100 dark:bg-amber-400/10 dark:ring-amber-400/20">
-                    <Star className="h-5 w-5" />
-                  </div>
-                  <p className="text-sm font-bold text-neutral-950 dark:text-white">No reviews yet</p>
-                  <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                    Ratings will appear here after learners review this expert.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {reviews.map((review) => (
-                    <div
-                      key={review._id}
-                      className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10 dark:bg-white/5"
-                    >
-                      <div className="flex items-start gap-3">
-                        <Avatar
-                          size="md"
-                          src={review.by.avatarUrl}
-                          initials={initials(review.by.name)}
-                          className="ring-2 ring-white dark:ring-neutral-800"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p className="font-semibold text-neutral-900 dark:text-white">
-                              {review.by.name}
-                            </p>
-                            <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                              {review.createdAt
-                                ? new Intl.DateTimeFormat("en", {
-                                    month: "short",
-                                    day: "numeric",
-                                    year: "numeric",
-                                  }).format(new Date(review.createdAt))
-                                : "Recently"}
-                            </span>
-                          </div>
-                          <div className="mt-1 flex items-center gap-2">
-                            <ReviewStars rating={review.stars} />
-                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
-                              {review.stars.toFixed(1)}
-                            </span>
-                          </div>
-                          {review.comment && (
-                            <p className="mt-3 text-sm leading-6 text-neutral-700 dark:text-neutral-300">
-                              {review.comment}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
-      <section className="relative mb-8 overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-cyan-50 p-6 shadow-xl shadow-emerald-500/5 dark:border-white/10 dark:from-neutral-950 dark:via-neutral-900 dark:to-emerald-950/40">
-        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-cyan-400/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 left-1/4 h-56 w-56 rounded-full bg-emerald-400/20 blur-3xl" />
+      {/* Modern, Clean Green-Free Statistics & Header section */}
+      <section className="relative mb-8 overflow-hidden rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50/50 via-white to-cyan-50/30 p-6 shadow-sm dark:border-neutral-800 dark:from-neutral-950 dark:via-neutral-900 dark:to-primary-950/10">
+        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-cyan-400/5 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/4 h-56 w-56 rounded-full bg-primary-400/5 blur-3xl" />
         <div className="relative grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white/70 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-700 shadow-sm backdrop-blur dark:border-emerald-400/20 dark:bg-white/10 dark:text-emerald-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" />
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary-200 bg-white/70 px-3 py-1 text-xs font-bold uppercase tracking-wide text-primary-700 shadow-sm backdrop-blur-sm dark:border-primary-400/20 dark:bg-white/10 dark:text-primary-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary-500 shadow-[0_0_8px_rgba(139,92,246,0.6)] animate-pulse" />
               Expert Network
             </div>
-            <h2 className="max-w-3xl text-3xl font-bold tracking-tight text-neutral-950 dark:text-white md:text-4xl">
+            <h2 className="max-w-3xl text-2xl font-bold tracking-tight text-neutral-950 dark:text-white md:text-3xl">
               Find the right mentor for your next technical move.
             </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-600 dark:text-neutral-300 md:text-base">
+            <p className="mt-2.5 max-w-2xl text-xs leading-relaxed text-neutral-500 dark:text-neutral-400 font-medium">
               Browse verified peers by discipline, reputation, availability, and real learner reviews.
             </p>
           </div>
-          <div className="grid grid-cols-3 gap-3 sm:min-w-[420px]">
+          
+          <div className="grid grid-cols-3 gap-3 sm:min-w-[360px]">
             {[
-              { label: "Experts", value: experts.length, Icon: Users },
-              { label: "Online", value: availableExperts, Icon: CheckCircle2 },
+              { label: "Experts", value: experts.length, Icon: Users, color: "text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950/20" },
+              { label: "Online", value: availableExperts, Icon: CheckCircle2, color: "text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/20" },
               {
-                label: "Avg rating",
+                label: "Avg Rating",
                 value: averageNetworkRating ? averageNetworkRating.toFixed(1) : "New",
                 Icon: Star,
+                color: "text-amber-500 bg-amber-50 dark:bg-amber-950/20"
               },
             ].map((stat) => {
               const Icon = stat.Icon;
               return (
                 <div
                   key={stat.label}
-                  className="rounded-2xl border border-white/70 bg-white/75 p-3 shadow-lg shadow-neutral-900/5 backdrop-blur dark:border-white/10 dark:bg-white/10"
+                  className="rounded-xl border border-white/70 bg-white/75 p-3.5 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-850"
                 >
-                  <Icon className="mb-2 h-4 w-4 text-emerald-600 dark:text-emerald-300" />
-                  <div className="text-xl font-bold text-neutral-950 dark:text-white">{stat.value}</div>
-                  <div className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{stat.label}</div>
+                  <div className={`mb-2 flex h-7 w-7 items-center justify-center rounded-lg ${stat.color}`}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="text-lg font-bold text-neutral-950 dark:text-white leading-none">{stat.value}</div>
+                  <div className="text-[10px] font-semibold text-neutral-400 dark:text-neutral-500 mt-1 uppercase tracking-wide">{stat.label}</div>
                 </div>
               );
             })}
@@ -613,15 +749,15 @@ export default function ExpertsPage() {
       </section>
 
       {/* Filter tabs */}
-      <div className="mb-8 flex flex-wrap gap-2 overflow-x-auto rounded-2xl border border-neutral-200 bg-white/70 p-2 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5">
+      <div className="mb-8 flex flex-wrap gap-1.5 overflow-x-auto rounded-xl border border-neutral-200 bg-white/70 p-1.5 shadow-sm backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/50">
         {filterOptions.map((filter) => (
           <button
             key={filter}
             onClick={() => setSelectedFilter(filter)}
-            className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+            className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-wide transition-all duration-200 ${
               selectedFilter === filter
-                ? "bg-neutral-950 text-white shadow-lg shadow-neutral-900/20 dark:bg-white dark:text-neutral-950"
-                : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-950 dark:text-neutral-300 dark:hover:bg-white/10 dark:hover:text-white"
+                ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950"
+                : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-950 dark:text-neutral-400 dark:hover:bg-white/10 dark:hover:text-white"
             }`}
           >
             {filter}
@@ -630,45 +766,41 @@ export default function ExpertsPage() {
       </div>
 
       {error && (
-        <div className="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200">
+        <div className="mb-6 rounded-lg border border-rose-250 bg-rose-50 px-3.5 py-2 text-xs text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200">
           {error}
         </div>
       )}
 
       {loading ? (
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
+          {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-[430px] overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-neutral-900"
+              className="h-[380px] overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
             >
-              <div className="h-32 animate-pulse bg-gradient-to-br from-neutral-100 via-emerald-100 to-cyan-100 dark:from-neutral-800 dark:via-emerald-950 dark:to-cyan-950" />
+              <div className="h-28 animate-pulse bg-gradient-to-br from-neutral-100 to-cyan-50/50 dark:from-neutral-800 dark:to-cyan-950/20" />
               <div className="space-y-4 p-5">
-                <div className="mx-auto -mt-12 h-20 w-20 animate-pulse rounded-full bg-neutral-200 ring-4 ring-white dark:bg-neutral-700 dark:ring-neutral-900" />
-                <div className="mx-auto h-5 w-36 animate-pulse rounded-full bg-neutral-200 dark:bg-neutral-700" />
-                <div className="mx-auto h-4 w-48 animate-pulse rounded-full bg-neutral-100 dark:bg-neutral-800" />
-                <div className="h-10 animate-pulse rounded-2xl bg-neutral-100 dark:bg-neutral-800" />
+                <div className="mx-auto -mt-10 h-16 w-16 animate-pulse rounded-full bg-neutral-200 ring-4 ring-white dark:bg-neutral-700 dark:ring-neutral-900" />
+                <div className="mx-auto h-4 w-32 animate-pulse rounded bg-neutral-200 dark:bg-neutral-700" />
+                <div className="mx-auto h-3 w-40 animate-pulse rounded bg-neutral-100 dark:bg-neutral-800" />
+                <div className="h-8 animate-pulse rounded-lg bg-neutral-100 dark:bg-neutral-800" />
                 <div className="flex justify-center gap-2">
-                  <div className="h-6 w-16 animate-pulse rounded-full bg-neutral-100 dark:bg-neutral-800" />
-                  <div className="h-6 w-20 animate-pulse rounded-full bg-neutral-100 dark:bg-neutral-800" />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="h-11 animate-pulse rounded-2xl bg-neutral-100 dark:bg-neutral-800" />
-                  <div className="h-11 animate-pulse rounded-2xl bg-neutral-100 dark:bg-neutral-800" />
+                  <div className="h-5 w-14 animate-pulse rounded bg-neutral-100 dark:bg-neutral-800" />
+                  <div className="h-5 w-16 animate-pulse rounded bg-neutral-100 dark:bg-neutral-800" />
                 </div>
               </div>
             </div>
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-neutral-300 bg-white/70 p-10 text-center shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100 dark:bg-emerald-400/10 dark:text-emerald-300 dark:ring-emerald-400/20">
-            <Users className="h-6 w-6" />
+        <div className="rounded-2xl border border-dashed border-neutral-300 bg-white/70 p-10 text-center shadow-sm backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/50">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary-50 text-primary-600 ring-1 ring-primary-100 dark:bg-primary-400/10 dark:text-primary-300 dark:ring-primary-400/20">
+            <Users className="h-5 w-5" />
           </div>
-          <p className="text-base font-bold text-neutral-950 dark:text-white">
+          <p className="text-sm font-bold text-neutral-950 dark:text-white">
             {experts.length === 0 ? "No experts found" : `No experts match "${selectedFilter}"`}
           </p>
-          <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="mt-1.5 text-xs text-neutral-400 dark:text-neutral-500 font-medium">
             Try a different specialty filter or check back when more mentors are available.
           </p>
         </div>
@@ -694,7 +826,7 @@ export default function ExpertsPage() {
       )}
 
       {!loading && filtered.length > 0 && (
-        <p className="mt-6 text-center text-xs text-neutral-400 dark:text-neutral-600">
+        <p className="mt-6 text-center text-xs text-neutral-400 dark:text-neutral-600 font-medium">
           Showing {filtered.length} of {experts.length} expert{experts.length !== 1 ? "s" : ""}
         </p>
       )}
