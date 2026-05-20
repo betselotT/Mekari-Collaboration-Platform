@@ -242,7 +242,6 @@ export default function ThreadDetailPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const [sessionStarting, setSessionStarting] = useState(false);
   const [input, setInput] = useState("");
   const [composerMode, setComposerMode] = useState<ComposerMode>("TEXT");
   const [attachment, setAttachment] = useState<AttachmentDraft | null>(null);
@@ -646,34 +645,6 @@ export default function ThreadDetailPage() {
     }
   }
 
-  // ── Start session ───────────────────────────────────────────────────────
-  async function startSession() {
-    if (!threadId || sessionStarting) return;
-
-    setSessionStarting(true);
-    setActionError(null);
-    try {
-      const res = await apiClient.post<{ meetLink: string; message?: ChatMessage }>(
-        `/api/threads/${threadId}/session`
-      );
-      setThread((prev) => (prev ? { ...prev, googleMeetLink: res.data.meetLink } : prev));
-      if (res.data.message) {
-        setMessages((prev) => {
-          const messageId = getMessageId(res.data.message!);
-          if (messageId && prev.some((message) => getMessageId(message) === messageId)) {
-            return prev;
-          }
-          return [...prev, res.data.message!];
-        });
-      }
-      window.open(res.data.meetLink, "_blank", "noopener,noreferrer");
-    } catch (err: any) {
-      setActionError(err?.response?.data?.error?.message || "Failed to start the live session.");
-    } finally {
-      setSessionStarting(false);
-    }
-  }
-
   function startTagEdit() {
     setTagDraft(thread?.tags.join(", ") || "");
     setTagError(null);
@@ -868,20 +839,6 @@ export default function ThreadDetailPage() {
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">{thread.body}</p>
         )}
 
-        {/* Actions row */}
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          {isAuthor && thread.status !== "SOLVED" && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={startSession}
-              isLoading={sessionStarting}
-            >
-              <Video className="mr-1.5 h-4 w-4" />
-              Start Session
-            </Button>
-          )}
-        </div>
       </div>
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
