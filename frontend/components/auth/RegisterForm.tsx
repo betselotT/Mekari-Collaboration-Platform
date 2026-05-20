@@ -115,7 +115,7 @@ export function RegisterForm() {
         availabilityStatus: isMentor ? availabilityStatus : "offline",
         verificationDocument: isMentor ? verificationDocument : undefined,
       });
-      window.location.href = "/login?registered=1";
+      window.location.href = `/verify-email?email=${encodeURIComponent(email)}`;
     } catch (err: any) {
       setError(err.response?.data?.error?.message || "Failed to sign up");
     } finally {

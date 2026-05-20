@@ -1,11 +1,13 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { OAuth2Client } from "google-auth-library";
 import { IUser, User } from "../models/User";
 import { logAuditEvent } from "../services/auditLog";
 import { loginRateLimiter } from "../middleware/loginRateLimiter";
+import { sendVerificationOtpEmail } from "../services/email";
 
 const router = Router();
 const googleClient = new OAuth2Client();
@@ -46,6 +48,15 @@ const loginSchema = z.object({
   accountType: accountTypeSchema.optional(),
 });
 
+const verifyEmailOtpSchema = z.object({
+  email: z.string().email(),
+  otp: z.string().regex(/^\d{6}$/, "OTP must be a 6-digit code"),
+});
+
+const resendVerificationOtpSchema = z.object({
+  email: z.string().email(),
+});
+
 const googleAuthSchema = z.object({
   credential: z.string().min(10),
   accountType: accountTypeSchema.optional(),
@@ -67,6 +78,35 @@ function signAuthToken(userId: string, role: string) {
     process.env.JWT_SECRET || "dev-secret",
     { expiresIn: "7d" }
   );
+}
+
+function generateOtp() {
+  return crypto.randomInt(100000, 1000000).toString();
+}
+
+function hashOtp(email: string, otp: string) {
+  return crypto
+    .createHash("sha256")
+    .update(`${email.toLowerCase()}:${otp}:${process.env.JWT_SECRET || "dev-secret"}`)
+    .digest("hex");
+}
+
+async function queueVerificationOtp(user: IUser) {
+  const otp = generateOtp();
+  user.emailVerificationOtpHash = hashOtp(user.email, otp);
+  user.emailVerificationOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  await user.save();
+
+  void sendVerificationOtpEmail({
+    to: user.email,
+    name: user.name,
+    otp,
+  }).catch((err) => {
+    console.error(`Failed to send verification OTP to ${user.email}`, err);
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`[email] Development fallback OTP for ${user.email}: ${otp}`);
+    }
+  });
 }
 
 function signOAuthState(state: OAuthState) {
@@ -109,6 +149,7 @@ function serializeUser(user: IUser) {
     id: user.id,
     name: user.name,
     email: user.email,
+    emailVerified: user.emailVerified,
     role: user.role,
     expertVerification: user.expertVerification,
   };
@@ -117,8 +158,9 @@ function serializeUser(user: IUser) {
 router.post("/register", async (req, res, next) => {
   try {
     const parsed = registerSchema.parse(req.body);
+    const email = parsed.email.toLowerCase();
 
-    const existing = await User.findOne({ email: parsed.email });
+    const existing = await User.findOne({ email });
     if (existing) {
       return res.status(409).json({ error: { message: "Email already in use" } });
     }
@@ -138,7 +180,8 @@ router.post("/register", async (req, res, next) => {
 
     const user = await User.create({
       name: parsed.name,
-      email: parsed.email,
+      email,
+      emailVerified: false,
       passwordHash,
       role: roleForAccountType(parsed.accountType),
       primaryTechnicalField: parsed.primaryTechnicalField,
@@ -162,7 +205,8 @@ router.post("/register", async (req, res, next) => {
       profileSetupCompleted: true,
     });
 
-    const token = signAuthToken(user.id, user.role);
+    await queueVerificationOtp(user);
+
     await logAuditEvent({
       actorId: user.id,
       actorName: user.name,
@@ -176,7 +220,7 @@ router.post("/register", async (req, res, next) => {
 
     res.json({
       user: serializeUser(user),
-      token,
+      message: "Account created. Check your email for the 6-digit verification code.",
     });
   } catch (err) {
     next(err);
@@ -201,6 +245,14 @@ router.post("/login", loginRateLimiter, async (req, res, next) => {
     const valid = await bcrypt.compare(parsed.password, user.passwordHash);
     if (!valid) {
       return res.status(401).json({ error: { message: "Invalid credentials" } });
+    }
+
+    if (!user.emailVerified && user.emailVerificationOtpHash) {
+      return res.status(403).json({
+        error: {
+          message: "Please verify your email with the OTP code before signing in.",
+        },
+      });
     }
 
     if (parsed.accountType && !isMatchingAccountType(user.role, parsed.accountType)) {
@@ -241,6 +293,69 @@ router.post("/logout", (_req, res) => {
   res.json({ ok: true });
 });
 
+router.post("/verify-email", async (req, res, next) => {
+  try {
+    const parsed = verifyEmailOtpSchema.parse(req.body);
+    const email = parsed.email.toLowerCase();
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(400).json({ error: { message: "Invalid or expired OTP code" } });
+    }
+
+    if (user.emailVerified) {
+      return res.json({ message: "Email already verified. You can sign in now." });
+    }
+
+    if (
+      !user.emailVerificationOtpHash ||
+      user.emailVerificationOtpHash !== hashOtp(email, parsed.otp) ||
+      !user.emailVerificationOtpExpiresAt ||
+      user.emailVerificationOtpExpiresAt.getTime() < Date.now()
+    ) {
+      return res.status(400).json({ error: { message: "Invalid or expired OTP code" } });
+    }
+
+    user.emailVerified = true;
+    user.emailVerifiedAt = new Date();
+    user.emailVerificationOtpHash = undefined;
+    user.emailVerificationOtpExpiresAt = undefined;
+    await user.save();
+
+    await logAuditEvent({
+      actorId: user.id,
+      actorName: user.name,
+      actorEmail: user.email,
+      actionType: "email_verified",
+      action: `${user.name} verified their email with OTP`,
+      targetType: "user",
+      targetId: user.id,
+      status: user.role,
+    });
+
+    res.json({ message: "Email verified. You can sign in now." });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/resend-verification", loginRateLimiter, async (req, res, next) => {
+  try {
+    const parsed = resendVerificationOtpSchema.parse(req.body);
+    const user = await User.findOne({ email: parsed.email.toLowerCase() });
+
+    if (user && !user.emailVerified && user.passwordHash) {
+      await queueVerificationOtp(user);
+    }
+
+    res.json({
+      message: "If that account needs verification, a new OTP code has been sent.",
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post("/google", loginRateLimiter, async (req, res, next) => {
   try {
     const parsed = googleAuthSchema.parse(req.body);
@@ -278,6 +393,8 @@ router.post("/google", loginRateLimiter, async (req, res, next) => {
       user = await User.create({
         name: payload.name || payload.email.split("@")[0],
         email: payload.email.toLowerCase(),
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
         googleId: payload.sub,
         oauthProvider: "google",
         avatarUrl: payload.picture,
@@ -293,6 +410,12 @@ router.post("/google", loginRateLimiter, async (req, res, next) => {
             message: `This Google account is registered as a ${accountTypeForRole(user.role)}. Choose the matching sign-in option.`,
           },
         });
+      }
+      if (!user.emailVerified) {
+        user.emailVerified = true;
+        user.emailVerifiedAt = new Date();
+        user.emailVerificationOtpHash = undefined;
+        user.emailVerificationOtpExpiresAt = undefined;
       }
       user.googleId = payload.sub;
       user.oauthProvider = "google";
@@ -453,6 +576,8 @@ router.get("/github/callback", async (req, res, next) => {
       user = await User.create({
         name: profile.name || profile.login || primaryEmail.split("@")[0],
         email: primaryEmail.toLowerCase(),
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
         githubId: String(profile.id),
         oauthProvider: "github",
         avatarUrl: profile.avatar_url,
@@ -468,6 +593,12 @@ router.get("/github/callback", async (req, res, next) => {
             error: `This GitHub account is registered as a ${accountTypeForRole(user.role)}.`,
           })
         );
+      }
+      if (!user.emailVerified) {
+        user.emailVerified = true;
+        user.emailVerifiedAt = new Date();
+        user.emailVerificationOtpHash = undefined;
+        user.emailVerificationOtpExpiresAt = undefined;
       }
       user.githubId = String(profile.id);
       user.oauthProvider = "github";
