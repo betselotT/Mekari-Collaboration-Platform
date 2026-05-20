@@ -13,13 +13,15 @@ declare global {
 type GoogleAuthButtonProps = {
   onCredential: (credential: string) => Promise<void> | void;
   onError?: (message: string) => void;
+  className?: string;
 };
 
-export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProps) {
+export function GoogleAuthButton({ onCredential, onError, className = "" }: GoogleAuthButtonProps) {
   const { googleClientId, googleAllowedOrigins } = usePublicConfig();
   const [scriptReady, setScriptReady] = useState(false);
   const [hasClientId, setHasClientId] = useState(false);
   const [canUseGoogle, setCanUseGoogle] = useState(true);
+  const [buttonWidth, setButtonWidth] = useState(320);
   const mountedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -59,6 +61,20 @@ export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProp
   }, [canUseGoogle]);
 
   useEffect(() => {
+    if (!containerRef.current) return;
+
+    const updateWidth = () => {
+      if (!containerRef.current) return;
+      setButtonWidth(Math.max(200, Math.floor(containerRef.current.offsetWidth)));
+    };
+
+    updateWidth();
+    const resizeObserver = new ResizeObserver(updateWidth);
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  useEffect(() => {
     if (!scriptReady || !canUseGoogle) return;
     const clientId = googleClientId.trim().replace(/^"(.*)"$/, "$1");
     if (!clientId) {
@@ -86,9 +102,9 @@ export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProp
       size: "large",
       text: "continue_with",
       shape: "rectangular",
-      width: "320",
+      width: String(buttonWidth),
     });
-  }, [scriptReady, canUseGoogle, googleClientId, onCredential, onError]);
+  }, [scriptReady, canUseGoogle, googleClientId, buttonWidth, onCredential, onError]);
 
   useEffect(() => {
     const onGlobalError = (event: ErrorEvent) => {
@@ -106,14 +122,14 @@ export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProp
   }, [googleClientId, onError]);
 
   return (
-    <div className="space-y-2">
+    <div className={className}>
       {!hasClientId && (
         <button
           type="button"
           onClick={() =>
             onError?.("Google sign-in is not configured (missing NEXT_PUBLIC_GOOGLE_CLIENT_ID)")
           }
-          className="flex w-full items-center justify-center rounded border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+          className="flex h-10 w-full items-center justify-center rounded border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
         >
           Continue with Google
         </button>
@@ -127,7 +143,7 @@ export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProp
               `Google is configured, but this origin is not allowed: ${currentOrigin}. Add it to Authorized JavaScript origins in Google Cloud or set NEXT_PUBLIC_GOOGLE_ALLOWED_ORIGINS.`
             );
           }}
-          className="flex w-full items-center justify-center rounded border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+          className="flex h-10 w-full items-center justify-center rounded border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
         >
           Continue with Google
         </button>
@@ -144,7 +160,7 @@ export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProp
           }}
         />
       )}
-      <div ref={containerRef} />
+      <div ref={containerRef} className="flex h-10 w-full overflow-hidden [&>div]:w-full [&_iframe]:!w-full" />
     </div>
   );
 }

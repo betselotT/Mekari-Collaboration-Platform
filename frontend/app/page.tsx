@@ -307,7 +307,7 @@ export default function LandingPage() {
               </p>
             )}
 
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
               <GoogleAuthButton onCredential={onGoogleSignIn} onError={setAuthError} />
               <GithubAuthButton mode="login" />
             </div>

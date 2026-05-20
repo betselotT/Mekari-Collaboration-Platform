@@ -22,7 +22,7 @@ export default function LoginPage() {
 
       {/* Login Form */}
       <div className="flex flex-1 items-center justify-center px-6 py-12">
-        <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-8 dark:border-neutral-700 dark:bg-neutral-800">
+        <div className="w-full max-w-lg rounded-2xl border border-neutral-200 bg-white p-8 dark:border-neutral-700 dark:bg-neutral-800">
           <h1 className="mb-2 text-2xl font-bold text-neutral-900 dark:text-white">Welcome Back</h1>
           <p className="mb-8 text-neutral-600 dark:text-neutral-400">
             Access your technical community
