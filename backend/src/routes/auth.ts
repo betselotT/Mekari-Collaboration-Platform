@@ -43,7 +43,7 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
-  accountType: accountTypeSchema,
+  accountType: accountTypeSchema.optional(),
 });
 
 const googleAuthSchema = z.object({
@@ -52,12 +52,12 @@ const googleAuthSchema = z.object({
 });
 
 const githubStartSchema = z.object({
-  accountType: accountTypeSchema.default("learner"),
+  accountType: accountTypeSchema.optional(),
   mode: z.enum(["login", "register"]).default("login"),
 });
 
 type OAuthState = {
-  accountType: z.infer<typeof accountTypeSchema>;
+  accountType?: z.infer<typeof accountTypeSchema>;
   mode: "login" | "register";
 };
 
@@ -76,7 +76,7 @@ function signOAuthState(state: OAuthState) {
 function verifyOAuthState(state: string): OAuthState {
   const decoded = jwt.verify(state, process.env.JWT_SECRET || "dev-secret") as OAuthState;
   return {
-    accountType: accountTypeSchema.parse(decoded.accountType),
+    accountType: decoded.accountType ? accountTypeSchema.parse(decoded.accountType) : undefined,
     mode: z.enum(["login", "register"]).parse(decoded.mode),
   };
 }
@@ -203,7 +203,7 @@ router.post("/login", loginRateLimiter, async (req, res, next) => {
       return res.status(401).json({ error: { message: "Invalid credentials" } });
     }
 
-    if (!isMatchingAccountType(user.role, parsed.accountType)) {
+    if (parsed.accountType && !isMatchingAccountType(user.role, parsed.accountType)) {
       return res.status(403).json({
         error: {
           message: `This account is registered as a ${accountTypeForRole(user.role)}. Choose the matching sign-in option.`,
@@ -211,7 +211,7 @@ router.post("/login", loginRateLimiter, async (req, res, next) => {
       });
     }
 
-    if (user.role === "user" && parsed.accountType === "learner") {
+    if (user.role === "user") {
       user.role = "learner";
       await user.save();
     }
@@ -330,6 +330,7 @@ router.post("/google", loginRateLimiter, async (req, res, next) => {
 router.get("/github/start", loginRateLimiter, (req, res, next) => {
   try {
     const parsed = githubStartSchema.parse(req.query);
+    const accountType = parsed.accountType || "learner";
     if (parsed.accountType === "mentor" && parsed.mode === "register") {
       return res.redirect(
         frontendUrl("/register", {
@@ -350,7 +351,13 @@ router.get("/github/start", loginRateLimiter, (req, res, next) => {
     githubUrl.searchParams.set("client_id", clientId);
     githubUrl.searchParams.set("redirect_uri", callbackUrl);
     githubUrl.searchParams.set("scope", "read:user user:email");
-    githubUrl.searchParams.set("state", signOAuthState(parsed));
+    githubUrl.searchParams.set(
+      "state",
+      signOAuthState({
+        mode: parsed.mode,
+        accountType: parsed.mode === "register" ? accountType : parsed.accountType,
+      })
+    );
 
     res.redirect(githubUrl.toString());
   } catch (err) {
@@ -435,7 +442,8 @@ router.get("/github/callback", async (req, res, next) => {
     let isNewUser = false;
 
     if (!user) {
-      if (state.accountType === "mentor") {
+      const accountType = state.accountType || "learner";
+      if (accountType === "mentor") {
         return res.redirect(
           frontendUrl("/register", {
             error: "Mentor GitHub sign-up requires a verification document.",
@@ -448,13 +456,13 @@ router.get("/github/callback", async (req, res, next) => {
         githubId: String(profile.id),
         oauthProvider: "github",
         avatarUrl: profile.avatar_url,
-        role: roleForAccountType(state.accountType),
+        role: roleForAccountType(accountType),
         expertVerification: { status: "not_required" },
         profileSetupCompleted: false,
       });
       isNewUser = true;
     } else {
-      if (accountTypeForRole(user.role) !== state.accountType) {
+      if (state.accountType && accountTypeForRole(user.role) !== state.accountType) {
         return res.redirect(
           frontendUrl("/login", {
             error: `This GitHub account is registered as a ${accountTypeForRole(user.role)}.`,

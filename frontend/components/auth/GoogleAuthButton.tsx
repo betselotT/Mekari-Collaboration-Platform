@@ -2,6 +2,7 @@
 
 import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
+import { usePublicConfig } from "../../lib/publicConfig";
 
 declare global {
   interface Window {
@@ -15,6 +16,7 @@ type GoogleAuthButtonProps = {
 };
 
 export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProps) {
+  const { googleClientId, googleAllowedOrigins } = usePublicConfig();
   const [scriptReady, setScriptReady] = useState(false);
   const [hasClientId, setHasClientId] = useState(false);
   const [canUseGoogle, setCanUseGoogle] = useState(true);
@@ -29,27 +31,25 @@ export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProp
   }, []);
 
   useEffect(() => {
-    const rawClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
-    const clientId = rawClientId.trim().replace(/^"(.*)"$/, "$1");
+    const clientId = googleClientId.trim().replace(/^"(.*)"$/, "$1");
     if (!clientId || clientId === "your-google-oauth-client-id.apps.googleusercontent.com") {
       return;
     }
     setHasClientId(true);
 
     const origin = window.location.origin;
-    const allowedOrigins = (process.env.NEXT_PUBLIC_GOOGLE_ALLOWED_ORIGINS || "")
+    const allowedOrigins = googleAllowedOrigins
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean);
-    const isLocalOrigin = origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1");
 
     if (allowedOrigins.length > 0) {
       setCanUseGoogle(allowedOrigins.includes(origin));
       return;
     }
 
-    setCanUseGoogle(!isLocalOrigin);
-  }, []);
+    setCanUseGoogle(true);
+  }, [googleAllowedOrigins, googleClientId]);
 
   useEffect(() => {
     if (!canUseGoogle) return;
@@ -60,8 +60,7 @@ export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProp
 
   useEffect(() => {
     if (!scriptReady || !canUseGoogle) return;
-    const rawClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
-    const clientId = rawClientId.trim().replace(/^"(.*)"$/, "$1");
+    const clientId = googleClientId.trim().replace(/^"(.*)"$/, "$1");
     if (!clientId) {
       onError?.("Google sign-in is not configured (missing NEXT_PUBLIC_GOOGLE_CLIENT_ID)");
       return;
@@ -89,15 +88,14 @@ export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProp
       shape: "rectangular",
       width: "320",
     });
-  }, [scriptReady, canUseGoogle, onCredential, onError]);
+  }, [scriptReady, canUseGoogle, googleClientId, onCredential, onError]);
 
   useEffect(() => {
     const onGlobalError = (event: ErrorEvent) => {
       const msg = String(event.message || "");
       if (msg.includes("origin is not allowed")) {
         const currentOrigin = window.location.origin;
-        const rawClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
-        const clientId = rawClientId.trim().replace(/^"(.*)"$/, "$1");
+        const clientId = googleClientId.trim().replace(/^"(.*)"$/, "$1");
         onError?.(
           `Google blocked this origin. Origin: ${currentOrigin}. Client ID in app: ${clientId}. Add this exact origin to Authorized JavaScript origins in Google Cloud.`
         );
@@ -105,7 +103,7 @@ export function GoogleAuthButton({ onCredential, onError }: GoogleAuthButtonProp
     };
     window.addEventListener("error", onGlobalError);
     return () => window.removeEventListener("error", onGlobalError);
-  }, [onError]);
+  }, [googleClientId, onError]);
 
   return (
     <div className="space-y-2">

@@ -2,6 +2,7 @@
 
 import { forwardRef, useImperativeHandle, useRef } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
+import { usePublicConfig } from "../../lib/publicConfig";
 
 interface CaptchaProps {
   onChange: (token: string | null) => void;
@@ -17,7 +18,7 @@ export interface CaptchaRef {
 export const Captcha = forwardRef<CaptchaRef, CaptchaProps>(
   ({ onChange, onExpired, onError }, ref) => {
     const recaptchaRef = useRef<ReCAPTCHA>(null);
-    const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+    const { recaptchaSiteKey: siteKey } = usePublicConfig();
 
     useImperativeHandle(ref, () => ({
       reset: () => recaptchaRef.current?.reset(),
