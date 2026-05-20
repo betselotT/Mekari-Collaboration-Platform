@@ -16,6 +16,7 @@ import {
   markDmMessagesRead,
   userCanAccessDm,
 } from "../services/dmMessages";
+import { User } from "../models/User";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
 const socketThreadMessageSchema = threadMessageSchema.extend({
@@ -29,6 +30,18 @@ type SocketAuth = {
   sub?: string;
   role?: string;
 };
+
+const typingUserNameCache = new Map<string, string>();
+
+async function getTypingUserName(userId: string) {
+  const cached = typingUserNameCache.get(userId);
+  if (cached) return cached;
+
+  const user = await User.findById(userId).select("name email").lean().catch(() => null);
+  const name = user?.name || user?.email || "Someone";
+  typingUserNameCache.set(userId, name);
+  return name;
+}
 
 function authenticateSocket(socket: Socket) {
   const token = socket.handshake.auth?.token as string | undefined;
@@ -90,10 +103,15 @@ export function registerChatHandlers(
       }
     });
 
-    socket.on("typing_start", (threadId: string) => {
+    socket.on("typing_start", async (threadId: string) => {
       const userId = socket.data.userId as string | undefined;
       if (!userId || !threadId) return;
-      broadcastToRoom(roomName("thread", threadId), "user_typing", { userId, threadId });
+      const userName = await getTypingUserName(userId);
+      broadcastToRoom(roomName("thread", threadId), "user_typing", {
+        userId,
+        userName,
+        threadId,
+      });
     });
 
     socket.on("typing_stop", (threadId: string) => {
@@ -145,10 +163,13 @@ export function registerChatHandlers(
 
     socket.on("dm_typing_start", async (conversationId: string) => {
       const userId = socket.data.userId as string | undefined;
+      if (!userId) return;
       if (!(await userCanAccessDm(conversationId, userId))) return;
+      const userName = await getTypingUserName(userId);
       broadcastToRoom(roomName("dm", conversationId), "dm_user_typing", {
         conversationId,
         userId,
+        userName,
       });
     });
 
