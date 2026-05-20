@@ -8,6 +8,11 @@ import { IUser, User } from "../models/User";
 import { logAuditEvent } from "../services/auditLog";
 import { loginRateLimiter } from "../middleware/loginRateLimiter";
 import { sendVerificationOtpEmail } from "../services/email";
+import {
+  deleteEmailOtpHash,
+  getEmailOtpHash,
+  storeEmailOtpHash,
+} from "../services/emailOtpStore";
 
 const router = Router();
 const googleClient = new OAuth2Client();
@@ -93,9 +98,20 @@ function hashOtp(email: string, otp: string) {
 
 async function queueVerificationOtp(user: IUser) {
   const otp = generateOtp();
-  user.emailVerificationOtpHash = hashOtp(user.email, otp);
-  user.emailVerificationOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-  await user.save();
+  const otpHash = hashOtp(user.email, otp);
+  const storedInRedis = await storeEmailOtpHash(user.email, otpHash);
+
+  if (storedInRedis) {
+    if (user.emailVerificationOtpHash || user.emailVerificationOtpExpiresAt) {
+      user.emailVerificationOtpHash = undefined;
+      user.emailVerificationOtpExpiresAt = undefined;
+      await user.save();
+    }
+  } else {
+    user.emailVerificationOtpHash = otpHash;
+    user.emailVerificationOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+  }
 
   void sendVerificationOtpEmail({
     to: user.email,
@@ -247,7 +263,7 @@ router.post("/login", loginRateLimiter, async (req, res, next) => {
       return res.status(401).json({ error: { message: "Invalid credentials" } });
     }
 
-    if (!user.emailVerified && user.emailVerificationOtpHash) {
+    if (!user.emailVerified) {
       return res.status(403).json({
         error: {
           message: "Please verify your email with the OTP code before signing in.",
@@ -307,12 +323,14 @@ router.post("/verify-email", async (req, res, next) => {
       return res.json({ message: "Email already verified. You can sign in now." });
     }
 
-    if (
-      !user.emailVerificationOtpHash ||
-      user.emailVerificationOtpHash !== hashOtp(email, parsed.otp) ||
-      !user.emailVerificationOtpExpiresAt ||
-      user.emailVerificationOtpExpiresAt.getTime() < Date.now()
-    ) {
+    const otpHash = hashOtp(email, parsed.otp);
+    const redisOtpHash = await getEmailOtpHash(email);
+    const mongoOtpMatches =
+      user.emailVerificationOtpHash === otpHash &&
+      !!user.emailVerificationOtpExpiresAt &&
+      user.emailVerificationOtpExpiresAt.getTime() >= Date.now();
+
+    if (redisOtpHash !== otpHash && !mongoOtpMatches) {
       return res.status(400).json({ error: { message: "Invalid or expired OTP code" } });
     }
 
@@ -320,6 +338,7 @@ router.post("/verify-email", async (req, res, next) => {
     user.emailVerifiedAt = new Date();
     user.emailVerificationOtpHash = undefined;
     user.emailVerificationOtpExpiresAt = undefined;
+    await deleteEmailOtpHash(email);
     await user.save();
 
     await logAuditEvent({
@@ -416,6 +435,7 @@ router.post("/google", loginRateLimiter, async (req, res, next) => {
         user.emailVerifiedAt = new Date();
         user.emailVerificationOtpHash = undefined;
         user.emailVerificationOtpExpiresAt = undefined;
+        await deleteEmailOtpHash(user.email);
       }
       user.googleId = payload.sub;
       user.oauthProvider = "google";
@@ -599,6 +619,7 @@ router.get("/github/callback", async (req, res, next) => {
         user.emailVerifiedAt = new Date();
         user.emailVerificationOtpHash = undefined;
         user.emailVerificationOtpExpiresAt = undefined;
+        await deleteEmailOtpHash(user.email);
       }
       user.githubId = String(profile.id);
       user.oauthProvider = "github";
