@@ -413,7 +413,7 @@ function MessagesContent() {
   const [composerMode, setComposerMode] = useState<ComposerMode>("TEXT");
   const [attachment, setAttachment] = useState<AttachmentDraft | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [typingUsers, setTypingUsers] = useState<Array<{ userId: string; name: string }>>([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
@@ -534,13 +534,19 @@ function MessagesContent() {
       if (data.conversationId !== activeIdRef.current) return;
       setMessages((prev) => prev.filter((message) => getId(message) !== data.messageId));
     };
-    const handleTyping = (data: { conversationId: string; userId: string }) => {
+    const handleTyping = (data: { conversationId: string; userId: string; userName?: string }) => {
       if (data.conversationId !== activeIdRef.current || data.userId === user._id) return;
-      setTypingUsers((prev) => (prev.includes(data.userId) ? prev : [...prev, data.userId]));
+      setTypingUsers((prev) =>
+        prev.some((item) => item.userId === data.userId)
+          ? prev.map((item) =>
+              item.userId === data.userId ? { ...item, name: data.userName || item.name } : item
+            )
+          : [...prev, { userId: data.userId, name: data.userName || "Someone" }]
+      );
     };
     const handleStoppedTyping = (data: { conversationId: string; userId: string }) => {
       if (data.conversationId !== activeIdRef.current) return;
-      setTypingUsers((prev) => prev.filter((id) => id !== data.userId));
+      setTypingUsers((prev) => prev.filter((item) => item.userId !== data.userId));
     };
     const handleSessionUpdated = (data: {
       conversationId: string;
@@ -1192,7 +1198,9 @@ function MessagesContent() {
                       <span className="animate-bounce [animation-delay:0.1s]">.</span>
                       <span className="animate-bounce [animation-delay:0.2s]">.</span>
                     </div>
-                    {typingUsers.length === 1 ? "Someone is typing..." : `${typingUsers.length} people are typing...`}
+                    {typingUsers.length === 1
+                      ? `${typingUsers[0].name} is typing...`
+                      : `${typingUsers.map((typingUser) => typingUser.name).join(", ")} are typing...`}
                   </div>
                 )}
                 <div ref={messagesEndRef} />

@@ -108,6 +108,7 @@ interface Thread {
   createdBy: Sender;
   isSolved: boolean;
   solutionMsgId?: string;
+  googleMeetLink?: string;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -238,11 +239,12 @@ export default function ThreadDetailPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [sessionStarting, setSessionStarting] = useState(false);
   const [input, setInput] = useState("");
   const [composerMode, setComposerMode] = useState<ComposerMode>("TEXT");
   const [attachment, setAttachment] = useState<AttachmentDraft | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [typingUsers, setTypingUsers] = useState<Array<{ userId: string; name: string }>>([]);
   const [aiPanel, setAiPanel] = useState(true);
   const [expertPanel, setExpertPanel] = useState(true);
   const [similarPanel, setSimilarPanel] = useState(true);
@@ -441,13 +443,19 @@ export default function ThreadDetailPage() {
         }
       );
 
-      socket.on("user_typing", ({ userId }: { userId: string; threadId: string }) => {
+      socket.on("user_typing", ({ userId, userName }: { userId: string; userName?: string; threadId: string }) => {
         if (userId === user?._id) return;
-        setTypingUsers((prev) => (prev.includes(userId) ? prev : [...prev, userId]));
+        setTypingUsers((prev) =>
+          prev.some((item) => item.userId === userId)
+            ? prev.map((item) =>
+                item.userId === userId ? { ...item, name: userName || item.name } : item
+              )
+            : [...prev, { userId, name: userName || "Someone" }]
+        );
       });
 
       socket.on("user_stopped_typing", ({ userId }: { userId: string }) => {
-        setTypingUsers((prev) => prev.filter((id) => id !== userId));
+        setTypingUsers((prev) => prev.filter((item) => item.userId !== userId));
       });
     });
 
@@ -469,7 +477,7 @@ export default function ThreadDetailPage() {
         socket.off("user_stopped_typing");
       }
     };
-  }, [threadId]);
+  }, [threadId, user?._id]);
 
   // ── Auto-scroll ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -635,6 +643,33 @@ export default function ThreadDetailPage() {
   }
 
   // ── Start session ───────────────────────────────────────────────────────
+  async function startSession() {
+    if (!threadId || sessionStarting) return;
+
+    setSessionStarting(true);
+    setActionError(null);
+    try {
+      const res = await apiClient.post<{ meetLink: string; message?: ChatMessage }>(
+        `/api/threads/${threadId}/session`
+      );
+      setThread((prev) => (prev ? { ...prev, googleMeetLink: res.data.meetLink } : prev));
+      if (res.data.message) {
+        setMessages((prev) => {
+          const messageId = getMessageId(res.data.message!);
+          if (messageId && prev.some((message) => getMessageId(message) === messageId)) {
+            return prev;
+          }
+          return [...prev, res.data.message!];
+        });
+      }
+      window.open(res.data.meetLink, "_blank", "noopener,noreferrer");
+    } catch (err: any) {
+      setActionError(err?.response?.data?.error?.message || "Failed to start the live session.");
+    } finally {
+      setSessionStarting(false);
+    }
+  }
+
   function startTagEdit() {
     setTagDraft(thread?.tags.join(", ") || "");
     setTagError(null);
@@ -997,7 +1032,9 @@ export default function ThreadDetailPage() {
                   <span className="animate-bounce [animation-delay:0.1s]">•</span>
                   <span className="animate-bounce [animation-delay:0.2s]">•</span>
                 </div>
-                {typingUsers.length === 1 ? "Someone is typing…" : `${typingUsers.length} people are typing…`}
+                {typingUsers.length === 1
+                  ? `${typingUsers[0].name} is typing…`
+                  : `${typingUsers.map((typingUser) => typingUser.name).join(", ")} are typing…`}
               </div>
             )}
 
