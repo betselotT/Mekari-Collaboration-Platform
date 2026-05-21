@@ -6,6 +6,7 @@ export const whiteboardStrokeSchema = z.object({
   id: z.string().min(1).max(120),
   roomId: z.string().min(1).max(120),
   tool: z.enum(["pen", "eraser"]),
+  style: z.enum(["pen", "marker", "highlighter"]).optional().default("pen"),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   size: z.number().min(1).max(80),
   points: z
@@ -65,6 +66,7 @@ export async function addWhiteboardStroke(input: z.infer<typeof whiteboardStroke
     id: input.id,
     userId,
     tool: input.tool,
+    style: input.tool === "pen" ? input.style : "pen",
     color: input.color,
     size: input.size,
     points: input.points,

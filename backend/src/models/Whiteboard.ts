@@ -9,6 +9,7 @@ export interface WhiteboardStroke {
   id: string;
   userId: string;
   tool: "pen" | "eraser";
+  style?: "pen" | "marker" | "highlighter";
   color: string;
   size: number;
   points: WhiteboardPoint[];
@@ -36,6 +37,7 @@ const StrokeSchema = new Schema<WhiteboardStroke>(
     id: { type: String, required: true },
     userId: { type: String, required: true },
     tool: { type: String, enum: ["pen", "eraser"], required: true },
+    style: { type: String, enum: ["pen", "marker", "highlighter"], default: "pen" },
     color: { type: String, required: true },
     size: { type: Number, required: true, min: 1, max: 80 },
     points: { type: [PointSchema], default: [] },
