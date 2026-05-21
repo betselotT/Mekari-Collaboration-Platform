@@ -175,7 +175,7 @@ export function registerChatHandlers(
       if (!userId) return;
       if (!(await userCanAccessDm(conversationId, userId))) return;
       const userName = await getTypingUserName(userId);
-      broadcastToRoom(roomName("dm", conversationId), "dm_user_typing", {
+      socket.to(roomName("dm", conversationId)).emit("dm_user_typing", {
         conversationId,
         userId,
         userName,
@@ -185,7 +185,7 @@ export function registerChatHandlers(
     socket.on("dm_typing_stop", async (conversationId: string) => {
       const userId = socket.data.userId as string | undefined;
       if (!(await userCanAccessDm(conversationId, userId))) return;
-      broadcastToRoom(roomName("dm", conversationId), "dm_user_stopped_typing", {
+      socket.to(roomName("dm", conversationId)).emit("dm_user_stopped_typing", {
         conversationId,
         userId,
       });
