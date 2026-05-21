@@ -123,6 +123,12 @@ function readReceiptUserId(receipt: NonNullable<DmMessage["readBy"]>[number]) {
   return typeof receipt.user === "string" ? receipt.user : receipt.user?._id;
 }
 
+function normalizeId(value?: string | { _id?: string; id?: string } | null) {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  return value._id || value.id || "";
+}
+
 function messageReadByUser(message: DmMessage, userId?: string) {
   if (!userId) return false;
   return (message.readBy || []).some((receipt) => readReceiptUserId(receipt) === userId);
@@ -536,18 +542,26 @@ function MessagesContent() {
       setMessages((prev) => prev.filter((message) => getId(message) !== data.messageId));
     };
     const handleTyping = (data: { conversationId: string; userId: string; userName?: string }) => {
-      if (data.conversationId !== activeIdRef.current || data.userId === user._id) return;
+      const senderId = normalizeId(data.userId);
+      const currentUserId = normalizeId(user);
+      if (data.conversationId !== activeIdRef.current || senderId === currentUserId) return;
+      const conversation = conversations.find((item) => item._id === data.conversationId);
+      const participant = conversation?.participants.find(
+        (item) => normalizeId(item) === senderId
+      );
+      const typingName = data.userName || participant?.name || "Someone";
       setTypingUsers((prev) =>
-        prev.some((item) => item.userId === data.userId)
+        prev.some((item) => item.userId === senderId)
           ? prev.map((item) =>
-              item.userId === data.userId ? { ...item, name: data.userName || item.name } : item
+              item.userId === senderId ? { ...item, name: typingName } : item
             )
-          : [...prev, { userId: data.userId, name: data.userName || "Someone" }]
+          : [...prev, { userId: senderId, name: typingName }]
       );
     };
     const handleStoppedTyping = (data: { conversationId: string; userId: string }) => {
       if (data.conversationId !== activeIdRef.current) return;
-      setTypingUsers((prev) => prev.filter((item) => item.userId !== data.userId));
+      const senderId = normalizeId(data.userId);
+      setTypingUsers((prev) => prev.filter((item) => item.userId !== senderId));
     };
     const handleSessionUpdated = (data: {
       conversationId: string;
