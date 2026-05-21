@@ -9,6 +9,8 @@ import { Badge } from "../../../components/ui/Badge";
 import { Star, Zap } from "lucide-react";
 import { apiClient } from "../../../lib/api";
 
+type LeaderboardTab = "experts" | "learners";
+
 type LeaderboardUser = {
   _id: string;
   rank: number;
@@ -46,6 +48,7 @@ function expertiseLabel(user: LeaderboardUser) {
 export default function LeaderboardPage() {
   const [learners, setLearners] = useState<LeaderboardUser[]>([]);
   const [experts, setExperts] = useState<LeaderboardUser[]>([]);
+  const [activeTab, setActiveTab] = useState<LeaderboardTab>("experts");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -90,12 +93,65 @@ export default function LeaderboardPage() {
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent" />
         </div>
       ) : (
-        <div className="space-y-8">
-          <LeaderboardSection title="Learner Leaderboard" description="Top learners by earned points." users={learners} />
-          <LeaderboardSection title="Expert Leaderboard" description="Top mentors by earned points." users={experts} />
+        <div className="space-y-6">
+          <div className="flex w-full max-w-md rounded bg-neutral-100 p-1 dark:bg-neutral-900">
+            <LeaderboardTabButton
+              active={activeTab === "experts"}
+              count={experts.length}
+              label="Experts"
+              onClick={() => setActiveTab("experts")}
+            />
+            <LeaderboardTabButton
+              active={activeTab === "learners"}
+              count={learners.length}
+              label="Learners"
+              onClick={() => setActiveTab("learners")}
+            />
+          </div>
+
+          {activeTab === "experts" ? (
+            <LeaderboardSection title="Expert Leaderboard" description="Top mentors by earned points." users={experts} />
+          ) : (
+            <LeaderboardSection title="Learner Leaderboard" description="Top learners by earned points." users={learners} />
+          )}
         </div>
       )}
     </DashboardLayout>
+  );
+}
+
+function LeaderboardTabButton({
+  active,
+  count,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  count: number;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex flex-1 items-center justify-center gap-2 rounded px-3 py-2 text-sm font-medium transition ${
+        active
+          ? "bg-white text-primary-700 shadow-sm dark:bg-neutral-800 dark:text-primary-300"
+          : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+      }`}
+    >
+      <span>{label}</span>
+      <span
+        className={`rounded px-1.5 py-0.5 text-xs ${
+          active
+            ? "bg-primary-50 text-primary-700 dark:bg-primary-950 dark:text-primary-300"
+            : "bg-neutral-200 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
+        }`}
+      >
+        {count}
+      </span>
+    </button>
   );
 }
 
