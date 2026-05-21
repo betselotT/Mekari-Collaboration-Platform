@@ -20,6 +20,7 @@ import { adminRouter } from "./routes/admin";
 import { intelligenceRouter } from "./routes/intelligence";
 import { dmRouter } from "./routes/dms";
 import { securityRouter } from "./routes/security";
+import { whiteboardRouter } from "./routes/whiteboards";
 import swaggerUi from "swagger-ui-express";
 import { createOpenApiSpec } from "./swagger";
 
@@ -82,6 +83,7 @@ export const createApp = () => {
   app.use("/api/reports", reportRouter);
   app.use("/api/admin", adminRouter);
   app.use("/api/intelligence", intelligenceRouter);
+  app.use("/api/whiteboards", whiteboardRouter);
 
   app.use(errorHandler);
 
