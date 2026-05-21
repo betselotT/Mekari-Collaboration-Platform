@@ -17,6 +17,15 @@ import {
   userCanAccessDm,
 } from "../services/dmMessages";
 import { User } from "../models/User";
+import {
+  addWhiteboardStroke,
+  clearWhiteboard,
+  undoWhiteboardStroke,
+  userCanAccessWhiteboard,
+  whiteboardClearSchema,
+  whiteboardRoomName,
+  whiteboardStrokeSchema,
+} from "../services/whiteboards";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
 const socketThreadMessageSchema = threadMessageSchema.extend({
@@ -189,6 +198,70 @@ export function registerChatHandlers(
         await markDmMessagesRead(conversationId, userId);
       } catch (err) {
         console.error("[socket dm_mark_read]", err);
+      }
+    });
+
+    socket.on("join_whiteboard", async (roomId: string) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!(await userCanAccessWhiteboard(roomId, userId))) return;
+      socket.join(whiteboardRoomName(roomId));
+    });
+
+    socket.on("leave_whiteboard", (roomId: string) => {
+      if (!roomId) return;
+      socket.leave(whiteboardRoomName(roomId));
+    });
+
+    socket.on("whiteboard_stroke", async (payload: unknown) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId) return;
+
+      const parsed = whiteboardStrokeSchema.safeParse(payload);
+      if (!parsed.success) return;
+
+      try {
+        const stroke = await addWhiteboardStroke(parsed.data, userId);
+        if (!stroke) return;
+        broadcastToRoom(whiteboardRoomName(parsed.data.roomId), "whiteboard_stroke", {
+          roomId: parsed.data.roomId,
+          stroke,
+        });
+      } catch (err) {
+        console.error("[socket whiteboard_stroke]", err);
+      }
+    });
+
+    socket.on("whiteboard_clear", async (payload: unknown) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId) return;
+
+      const parsed = whiteboardClearSchema.safeParse(payload);
+      if (!parsed.success) return;
+
+      try {
+        const cleared = await clearWhiteboard(parsed.data.roomId, userId);
+        if (!cleared) return;
+        broadcastToRoom(whiteboardRoomName(parsed.data.roomId), "whiteboard_clear", {
+          roomId: parsed.data.roomId,
+        });
+      } catch (err) {
+        console.error("[socket whiteboard_clear]", err);
+      }
+    });
+
+    socket.on("whiteboard_undo", async (payload: unknown) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId || typeof payload !== "object" || !payload) return;
+
+      const { roomId, strokeId } = payload as { roomId?: string; strokeId?: string };
+      if (!roomId || !strokeId) return;
+
+      try {
+        const removed = await undoWhiteboardStroke(roomId, strokeId, userId);
+        if (!removed) return;
+        broadcastToRoom(whiteboardRoomName(roomId), "whiteboard_undo", { roomId, strokeId });
+      } catch (err) {
+        console.error("[socket whiteboard_undo]", err);
       }
     });
 

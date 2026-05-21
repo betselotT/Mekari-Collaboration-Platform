@@ -13,6 +13,7 @@ import {
   Image as ImageIcon,
   MessageCircle,
   Paperclip,
+  PenLine,
   Reply,
   Send,
   Smile,
@@ -884,6 +885,11 @@ function MessagesContent() {
     }
   }
 
+  function openWhiteboard() {
+    if (!activeId) return;
+    router.push(`/dashboard/whiteboard?conversation=${encodeURIComponent(activeId)}`);
+  }
+
   async function endSession(helpDelivered: boolean) {
     if (!activeId || endingSession) return;
     setEndingSession(true);
@@ -1072,23 +1078,41 @@ function MessagesContent() {
                         )}
                         End
                       </button>
+                      <button
+                        type="button"
+                        onClick={openWhiteboard}
+                        className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50 dark:border-primary-900/60 dark:bg-neutral-900 dark:text-primary-300 dark:hover:bg-primary-950/30"
+                      >
+                        <PenLine className="h-4 w-4" />
+                        Whiteboard
+                      </button>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={startSession}
-                      disabled={creatingSession || activeConversation.activeSession?.status === "creating"}
-                      className="inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-emerald-900/10 transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-500 disabled:opacity-80 sm:w-auto"
-                    >
-                      {creatingSession || activeConversation.activeSession?.status === "creating" ? (
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      ) : (
-                        <Video className="h-4 w-4" />
-                      )}
-                      {creatingSession || activeConversation.activeSession?.status === "creating"
-                        ? "Creating..."
-                        : "Start Session"}
-                    </button>
+                    <div className="flex w-full flex-col gap-2 min-[380px]:flex-row sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={startSession}
+                        disabled={creatingSession || activeConversation.activeSession?.status === "creating"}
+                        className="inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-emerald-900/10 transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-500 disabled:opacity-80 sm:w-auto"
+                      >
+                        {creatingSession || activeConversation.activeSession?.status === "creating" ? (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        ) : (
+                          <Video className="h-4 w-4" />
+                        )}
+                        {creatingSession || activeConversation.activeSession?.status === "creating"
+                          ? "Creating..."
+                          : "Start Session"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={openWhiteboard}
+                        className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50 dark:border-primary-900/60 dark:bg-neutral-900 dark:text-primary-300 dark:hover:bg-primary-950/30"
+                      >
+                        <PenLine className="h-4 w-4" />
+                        Whiteboard
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
