@@ -100,6 +100,27 @@ type ReportedUser = {
   user?: ReportUser;
 };
 
+type AdminUser = ReportUser & {
+  _id: string;
+  collaborationGoals?: string;
+  updatedAt?: string;
+  availabilityStatus?: string;
+  expertVerification?: {
+    status: "pending" | "approved" | "rejected" | "not_required";
+    reviewNote?: string;
+    submittedAt?: string;
+    reviewedAt?: string;
+  };
+  reviews?: Array<{
+    by?: ReportUser;
+    stars: number;
+    comment?: string;
+    createdAt?: string;
+  }>;
+  expertRatingAverage?: number;
+  expertReviewCount?: number;
+};
+
 type Pagination = {
   page: number;
   limit: number;
@@ -109,7 +130,7 @@ type Pagination = {
 
 type StatusFilter = "all" | "pending" | "approved" | "rejected";
 type ReportFilter = "all" | "pending" | "struck" | "dismissed";
-type AdminSection = "verifications" | "reports" | "logs";
+type AdminSection = "verifications" | "users" | "reports" | "logs";
 const PAGE_SIZE = 10;
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
@@ -147,6 +168,8 @@ export default function AdminDashboard() {
   const [verifications, setVerifications] = useState<Verification[]>([]);
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [reportedUsers, setReportedUsers] = useState<ReportedUser[]>([]);
+  const [mentors, setMentors] = useState<AdminUser[]>([]);
+  const [learners, setLearners] = useState<AdminUser[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -156,27 +179,59 @@ export default function AdminDashboard() {
   const [reportFilter, setReportFilter] = useState<ReportFilter>("pending");
   const [verificationPage, setVerificationPage] = useState(1);
   const [reportPage, setReportPage] = useState(1);
+  const [mentorPage, setMentorPage] = useState(1);
+  const [learnerPage, setLearnerPage] = useState(1);
   const [logPage, setLogPage] = useState(1);
   const [logActionType, setLogActionType] = useState("all");
   const [verificationPagination, setVerificationPagination] = useState<Pagination | null>(null);
   const [reportPagination, setReportPagination] = useState<Pagination | null>(null);
+  const [mentorPagination, setMentorPagination] = useState<Pagination | null>(null);
+  const [learnerPagination, setLearnerPagination] = useState<Pagination | null>(null);
   const [logPagination, setLogPagination] = useState<Pagination | null>(null);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [loadingUserId, setLoadingUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pushStatus, setPushStatus] = useState<string | null>(null);
   const [enablingPush, setEnablingPush] = useState(false);
 
   const metrics = useMemo(
     () => [
-      { label: "Pending mentor reviews", value: summary?.pendingMentors ?? 0 },
-      { label: "Pending reports", value: summary?.pendingReports ?? 0 },
-      { label: "Approved mentors", value: summary?.approvedMentors ?? 0 },
-      { label: "Total users", value: summary?.totalUsers ?? 0 },
+      { id: "pending-mentors", label: "Pending mentor reviews", value: summary?.pendingMentors ?? 0 },
+      { id: "pending-reports", label: "Pending reports", value: summary?.pendingReports ?? 0 },
+      { id: "approved-mentors", label: "Approved mentors", value: summary?.approvedMentors ?? 0 },
+      { id: "total-users", label: "Total users", value: summary?.totalUsers ?? 0 },
     ],
     [summary]
   );
+
+  function openMetric(metricId: string) {
+    if (metricId === "pending-mentors") {
+      setActiveSection("verifications");
+      setVerificationFilter("pending");
+      setVerificationPage(1);
+      return;
+    }
+    if (metricId === "pending-reports") {
+      setActiveSection("reports");
+      setReportFilter("pending");
+      setReportPage(1);
+      return;
+    }
+    if (metricId === "approved-mentors") {
+      setActiveSection("verifications");
+      setVerificationFilter("approved");
+      setVerificationPage(1);
+      return;
+    }
+    if (metricId === "total-users") {
+      setActiveSection("users");
+      setMentorPage(1);
+      setLearnerPage(1);
+    }
+  }
 
   async function loadDashboard() {
     setLoading(true);
@@ -200,10 +255,27 @@ export default function AdminDashboard() {
       });
       if (logActionType !== "all") logParams.set("actionType", logActionType);
 
-      const [summaryRes, verificationRes, reportRes, reportedUsersRes, logRes, notificationRes] = await Promise.all([
+      const mentorParams = new URLSearchParams({
+        role: "mentor",
+        page: String(mentorPage),
+        limit: String(PAGE_SIZE),
+      });
+      const learnerParams = new URLSearchParams({
+        role: "learner",
+        page: String(learnerPage),
+        limit: String(PAGE_SIZE),
+      });
+
+      const [summaryRes, verificationRes, mentorRes, learnerRes, reportRes, reportedUsersRes, logRes, notificationRes] = await Promise.all([
         adminFetch<{ summary: Summary }>("/api/admin/summary"),
         adminFetch<{ verifications: Verification[]; pagination: Pagination }>(
           `/api/admin/mentor-verifications?${verificationParams.toString()}`
+        ),
+        adminFetch<{ users: AdminUser[]; pagination: Pagination }>(
+          `/api/admin/users?${mentorParams.toString()}`
+        ),
+        adminFetch<{ users: AdminUser[]; pagination: Pagination }>(
+          `/api/admin/users?${learnerParams.toString()}`
         ),
         adminFetch<{ reports: ReportItem[]; pagination: Pagination }>(
           `/api/admin/reports?${reportParams.toString()}`
@@ -217,12 +289,16 @@ export default function AdminDashboard() {
 
       setSummary(summaryRes.summary);
       setVerifications(verificationRes.verifications);
+      setMentors(mentorRes.users);
+      setLearners(learnerRes.users);
       setReports(reportRes.reports);
       setReportedUsers(reportedUsersRes.reportedUsers);
       setLogs(logRes.logs);
       setNotifications(notificationRes.notifications || []);
       setActionTypes(logRes.actionTypes || []);
       setVerificationPagination(verificationRes.pagination);
+      setMentorPagination(mentorRes.pagination);
+      setLearnerPagination(learnerRes.pagination);
       setReportPagination(reportRes.pagination);
       setLogPagination(logRes.pagination);
     } catch (err) {
@@ -235,9 +311,9 @@ export default function AdminDashboard() {
   useEffect(() => {
     loadDashboard();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [verificationFilter, reportFilter, verificationPage, reportPage, logPage, logActionType]);
+  }, [verificationFilter, reportFilter, verificationPage, mentorPage, learnerPage, reportPage, logPage, logActionType]);
 
-  async function reviewMentor(userId: string, status: "approved" | "rejected") {
+  async function reviewMentor(userId: string, status: "pending" | "approved" | "rejected") {
     if (status === "rejected" && !reviewNotes[userId]?.trim()) {
       setError("Rejection reason is required.");
       return;
@@ -276,6 +352,19 @@ export default function AdminDashboard() {
       setError(err instanceof Error ? err.message : "Failed to update report");
     } finally {
       setSavingId(null);
+    }
+  }
+
+  async function openUserProfile(userId: string) {
+    setLoadingUserId(userId);
+    setError(null);
+    try {
+      const res = await adminFetch<{ user: AdminUser }>(`/api/admin/users/${userId}`);
+      setSelectedUser(res.user);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load user profile");
+    } finally {
+      setLoadingUserId(null);
     }
   }
 
@@ -353,6 +442,9 @@ export default function AdminDashboard() {
       <div className="content">
         {error && <div className="panel error">{error}</div>}
         {pushStatus && <div className="panel success-message">{pushStatus}</div>}
+        {selectedUser && (
+          <UserProfileModal user={selectedUser} onClose={() => setSelectedUser(null)} />
+        )}
 
         <div className="admin-layout">
           <aside className="admin-sidebar">
@@ -362,6 +454,13 @@ export default function AdminDashboard() {
             >
               <span>Mentor Verification</span>
               <strong>{summary?.pendingMentors ?? 0}</strong>
+            </button>
+            <button
+              className={`nav-button ${activeSection === "users" ? "active" : ""}`}
+              onClick={() => setActiveSection("users")}
+            >
+              <span>Users</span>
+              <strong>{summary?.totalUsers ?? 0}</strong>
             </button>
             <button
               className={`nav-button ${activeSection === "reports" ? "active" : ""}`}
@@ -382,10 +481,15 @@ export default function AdminDashboard() {
           <div className="admin-main">
             <section className="metrics">
               {metrics.map((metric) => (
-                <div className="metric" key={metric.label}>
+                <button
+                  type="button"
+                  className="metric"
+                  key={metric.label}
+                  onClick={() => openMetric(metric.id)}
+                >
                   <span>{metric.label}</span>
                   <strong>{metric.value}</strong>
-                </div>
+                </button>
               ))}
             </section>
 
@@ -472,27 +576,18 @@ export default function AdminDashboard() {
                     <p className="muted">Review note: {item.expertVerification.reviewNote}</p>
                   )}
                 </div>
-                <div className="actions">
+                <div className="actions review-actions">
                   <textarea
                     className="input note"
                     placeholder="Review note. Required when rejecting."
                     value={reviewNotes[item._id] || ""}
                     onChange={(event) => setReviewNotes((current) => ({ ...current, [item._id]: event.target.value }))}
                   />
-                  <button
-                    className="button"
+                  <MentorStatusControl
+                    currentStatus={item.expertVerification.status}
                     disabled={savingId === item._id}
-                    onClick={() => reviewMentor(item._id, "approved")}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    className="button danger"
-                    disabled={savingId === item._id}
-                    onClick={() => reviewMentor(item._id, "rejected")}
-                  >
-                    Reject
-                  </button>
+                    onChange={(status) => reviewMentor(item._id, status)}
+                  />
                 </div>
               </article>
             ))}
@@ -504,6 +599,56 @@ export default function AdminDashboard() {
             onNext={() => setVerificationPage((page) => page + 1)}
           />
           </section>
+        )}
+
+        {activeSection === "users" && (
+          <>
+          <section className="panel">
+            <div className="panel-header">
+              <div>
+                <h2>Mentors</h2>
+                <p>All users registered as mentors, including pending, approved, and rejected verification states.</p>
+              </div>
+              <button className="button secondary" onClick={loadDashboard}>Refresh</button>
+            </div>
+            <UserTable
+              users={mentors}
+              kind="mentor"
+              loadingUserId={loadingUserId}
+              onOpen={openUserProfile}
+              savingId={savingId}
+              onMentorStatusChange={reviewMentor}
+            />
+            <Pager
+              label="mentors"
+              pagination={mentorPagination}
+              onPrev={() => setMentorPage((page) => Math.max(1, page - 1))}
+              onNext={() => setMentorPage((page) => page + 1)}
+            />
+          </section>
+
+          <section className="panel">
+            <div className="panel-header">
+              <div>
+                <h2>Learners</h2>
+                <p>All learner accounts and general user accounts using the platform.</p>
+              </div>
+            </div>
+            <UserTable
+              users={learners}
+              kind="learner"
+              loadingUserId={loadingUserId}
+              onOpen={openUserProfile}
+              savingId={savingId}
+            />
+            <Pager
+              label="learners"
+              pagination={learnerPagination}
+              onPrev={() => setLearnerPage((page) => Math.max(1, page - 1))}
+              onNext={() => setLearnerPage((page) => page + 1)}
+            />
+          </section>
+          </>
         )}
 
         {activeSection === "reports" && (
@@ -695,6 +840,231 @@ export default function AdminDashboard() {
         </div>
       </div>
     </main>
+  );
+}
+
+function UserTable({
+  users,
+  kind,
+  loadingUserId,
+  onOpen,
+  savingId,
+  onMentorStatusChange,
+}: {
+  users: AdminUser[];
+  kind: "mentor" | "learner";
+  loadingUserId: string | null;
+  onOpen: (userId: string) => void;
+  savingId: string | null;
+  onMentorStatusChange?: (userId: string, status: "pending" | "approved" | "rejected") => void;
+}) {
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Profile</th>
+            <th>Skills</th>
+            <th>Status</th>
+            <th>Points</th>
+            <th>Joined</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map((user) => {
+            const expertise = Array.isArray(user.expertise)
+              ? user.expertise.map((item) => `${item.subject} (${item.proficiency})`)
+              : [];
+            const skills = Array.isArray(user.skillTags) ? user.skillTags : [];
+            const verificationStatus =
+              kind === "mentor" ? user.expertVerification?.status || "pending" : user.role || "learner";
+
+            return (
+              <tr key={user._id}>
+                <td>
+                  <strong>{user.name || "Unnamed user"}</strong>
+                  <div className="muted">{user.email || "No email"}</div>
+                </td>
+                <td>
+                  {user.primaryTechnicalField || "No field"}
+                  <div className="muted">{user.roleOrStatus || "No role/status"}</div>
+                  <div className="muted">{user.yearsOfExperience || "No experience"}</div>
+                </td>
+                <td>
+                  {expertise.concat(skills).slice(0, 5).join(", ") || "No skills listed"}
+                </td>
+                <td>
+                  <span className={`status ${verificationStatus}`}>{verificationStatus}</span>
+                  {kind === "mentor" && user.expertVerification?.reviewNote ? (
+                    <div className="muted">{user.expertVerification.reviewNote}</div>
+                  ) : null}
+                  <div className="muted">Availability: {user.availabilityStatus || "offline"}</div>
+                  {kind === "mentor" && onMentorStatusChange ? (
+                    <div className="table-status-control">
+                      <MentorStatusControl
+                        compact
+                        currentStatus={user.expertVerification?.status || "pending"}
+                        disabled={savingId === user._id}
+                        onChange={(status) => onMentorStatusChange(user._id, status)}
+                      />
+                    </div>
+                  ) : null}
+                </td>
+                <td>{user.points || 0}</td>
+                <td>
+                  {formatDate(user.createdAt)}
+                  <div>
+                    <button
+                      className="link-button"
+                      disabled={loadingUserId === user._id}
+                      onClick={() => onOpen(user._id)}
+                    >
+                      {loadingUserId === user._id ? "Opening..." : "View profile"}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+          {users.length === 0 && (
+            <tr>
+              <td colSpan={6}>No {kind === "mentor" ? "mentors" : "learners"} found.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function MentorStatusControl({
+  currentStatus,
+  disabled,
+  compact = false,
+  onChange,
+}: {
+  currentStatus: "pending" | "approved" | "rejected" | "not_required";
+  disabled?: boolean;
+  compact?: boolean;
+  onChange: (status: "pending" | "approved" | "rejected") => void;
+}) {
+  const options: Array<{
+    status: "pending" | "approved" | "rejected";
+    label: string;
+  }> = [
+    { status: "pending", label: compact ? "Pending" : "Set Pending" },
+    { status: "approved", label: "Approve" },
+    { status: "rejected", label: "Reject" },
+  ];
+
+  return (
+    <div className={`status-control ${compact ? "compact" : ""}`} role="group" aria-label="Mentor approval status">
+      {options.map((option) => (
+        <button
+          key={option.status}
+          type="button"
+          disabled={disabled || currentStatus === option.status}
+          className={`status-option ${option.status} ${currentStatus === option.status ? "active" : ""}`}
+          onClick={() => onChange(option.status)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function UserProfileModal({ user, onClose }: { user: AdminUser; onClose: () => void }) {
+  const expertise = Array.isArray(user.expertise)
+    ? user.expertise.map((item) => `${item.subject} (${item.proficiency})`)
+    : [];
+  const skills = Array.isArray(user.skillTags) ? user.skillTags : [];
+  const reviews = user.reviews || [];
+
+  return (
+    <div className="modal-backdrop" onClick={(event) => {
+      if (event.target === event.currentTarget) onClose();
+    }}>
+      <section className="modal-card user-profile-modal">
+        <div className="panel-header">
+          <div>
+            <h2>{user.name || "User profile"}</h2>
+            <p>{user.email || "No email"} - {user.role || "No role"}</p>
+          </div>
+          <button className="button secondary" onClick={onClose}>Close</button>
+        </div>
+
+        <div className="detail-grid">
+          <div>
+            <strong>Profile</strong>
+            <span>{user.primaryTechnicalField || "No technical field"}</span>
+            <span>{user.roleOrStatus || "No role/status"}</span>
+            <span>{user.yearsOfExperience || "No experience listed"}</span>
+            <span>Availability: {user.availabilityStatus || "offline"}</span>
+          </div>
+          <div>
+            <strong>Account</strong>
+            <span>Points: {user.points || 0}</span>
+            <span>Joined: {formatDate(user.createdAt)}</span>
+            <span>Updated: {formatDate(user.updatedAt)}</span>
+            <span>
+              Verification:{" "}
+              <span className={`status ${user.expertVerification?.status || "not_required"}`}>
+                {user.expertVerification?.status || "not_required"}
+              </span>
+            </span>
+          </div>
+          <div>
+            <strong>Bio</strong>
+            <span>{user.bio || "No bio provided."}</span>
+          </div>
+          <div>
+            <strong>Collaboration goals</strong>
+            <span>{user.collaborationGoals || "No collaboration goals provided."}</span>
+          </div>
+          <div>
+            <strong>Devices</strong>
+            <span>{user.devicesUsed?.length ? user.devicesUsed.join(", ") : "No devices listed."}</span>
+          </div>
+          <div>
+            <strong>Skills and expertise</strong>
+            <span>{expertise.concat(skills).join(", ") || "No skills listed."}</span>
+          </div>
+        </div>
+
+        {user.expertVerification?.reviewNote && (
+          <p className="muted">Verification review note: {user.expertVerification.reviewNote}</p>
+        )}
+
+        <div className="panel nested-panel">
+          <div className="panel-header">
+            <div>
+              <h2>Reviews</h2>
+              <p>
+                {user.expertReviewCount || 0} review{user.expertReviewCount === 1 ? "" : "s"}
+                {user.expertRatingAverage ? ` - ${user.expertRatingAverage.toFixed(1)} average rating` : ""}
+              </p>
+            </div>
+          </div>
+          <div className="list">
+            {reviews.map((review, index) => (
+              <article className="report-item" key={`${review.by?._id || "review"}-${index}`}>
+                <div>
+                  <p className="item-title">{Number(review.stars || 0).toFixed(1)} / 5</p>
+                  <div className="meta">
+                    <span>By: {review.by?.name || review.by?.email || "Unknown reviewer"}</span>
+                    <span>{formatDate(review.createdAt)}</span>
+                  </div>
+                  <p className="muted">{review.comment || "No comment provided."}</p>
+                </div>
+              </article>
+            ))}
+            {reviews.length === 0 && <div className="empty">No reviews recorded for this user.</div>}
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
 
