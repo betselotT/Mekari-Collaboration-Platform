@@ -26,6 +26,7 @@ type WhiteboardStroke = {
   id: string;
   userId: string;
   tool: "pen" | "eraser";
+  style?: "pen" | "marker" | "highlighter";
   color: string;
   size: number;
   points: WhiteboardPoint[];
@@ -33,6 +34,16 @@ type WhiteboardStroke = {
 };
 
 const colors = ["#111827", "#2563eb", "#dc2626", "#16a34a", "#f59e0b", "#7c3aed"];
+const penStyles: Array<{
+  id: NonNullable<WhiteboardStroke["style"]>;
+  label: string;
+  size: number;
+}> = [
+  { id: "pen", label: "Pen", size: 5 },
+  { id: "marker", label: "Marker", size: 12 },
+  { id: "highlighter", label: "Highlighter", size: 20 },
+];
+const eraserSizes = [8, 16, 28, 40];
 
 function makeStrokeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -48,6 +59,12 @@ function drawStroke(ctx: CanvasRenderingContext2D, stroke: WhiteboardStroke) {
   ctx.lineWidth = stroke.size * dpr;
   ctx.strokeStyle = stroke.color;
   ctx.globalCompositeOperation = stroke.tool === "eraser" ? "destination-out" : "source-over";
+  if (stroke.tool === "pen" && stroke.style === "marker") {
+    ctx.globalAlpha = 0.88;
+  }
+  if (stroke.tool === "pen" && stroke.style === "highlighter") {
+    ctx.globalAlpha = 0.34;
+  }
 
   const width = ctx.canvas.width;
   const height = ctx.canvas.height;
@@ -82,10 +99,13 @@ function WhiteboardContent() {
   const strokesRef = useRef<WhiteboardStroke[]>([]);
   const [strokes, setStrokes] = useState<WhiteboardStroke[]>([]);
   const [tool, setTool] = useState<"pen" | "eraser">("pen");
+  const [penStyle, setPenStyle] = useState<NonNullable<WhiteboardStroke["style"]>>("pen");
   const [color, setColor] = useState(colors[0]);
-  const [size, setSize] = useState(5);
+  const [penSize, setPenSize] = useState(5);
+  const [eraserSize, setEraserSize] = useState(16);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const activeSize = tool === "eraser" ? eraserSize : penSize;
 
   const redraw = useCallback((items: WhiteboardStroke[]) => {
     const canvas = canvasRef.current;
@@ -209,8 +229,9 @@ function WhiteboardContent() {
       id: makeStrokeId(),
       userId: user._id,
       tool,
+      style: tool === "pen" ? penStyle : "pen",
       color,
-      size,
+      size: activeSize,
       points: [pointerToPoint(event)],
     };
   }
@@ -300,6 +321,28 @@ function WhiteboardContent() {
             </div>
 
             <div className="flex items-center gap-1 rounded-lg border border-neutral-200 p-1 dark:border-neutral-700">
+              {penStyles.map((style) => (
+                <button
+                  key={style.id}
+                  type="button"
+                  onClick={() => {
+                    setTool("pen");
+                    setPenStyle(style.id);
+                    setPenSize(style.size);
+                  }}
+                  className={`inline-flex h-9 items-center justify-center rounded-md px-3 text-xs font-semibold ${
+                    tool === "pen" && penStyle === style.id
+                      ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-950"
+                      : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  }`}
+                  title={`Use ${style.label}`}
+                >
+                  {style.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-1 rounded-lg border border-neutral-200 p-1 dark:border-neutral-700">
               {colors.map((item) => (
                 <button
                   key={item}
@@ -323,23 +366,52 @@ function WhiteboardContent() {
             <div className="flex items-center rounded-lg border border-neutral-200 p-1 dark:border-neutral-700">
               <button
                 type="button"
-                onClick={() => setSize((value) => Math.max(2, value - 2))}
+                onClick={() =>
+                  tool === "eraser"
+                    ? setEraserSize((value) => Math.max(4, value - 4))
+                    : setPenSize((value) => Math.max(2, value - 2))
+                }
                 className="inline-flex h-9 w-9 items-center justify-center rounded-md text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                aria-label="Decrease brush size"
+                aria-label={tool === "eraser" ? "Decrease eraser size" : "Decrease brush size"}
               >
                 <Minus className="h-4 w-4" />
               </button>
-              <span className="w-8 text-center text-xs font-semibold text-neutral-600 dark:text-neutral-300">
-                {size}
+              <span className="w-12 text-center text-xs font-semibold text-neutral-600 dark:text-neutral-300">
+                {activeSize}px
               </span>
               <button
                 type="button"
-                onClick={() => setSize((value) => Math.min(40, value + 2))}
+                onClick={() =>
+                  tool === "eraser"
+                    ? setEraserSize((value) => Math.min(64, value + 4))
+                    : setPenSize((value) => Math.min(40, value + 2))
+                }
                 className="inline-flex h-9 w-9 items-center justify-center rounded-md text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                aria-label="Increase brush size"
+                aria-label={tool === "eraser" ? "Increase eraser size" : "Increase brush size"}
               >
                 <Plus className="h-4 w-4" />
               </button>
+            </div>
+
+            <div className="flex items-center gap-1 rounded-lg border border-neutral-200 p-1 dark:border-neutral-700">
+              {eraserSizes.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => {
+                    setTool("eraser");
+                    setEraserSize(item);
+                  }}
+                  className={`inline-flex h-9 min-w-9 items-center justify-center rounded-md px-2 text-xs font-semibold ${
+                    tool === "eraser" && eraserSize === item
+                      ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-950"
+                      : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  }`}
+                  title={`Eraser ${item}px`}
+                >
+                  {item}
+                </button>
+              ))}
             </div>
 
             <button
