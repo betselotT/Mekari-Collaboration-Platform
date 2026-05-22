@@ -15,7 +15,7 @@ import { errorHandler } from "./middleware/errorHandler";
 dotenv.config();
 dotenv.config({ path: path.resolve(__dirname, "../../../backend/.env") });
 
-const port = Number(process.env.ADMIN_PORT || 4100);
+const port = Number(process.env.PORT || process.env.ADMIN_PORT || 4100);
 
 async function bootstrap() {
   const app = express();
