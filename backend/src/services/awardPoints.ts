@@ -2,6 +2,8 @@ import { Types } from "mongoose";
 import { User } from "../models/User";
 import { PointEvent, PointEventType } from "../models/PointEvent";
 import { Notification } from "../models/Notification";
+import { BadgeEvent, BadgeRefType } from "../models/BadgeEvent";
+import { CertificateEvent } from "../models/CertificateEvent";
 import { broadcastToUser } from "./realtime";
 
 export const POINT_VALUES: Record<PointEventType, number> = {
@@ -12,28 +14,142 @@ export const POINT_VALUES: Record<PointEventType, number> = {
   FIRST_ANSWER_OF_DAY: 10,
 };
 
-export function normalizeBadgeCounts(input: {
-  badges?: string[];
-  badgeCounts?: Map<string, number> | Record<string, number> | null;
-}): Record<string, number> {
-  const counts: Record<string, number> = {};
-  const rawCounts = input.badgeCounts;
+export type BadgeAchievementResponse = {
+  badge: string;
+  refId?: Types.ObjectId;
+  refType?: BadgeRefType;
+  earnedAt: Date;
+};
 
-  if (rawCounts instanceof Map) {
-    for (const [badge, count] of rawCounts.entries()) {
-      counts[badge] = count;
-    }
-  } else if (rawCounts && typeof rawCounts === "object") {
-    for (const [badge, count] of Object.entries(rawCounts)) {
-      counts[badge] = Number(count) || 0;
-    }
+export type CertificateResponse = {
+  certificateId: string;
+  title: string;
+  description: string;
+  milestone: string;
+  issuedAt: Date;
+  refId?: string;
+};
+
+export type AchievementSummary = {
+  badges: string[];
+  badgeCounts: Record<string, number>;
+  badgeAchievements: BadgeAchievementResponse[];
+  certificates: CertificateResponse[];
+};
+
+export function emptyAchievementSummary(): AchievementSummary {
+  return {
+    badges: [],
+    badgeCounts: {},
+    badgeAchievements: [],
+    certificates: [],
+  };
+}
+
+function buildBadgeSummary(events: Array<{ badge: string; refId?: Types.ObjectId; refType?: BadgeRefType; earnedAt: Date }>) {
+  const badgeCounts: Record<string, number> = {};
+  const badges: string[] = [];
+
+  for (const event of events) {
+    badgeCounts[event.badge] = (badgeCounts[event.badge] || 0) + 1;
+    if (!badges.includes(event.badge)) badges.push(event.badge);
   }
 
-  for (const badge of input.badges || []) {
-    counts[badge] = Math.max(counts[badge] || 0, 1);
+  return {
+    badges,
+    badgeCounts,
+    badgeAchievements: events.map((event) => ({
+      badge: event.badge,
+      refId: event.refId,
+      refType: event.refType,
+      earnedAt: event.earnedAt,
+    })),
+  };
+}
+
+export async function getAchievementSummary(userId: string): Promise<AchievementSummary> {
+  const [badgeEvents, certificateEvents] = await Promise.all([
+    BadgeEvent.find({ userId }).sort({ earnedAt: -1 }).lean(),
+    CertificateEvent.find({ userId }).sort({ issuedAt: -1 }).lean(),
+  ]);
+  const badgeSummary = buildBadgeSummary(badgeEvents);
+
+  return {
+    ...badgeSummary,
+    certificates: certificateEvents.map((certificate) => ({
+      certificateId: certificate.certificateId,
+      title: certificate.title,
+      description: certificate.description,
+      milestone: certificate.milestone,
+      issuedAt: certificate.issuedAt,
+      refId: certificate.refId,
+    })),
+  };
+}
+
+export async function getAchievementSummaries(userIds: string[]) {
+  const uniqueUserIds = [...new Set(userIds.filter(Boolean))];
+  if (uniqueUserIds.length === 0) return new Map<string, AchievementSummary>();
+
+  const objectIds = uniqueUserIds
+    .filter((userId) => Types.ObjectId.isValid(userId))
+    .map((userId) => new Types.ObjectId(userId));
+
+  const [badgeEvents, certificateEvents] = await Promise.all([
+    BadgeEvent.find({ userId: { $in: objectIds } }).sort({ earnedAt: -1 }).lean(),
+    CertificateEvent.find({ userId: { $in: objectIds } }).sort({ issuedAt: -1 }).lean(),
+  ]);
+
+  const summaries = new Map<string, AchievementSummary>();
+  for (const userId of uniqueUserIds) {
+    summaries.set(userId, emptyAchievementSummary());
   }
 
-  return counts;
+  for (const [userId, events] of Object.entries(
+    badgeEvents.reduce<Record<string, typeof badgeEvents>>((acc, event) => {
+      const key = String(event.userId);
+      acc[key] = acc[key] || [];
+      acc[key].push(event);
+      return acc;
+    }, {})
+  )) {
+    summaries.set(userId, {
+      ...(summaries.get(userId) || emptyAchievementSummary()),
+      ...buildBadgeSummary(events),
+    });
+  }
+
+  for (const certificate of certificateEvents) {
+    const userId = String(certificate.userId);
+    const summary = summaries.get(userId) || emptyAchievementSummary();
+    summary.certificates.push({
+      certificateId: certificate.certificateId,
+      title: certificate.title,
+      description: certificate.description,
+      milestone: certificate.milestone,
+      issuedAt: certificate.issuedAt,
+      refId: certificate.refId,
+    });
+    summaries.set(userId, summary);
+  }
+
+  return summaries;
+}
+
+export async function withAchievementSummary<T extends { _id?: unknown; id?: unknown }>(user: T) {
+  const userId = String(user._id || user.id || "");
+  return {
+    ...user,
+    ...(userId ? await getAchievementSummary(userId) : emptyAchievementSummary()),
+  };
+}
+
+export async function withAchievementSummaries<T extends { _id?: unknown; id?: unknown }>(users: T[]) {
+  const summaries = await getAchievementSummaries(users.map((user) => String(user._id || user.id || "")));
+  return users.map((user) => ({
+    ...user,
+    ...(summaries.get(String(user._id || user.id || "")) || emptyAchievementSummary()),
+  }));
 }
 
 async function emitNotification(userId: string, notif: { id: string; type: string; message: string; link: string; createdAt: Date }): Promise<void> {
@@ -41,38 +157,35 @@ async function emitNotification(userId: string, notif: { id: string; type: strin
 }
 
 async function checkAndAwardBadges(userId: string): Promise<void> {
-  const user = await User.findById(userId).select("badges points role");
+  const user = await User.findById(userId).select("points role");
   if (!user) return;
 
   const newBadges: string[] = [];
 
-  if (!user.badges.includes("First Blood")) {
+  if (!(await BadgeEvent.exists({ userId, badge: "First Blood" }))) {
     const count = await PointEvent.countDocuments({ userId, eventType: "ANSWERED_QUESTION" });
     if (count === 1) newBadges.push("First Blood");
   }
 
-  if (!user.badges.includes("Reliable")) {
+  if (!(await BadgeEvent.exists({ userId, badge: "Reliable" }))) {
     const count = await PointEvent.countDocuments({ userId, eventType: "ANSWER_MARKED_SOLUTION" });
     if (count >= 10) newBadges.push("Reliable");
   }
 
-  if (!user.badges.includes("Top Expert") && user.role === "expert" && user.points >= 500) {
+  if (!(await BadgeEvent.exists({ userId, badge: "Top Expert" })) && user.role === "expert" && user.points >= 500) {
     const rank = await User.countDocuments({ role: "expert", points: { $gt: user.points } });
     if (rank < 10) newBadges.push("Top Expert");
   }
 
   if (newBadges.length === 0) return;
 
-  const badgeCountDefaults = Object.fromEntries(
-    newBadges.map((badge) => [`badgeCounts.${badge}`, 1])
-  );
-
-  await User.findByIdAndUpdate(userId, {
-    $addToSet: { badges: { $each: newBadges } },
-    $max: badgeCountDefaults,
-  });
-
   for (const badge of newBadges) {
+    await BadgeEvent.create({
+      userId,
+      badge,
+      refType: "point_event",
+      earnedAt: new Date(),
+    });
     const notif = await Notification.create({
       userId,
       type: "badge_earned",
@@ -100,23 +213,14 @@ async function issueCertificateIfMissing(
     refId?: string;
   }
 ) {
-  const issued = await User.findOneAndUpdate(
-    {
-      _id: userId,
-      "certificates.certificateId": { $ne: certificate.certificateId },
-    },
-    {
-      $push: {
-        certificates: {
-          ...certificate,
-          issuedAt: new Date(),
-        },
-      },
-    },
-    { new: true }
-  ).select("_id");
+  const existing = await CertificateEvent.exists({ userId, certificateId: certificate.certificateId });
+  if (existing) return false;
 
-  if (!issued) return false;
+  await CertificateEvent.create({
+    userId,
+    ...certificate,
+    issuedAt: new Date(),
+  });
 
   const notif = await Notification.create({
     userId,
@@ -226,28 +330,16 @@ export async function awardRepeatableBadge(
   }
 
   const refObjectId = new Types.ObjectId(refId);
-  const updated = await User.findOneAndUpdate(
-    {
-      _id: userId,
-      badgeAchievements: {
-        $not: { $elemMatch: { badge, refId: refObjectId } },
-      },
-    },
-    {
-      $addToSet: { badges: badge },
-      $inc: { [`badgeCounts.${badge}`]: 1 },
-      $push: {
-        badgeAchievements: {
-          badge,
-          refId: refObjectId,
-          earnedAt: new Date(),
-        },
-      },
-    },
-    { new: true }
-  ).select("badgeCounts");
+  const existingAchievement = await BadgeEvent.exists({ userId, badge, refId: refObjectId });
 
-  if (updated) {
+  if (!existingAchievement) {
+    await BadgeEvent.create({
+      userId,
+      badge,
+      refId: refObjectId,
+      refType: "thread",
+      earnedAt: new Date(),
+    });
     if (badge === "Speed Demon") {
       await issueCertificateIfMissing(userId, {
         certificateId: "fast-responder",
@@ -257,9 +349,10 @@ export async function awardRepeatableBadge(
         refId,
       });
     }
-    return { awarded: true, count: updated.badgeCounts?.get(badge) || 0 };
+    const count = await BadgeEvent.countDocuments({ userId, badge });
+    return { awarded: true, count };
   }
 
-  const existing = await User.findById(userId).select("badgeCounts");
-  return { awarded: false, count: existing?.badgeCounts?.get(badge) || 0 };
+  const count = await BadgeEvent.countDocuments({ userId, badge });
+  return { awarded: false, count };
 }

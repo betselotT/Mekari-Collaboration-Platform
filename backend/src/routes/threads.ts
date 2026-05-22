@@ -200,7 +200,7 @@ router.get("/subjects/:slug/experts", requireAuth, async (req: AuthRequest, res,
       availabilityStatus: "online",
       "expertise.subject": regex,
     })
-      .select("name avatarUrl bio expertise skillTags availabilityStatus points badges role")
+      .select("name avatarUrl bio expertise skillTags availabilityStatus points role")
       .sort({ points: -1, name: 1 })
       .lean();
 
@@ -284,7 +284,7 @@ router.get("/public/:threadId", async (req, res, next) => {
   try {
     const thread = await Thread.findById(req.params.threadId)
       .populate("createdBy", "name avatarUrl")
-      .populate("matchedExperts", "name avatarUrl expertise availabilityStatus points badges");
+      .populate("matchedExperts", "name avatarUrl expertise availabilityStatus points");
 
     if (!thread) return res.status(404).json({ error: { message: "Thread not found" } });
 
@@ -418,7 +418,7 @@ router.get("/:threadId", requireAuth, async (req: AuthRequest, res, next) => {
 
     const thread = await Thread.findById(req.params.threadId)
       .populate("createdBy", "name avatarUrl")
-      .populate("matchedExperts", "name avatarUrl expertise skillTags availabilityStatus points badges");
+      .populate("matchedExperts", "name avatarUrl expertise skillTags availabilityStatus points");
 
     if (!thread) return res.status(404).json({ error: { message: "Thread not found" } });
     res.json({ thread });
@@ -520,7 +520,7 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
           { path: "createdBy", select: "name avatarUrl" },
           {
             path: "matchedExperts",
-            select: "name avatarUrl expertise skillTags availabilityStatus points badges",
+            select: "name avatarUrl expertise skillTags availabilityStatus points",
           },
         ]);
         return res.status(200).json({ thread: recentSameTitle, duplicate: true });
@@ -566,7 +566,7 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
     });
 
     const experts = await User.find({ _id: { $in: recommendedExpertIds } })
-      .select("name avatarUrl expertise skillTags availabilityStatus points badges")
+      .select("name avatarUrl expertise skillTags availabilityStatus points")
       .lean();
     const expertMap = new Map(experts.map((expert) => [String(expert._id), expert]));
     const suggestedExperts = recommendations
@@ -594,7 +594,7 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
       { path: "createdBy", select: "name avatarUrl" },
       {
         path: "matchedExperts",
-        select: "name avatarUrl expertise skillTags availabilityStatus points badges",
+        select: "name avatarUrl expertise skillTags availabilityStatus points",
       },
     ]);
 

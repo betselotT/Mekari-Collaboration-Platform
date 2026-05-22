@@ -5,7 +5,7 @@ import { requireAuth, AuthRequest } from "../middleware/auth";
 import { User } from "../models/User";
 import { ExpertReview } from "../models/ExpertReview";
 import { logAuditEvent } from "../services/auditLog";
-import { normalizeBadgeCounts } from "../services/awardPoints";
+import { withAchievementSummaries, withAchievementSummary } from "../services/awardPoints";
 import { notifyAdmins } from "../services/notifications";
 
 const router = Router();
@@ -129,13 +129,13 @@ async function getReviewStatsForExpert(expertId: string) {
 
 router.get("/me", requireAuth, async (req: AuthRequest, res, next) => {
   try {
-    const user = await User.findById(req.userId).select("-passwordHash -badgeAchievements").lean();
+    const user = await User.findById(req.userId).select("-passwordHash").lean();
     if (!user) return res.status(404).json({ error: { message: "User not found" } });
 
     // Calculate global rank (count users with more points + 1)
     const rank = await User.countDocuments({ points: { $gt: user.points || 0 } }) + 1;
 
-    res.json({ user: { ...user, badgeCounts: normalizeBadgeCounts(user), rank } });
+    res.json({ user: { ...(await withAchievementSummary(user)), rank } });
   } catch (err) {
     next(err);
   }
@@ -148,11 +148,9 @@ router.put("/me", requireAuth, async (req: AuthRequest, res, next) => {
       req.userId,
       { $set: parsed },
       { new: true }
-    ).select("-passwordHash -badgeAchievements");
+    ).select("-passwordHash");
     res.json({
-      user: user
-        ? { ...user.toObject(), badgeCounts: normalizeBadgeCounts(user) }
-        : user,
+      user: user ? await withAchievementSummary(user.toObject()) : user,
     });
   } catch (err) {
     next(err);
@@ -293,7 +291,7 @@ router.get("/experts", requireAuth, async (_req: AuthRequest, res, next) => {
       role: "expert",
       "expertVerification.status": "approved",
     })
-      .select("name avatarUrl bio expertise skillTags availabilityStatus points badges role expertVerification")
+      .select("name avatarUrl bio expertise skillTags availabilityStatus points role expertVerification")
       .sort({ points: -1 })
       .lean();
 
@@ -316,7 +314,7 @@ router.get("/experts", requireAuth, async (_req: AuthRequest, res, next) => {
     );
 
     res.json({
-      experts: experts.map((expert) => ({
+      experts: (await withAchievementSummaries(experts)).map((expert) => ({
         ...expert,
         ...(statsByExpertId.get(String(expert._id)) || buildReviewStatsFromAggregate()),
       })),
@@ -434,7 +432,7 @@ router.get("/:expertId/reviews", requireAuth, async (req: AuthRequest, res, next
 router.get("/:id", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const user = await User.findById(req.params.id)
-      .select("name avatarUrl role bio primaryTechnicalField roleOrStatus yearsOfExperience expertise skillTags availabilityStatus points badges")
+      .select("name avatarUrl role bio primaryTechnicalField roleOrStatus yearsOfExperience expertise skillTags availabilityStatus points")
       .lean();
     if (!user) return res.status(404).json({ error: { message: "User not found" } });
 
@@ -445,7 +443,7 @@ router.get("/:id", requireAuth, async (req: AuthRequest, res, next) => {
 
     res.json({
       user: {
-        ...user,
+        ...(await withAchievementSummary(user)),
         ...reviewStats,
       },
     });

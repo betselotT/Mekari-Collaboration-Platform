@@ -1,19 +1,20 @@
 import { Router } from "express";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { IUser, User } from "../models/User";
-import { normalizeBadgeCounts } from "../services/awardPoints";
+import { withAchievementSummaries } from "../services/awardPoints";
 
 const router = Router();
 
-function buildLeaderboard(users: IUser[]) {
-  return users.map((user, index) => ({
-    _id: user.id,
+async function buildLeaderboard(users: IUser[]) {
+  const hydratedUsers = await withAchievementSummaries(users.map((user) => user.toObject()));
+  return hydratedUsers.map((user, index) => ({
+    _id: user._id,
     rank: index + 1,
     name: user.name,
     avatarUrl: user.avatarUrl,
     points: user.points,
     badges: user.badges,
-    badgeCounts: normalizeBadgeCounts(user),
+    badgeCounts: user.badgeCounts,
     expertise: user.expertise,
     skillTags: user.skillTags,
     role: user.role,
@@ -28,10 +29,10 @@ router.get("/leaderboard", requireAuth, async (req: AuthRequest, res, next) => {
       : undefined;
     const filter = role ? { role } : {};
     const users = await User.find(filter)
-      .select("name avatarUrl points badges badgeCounts expertise skillTags role createdAt")
+      .select("name avatarUrl points expertise skillTags role createdAt")
       .sort({ points: -1 })
       .limit(20);
-    res.json({ leaderboard: buildLeaderboard(users) });
+    res.json({ leaderboard: await buildLeaderboard(users) });
   } catch (err) {
     next(err);
   }
@@ -41,18 +42,18 @@ router.get("/leaderboards", requireAuth, async (_req: AuthRequest, res, next) =>
   try {
     const [learners, experts] = await Promise.all([
       User.find({ role: "learner" })
-        .select("name avatarUrl points badges badgeCounts expertise skillTags role createdAt")
+        .select("name avatarUrl points expertise skillTags role createdAt")
         .sort({ points: -1 })
         .limit(20),
       User.find({ role: "expert" })
-        .select("name avatarUrl points badges badgeCounts expertise skillTags role createdAt")
+        .select("name avatarUrl points expertise skillTags role createdAt")
         .sort({ points: -1 })
         .limit(20),
     ]);
 
     res.json({
-      learners: buildLeaderboard(learners),
-      experts: buildLeaderboard(experts),
+      learners: await buildLeaderboard(learners),
+      experts: await buildLeaderboard(experts),
     });
   } catch (err) {
     next(err);

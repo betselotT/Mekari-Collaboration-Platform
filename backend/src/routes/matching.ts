@@ -204,7 +204,7 @@ router.post("/request", requireAuth, async (req: AuthRequest, res, next) => {
 
     // Optionally, auto-notify via socket in a later iteration.
     const populated = await MatchRequest.findById(matchRequest.id)
-      .populate("recommendations.expert", "name avatarUrl expertise availabilityStatus points badges")
+      .populate("recommendations.expert", "name avatarUrl expertise availabilityStatus points")
       .lean();
 
     res.status(201).json({
@@ -221,7 +221,7 @@ router.get("/requests/:matchRequestId", requireAuth, async (req: AuthRequest, re
     const { matchRequestId } = req.params;
     const doc = await MatchRequest.findById(matchRequestId)
       .populate("thread")
-      .populate("recommendations.expert", "name avatarUrl expertise availabilityStatus points badges");
+      .populate("recommendations.expert", "name avatarUrl expertise availabilityStatus points");
 
     if (!doc) {
       return res.status(404).json({ error: { message: "Match request not found" } });
