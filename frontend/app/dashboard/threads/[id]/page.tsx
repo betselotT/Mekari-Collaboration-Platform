@@ -111,7 +111,6 @@ interface Thread {
   createdBy: Sender;
   isSolved: boolean;
   solutionMsgId?: string;
-  googleMeetLink?: string;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -839,10 +838,6 @@ export default function ThreadDetailPage() {
         {thread.body && (
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">{thread.body}</p>
         )}
-<<<<<<< HEAD
-=======
-
->>>>>>> 4b4768d5d88102f74637de9070bf063979794b5f
       </div>
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
