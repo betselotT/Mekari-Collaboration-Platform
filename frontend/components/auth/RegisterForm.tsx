@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, ReactNode, useState } from "react";
+import { Check } from "lucide-react";
 import { apiClient } from "../../lib/api";
 import { GoogleAuthButton } from "./GoogleAuthButton";
 import { GithubAuthButton } from "./GithubAuthButton";
@@ -34,6 +35,38 @@ const deviceOptions = ["Desktop/Laptop", "Smartphone", "Tablet"];
 const inputClass =
   "w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-primary-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500";
 
+function normalizeFullName(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function fullNameError(value: string) {
+  const normalized = normalizeFullName(value);
+  if (normalized.length < 2) return "Full name must be at least 2 characters.";
+  if (normalized.length > 50) return "Full name must be 50 characters or fewer.";
+  if (!/^[A-Za-z]+(?: [A-Za-z]+)*$/.test(normalized)) {
+    return "Full name must contain letters and spaces only.";
+  }
+  return "";
+}
+
+function passwordErrors(value: string) {
+  const errors: string[] = [];
+  if (value.length < 8) errors.push("Password must be at least 8 characters.");
+  if (!/[A-Z]/.test(value)) errors.push("Password must include at least 1 uppercase letter.");
+  if (!/[a-z]/.test(value)) errors.push("Password must include at least 1 lowercase letter.");
+  if (!/[0-9]/.test(value)) errors.push("Password must include at least 1 number.");
+  if (!/[^A-Za-z0-9]/.test(value)) errors.push("Password must include at least 1 special character.");
+  return errors;
+}
+
+const passwordRules = [
+  { label: "8+ chars", test: (value: string) => value.length >= 8 },
+  { label: "uppercase", test: (value: string) => /[A-Z]/.test(value) },
+  { label: "lowercase", test: (value: string) => /[a-z]/.test(value) },
+  { label: "number", test: (value: string) => /[0-9]/.test(value) },
+  { label: "special", test: (value: string) => /[^A-Za-z0-9]/.test(value) },
+];
+
 export function RegisterForm() {
   const [accountType, setAccountType] = useState<AccountType>("learner");
   const [name, setName] = useState("");
@@ -51,6 +84,9 @@ export function RegisterForm() {
   const [verificationDocument, setVerificationDocument] = useState<VerificationDocument | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const normalizedName = normalizeFullName(name);
+  const nameError = name ? fullNameError(name) : "";
+  const currentPasswordErrors = password ? passwordErrors(password) : [];
 
   function toggleDevice(device: string) {
     setDevicesUsed((current) =>
@@ -88,13 +124,23 @@ export function RegisterForm() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    const nextNameError = fullNameError(name);
+    const nextPasswordErrors = passwordErrors(password);
+    if (nextNameError) {
+      setError(nextNameError);
+      return;
+    }
+    if (nextPasswordErrors.length > 0) {
+      setError(nextPasswordErrors[0]);
+      return;
+    }
     setLoading(true);
     setError(null);
 
     try {
       const isMentor = accountType === "mentor";
       await apiClient.post("/api/auth/register", {
-        name,
+        name: normalizedName,
         email,
         password,
         accountType,
@@ -172,13 +218,37 @@ export function RegisterForm() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Full name">
-          <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} required />
+          <input
+            className={inputClass}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => setName(normalizedName)}
+            required
+          />
+          <p className={`text-xs ${nameError ? "text-red-600 dark:text-red-300" : "text-neutral-500 dark:text-neutral-400"}`}>
+            2-50 chars, letters and spaces only.
+          </p>
+          {nameError && <p className="text-xs text-red-600 dark:text-red-300">{nameError}</p>}
         </Field>
         <Field label="Email">
           <input type="email" className={inputClass} value={email} onChange={(e) => setEmail(e.target.value)} required />
         </Field>
         <Field label="Password">
           <input type="password" className={inputClass} value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs">
+            {passwordRules.map((rule) => {
+              const met = rule.test(password);
+              return (
+                <span
+                  key={rule.label}
+                  className={`inline-flex items-center gap-1 ${met ? "text-emerald-600 dark:text-emerald-300" : "text-neutral-500 dark:text-neutral-400"}`}
+                >
+                  <Check className={`h-3 w-3 ${met ? "opacity-100" : "opacity-25"}`} />
+                  {rule.label}
+                </span>
+              );
+            })}
+          </div>
         </Field>
         <Field label="Primary technical field">
           <select className={inputClass} value={primaryTechnicalField} onChange={(e) => setPrimaryTechnicalField(e.target.value)}>

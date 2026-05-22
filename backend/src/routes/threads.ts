@@ -74,19 +74,19 @@ const subjectGroups = [
     patterns: ["software", "web", "frontend", "backend", "programming", "security"],
   },
   {
-    subject: "Data Structures",
-    slug: "data-structures",
-    patterns: ["data structures", "algorithm", "dsa"],
+    subject: "Electrical Engineering",
+    slug: "electrical-engineering",
+    patterns: ["electrical", "electronics", "circuit", "power", "embedded", "signal"],
   },
   {
-    subject: "System Design",
-    slug: "system-design",
-    patterns: ["system design", "architecture", "scaling", "distributed"],
+    subject: "Mechanical Engineering",
+    slug: "mechanical-engineering",
+    patterns: ["mechanical", "mechanics", "thermodynamics", "manufacturing", "cad", "machine"],
   },
   {
-    subject: "DevOps",
-    slug: "devops",
-    patterns: ["devops", "cloud", "deployment", "ci", "cd", "docker", "kubernetes"],
+    subject: "Electromechanical Engineering",
+    slug: "electromechanical-engineering",
+    patterns: ["electromechanical", "mechatronics", "robotics", "automation", "control systems", "actuator", "sensor"],
   },
 ] as const;
 
@@ -186,6 +186,45 @@ router.get("/subjects/:slug", requireAuth, async (req: AuthRequest, res, next) =
   try {
     const summary = await buildSubjectSummaryForGroup(subjectGroupForSlug(req.params.slug));
     res.json({ subject: summary });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/subjects/:slug/experts", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const group = subjectGroupForSlug(req.params.slug);
+    const regex = subjectRegex(group.patterns);
+    const experts = await User.find({
+      role: "expert",
+      availabilityStatus: "online",
+      "expertise.subject": regex,
+    })
+      .select("name avatarUrl bio expertise skillTags availabilityStatus points badges role")
+      .sort({ points: -1, name: 1 })
+      .lean();
+
+    res.json({ experts });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/subjects/:slug/resources", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const threadIds = await Thread.find(threadSubjectFilterForSlug(req.params.slug)).select("_id").lean();
+    const resources = await Message.find({
+      thread: { $in: threadIds.map((thread) => thread._id) },
+      type: "FILE",
+    })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .populate("thread", "title subject")
+      .populate("sender", "name avatarUrl")
+      .select("thread sender body attachmentUrl createdAt")
+      .lean();
+
+    res.json({ resources });
   } catch (err) {
     next(err);
   }
