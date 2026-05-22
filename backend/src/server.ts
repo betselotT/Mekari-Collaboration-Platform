@@ -9,9 +9,10 @@ import { setIo } from "./sockets/ioInstance";
 import { registerChatHandlers } from "./sockets/chat";
 import { initRealtime, startPresenceExpiryLoop } from "./services/realtime";
 import { syncClassDiagramCollections } from "./config/classDiagramCollections";
+import { maskMongoUri, resolveMongoUri } from "./config/database";
 
 const PORT = process.env.PORT || 4000;
-const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/mekari";
+const MONGO_URI = resolveMongoUri();
 const REDIS_URL = process.env.REDIS_URL;
 const FRONTEND_ORIGINS = [
   process.env.FRONTEND_ORIGIN,
@@ -34,6 +35,7 @@ async function connectRedisWithTimeout(redisClient: ReturnType<typeof createClie
 
 async function bootstrap() {
   try {
+    console.log(`Connecting backend to MongoDB: ${maskMongoUri(MONGO_URI)}`);
     await mongoose.connect(MONGO_URI);
     console.log("Connected to MongoDB");
     await syncClassDiagramCollections();
