@@ -811,21 +811,6 @@ export default function ThreadDetailPage() {
         {thread.body && (
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">{thread.body}</p>
         )}
-
-        {/* Actions row */}
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          {isAuthor && thread.status !== "SOLVED" && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={startSession}
-              isLoading={sessionStarting}
-            >
-              <Video className="mr-1.5 h-4 w-4" />
-              Start Session
-            </Button>
-          )}
-        </div>
       </div>
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
