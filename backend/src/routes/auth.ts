@@ -29,10 +29,29 @@ const verificationDocumentSchema = z.object({
   dataUrl: z.string().startsWith("data:").max(7_000_000),
 });
 
+const fullNameSchema = z
+  .string()
+  .transform((value) => value.trim().replace(/\s+/g, " "))
+  .pipe(
+    z
+      .string()
+      .min(2, "Full name must be at least 2 characters")
+      .max(50, "Full name must be 50 characters or fewer")
+      .regex(/^[A-Za-z]+(?: [A-Za-z]+)*$/, "Full name must contain letters and spaces only")
+  );
+
+const passwordSchema = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .regex(/[A-Z]/, "Password must include at least 1 uppercase letter")
+  .regex(/[a-z]/, "Password must include at least 1 lowercase letter")
+  .regex(/[0-9]/, "Password must include at least 1 number")
+  .regex(/[^A-Za-z0-9]/, "Password must include at least 1 special character");
+
 const registerSchema = z.object({
-  name: z.string().min(2),
+  name: fullNameSchema,
   email: z.string().email(),
-  password: z.string().min(6),
+  password: passwordSchema,
   accountType: accountTypeSchema,
   primaryTechnicalField: z.string().min(1),
   roleOrStatus: z.string().min(1),

@@ -48,9 +48,18 @@ export function createOpenApiSpec() {
                     type: "object",
                     required: ["name", "email", "password"],
                     properties: {
-                      name: { type: "string", minLength: 2 },
+                      name: {
+                        type: "string",
+                        minLength: 2,
+                        maxLength: 50,
+                        pattern: "^[A-Za-z]+(?: [A-Za-z]+)*$",
+                      },
                       email: { type: "string", format: "email" },
-                      password: { type: "string", minLength: 6 },
+                      password: {
+                        type: "string",
+                        minLength: 8,
+                        pattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$",
+                      },
                     },
                   },
                 },

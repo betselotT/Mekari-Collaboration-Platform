@@ -10,9 +10,9 @@ import {
   Bot,
   ShieldAlert,
   Code2,
-  Database,
-  Layers,
-  GitBranch,
+  Cpu,
+  Cog,
+  Wrench,
   Zap,
   X,
 } from "lucide-react";
@@ -35,9 +35,9 @@ const mainMenu: NavItem[] = [
 
 const subjectsMenu: NavItem[] = [
   { icon: Code2, label: "Software Engineering", href: "/dashboard/subjects/software-engineering" },
-  { icon: Database, label: "Data Structures", href: "/dashboard/subjects/data-structures" },
-  { icon: Layers, label: "System Design", href: "/dashboard/subjects/system-design" },
-  { icon: GitBranch, label: "DevOps", href: "/dashboard/subjects/devops" },
+  { icon: Cpu, label: "Electrical Engineering", href: "/dashboard/subjects/electrical-engineering" },
+  { icon: Cog, label: "Mechanical Engineering", href: "/dashboard/subjects/mechanical-engineering" },
+  { icon: Wrench, label: "Electromechanical Engineering", href: "/dashboard/subjects/electromechanical-engineering" },
 ];
 
 interface SidebarProps {
@@ -130,19 +130,6 @@ function SidebarContent({ onNavigate, showClose }: { onNavigate?: () => void; sh
           );
         })}
       </nav>
-
-      {/* Pro Plan Card */}
-      <div className="mt-auto rounded-lg border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
-        <div className="mb-3 text-xs font-bold uppercase tracking-wider text-primary-600 dark:text-primary-400">
-          Pro Plan
-        </div>
-        <p className="mb-4 text-xs text-neutral-600 dark:text-neutral-400">
-          Get unlimited AI responses and expert access.
-        </p>
-        <button className="w-full rounded-lg bg-primary-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700">
-          Upgrade Now
-        </button>
-      </div>
     </>
   );
 }
