@@ -22,6 +22,13 @@ type ExpertVerification = {
   reviewNote?: string;
 };
 
+type ExpertReview = {
+  by: Types.ObjectId;
+  stars: number;
+  comment?: string;
+  createdAt: Date;
+};
+
 type NotificationChannelPreferences = {
   internal: boolean;
   push: boolean;
@@ -56,6 +63,7 @@ export interface IUser extends Document {
   expertise: ExpertiseArea[];
   skillTags: string[];
   expertVerification: ExpertVerification;
+  reviews?: ExpertReview[];
   notificationPreferences: NotificationPreferences;
   pushTokens: PushToken[];
   points: number;
@@ -98,6 +106,16 @@ const ExpertVerificationSchema = new Schema<ExpertVerification>(
     reviewedAt: { type: Date },
     reviewedBy: { type: Schema.Types.ObjectId, ref: "User" },
     reviewNote: { type: String },
+  },
+  { _id: false }
+);
+
+const ExpertReviewSchema = new Schema<ExpertReview>(
+  {
+    by: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    stars: { type: Number, required: true, min: 1, max: 5 },
+    comment: { type: String, trim: true, maxlength: 1000 },
+    createdAt: { type: Date, default: Date.now },
   },
   { _id: false }
 );
@@ -153,6 +171,7 @@ const UserSchema = new Schema<IUser>(
       type: ExpertVerificationSchema,
       default: () => ({ status: "not_required" }),
     },
+    reviews: { type: [ExpertReviewSchema], default: undefined },
     notificationPreferences: {
       type: NotificationPreferencesSchema,
       default: () => ({}),

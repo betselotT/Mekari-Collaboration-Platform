@@ -1,7 +1,8 @@
 "use client";
 
 import { ChangeEvent, ReactNode, useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import { DashboardLayout } from "../../../../components/layout";
 import { Button } from "../../../../components/ui/Button";
 import { Avatar } from "../../../../components/ui/Avatar";
@@ -29,6 +30,7 @@ import {
   Image as ImageIcon,
   Paperclip,
   Smile,
+  MessageSquare,
   } from "lucide-react";
 import type { Socket } from "socket.io-client";
 
@@ -102,12 +104,14 @@ interface Thread {
   body?: string;
   tags: string[];
   status: string;
+  googleMeetLink?: string;
   aiResponse?: AIResponse;
   similarProblems?: SimilarProblem[];
   matchedExperts: Expert[];
   createdBy: Sender;
   isSolved: boolean;
   solutionMsgId?: string;
+  googleMeetLink?: string;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -230,6 +234,7 @@ function MessageContent({ message }: { message: ChatMessage }) {
 
 export default function ThreadDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const threadId = params?.id ?? "";
   const { user, loading: authLoading } = useAuth();
 
@@ -242,7 +247,7 @@ export default function ThreadDetailPage() {
   const [composerMode, setComposerMode] = useState<ComposerMode>("TEXT");
   const [attachment, setAttachment] = useState<AttachmentDraft | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [typingUsers, setTypingUsers] = useState<Array<{ userId: string; name: string }>>([]);
   const [aiPanel, setAiPanel] = useState(true);
   const [expertPanel, setExpertPanel] = useState(true);
   const [similarPanel, setSimilarPanel] = useState(true);
@@ -259,6 +264,7 @@ export default function ThreadDetailPage() {
   const [tagDraft, setTagDraft] = useState("");
   const [tagError, setTagError] = useState<string | null>(null);
   const [savingTags, setSavingTags] = useState(false);
+  const [dmLoadingId, setDmLoadingId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -441,13 +447,19 @@ export default function ThreadDetailPage() {
         }
       );
 
-      socket.on("user_typing", ({ userId }: { userId: string; threadId: string }) => {
+      socket.on("user_typing", ({ userId, userName }: { userId: string; userName?: string; threadId: string }) => {
         if (userId === user?._id) return;
-        setTypingUsers((prev) => (prev.includes(userId) ? prev : [...prev, userId]));
+        setTypingUsers((prev) =>
+          prev.some((item) => item.userId === userId)
+            ? prev.map((item) =>
+                item.userId === userId ? { ...item, name: userName || item.name } : item
+              )
+            : [...prev, { userId, name: userName || "Someone" }]
+        );
       });
 
       socket.on("user_stopped_typing", ({ userId }: { userId: string }) => {
-        setTypingUsers((prev) => prev.filter((id) => id !== userId));
+        setTypingUsers((prev) => prev.filter((item) => item.userId !== userId));
       });
     });
 
@@ -469,7 +481,7 @@ export default function ThreadDetailPage() {
         socket.off("user_stopped_typing");
       }
     };
-  }, [threadId]);
+  }, [threadId, user?._id]);
 
   // ── Auto-scroll ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -634,7 +646,6 @@ export default function ThreadDetailPage() {
     }
   }
 
-  // ── Start session ───────────────────────────────────────────────────────
   function startTagEdit() {
     setTagDraft(thread?.tags.join(", ") || "");
     setTagError(null);
@@ -706,6 +717,23 @@ export default function ThreadDetailPage() {
       setDeleteError(err?.response?.data?.error?.message || "Failed to delete message");
     } finally {
       setDeletingMessageId(null);
+    }
+  }
+
+  async function openExpertDm(expertId: string) {
+    if (!expertId || dmLoadingId) return;
+    setDmLoadingId(expertId);
+    setActionError(null);
+    try {
+      const res = await apiClient.post<{ conversation: { _id: string } }>(
+        "/api/dms/conversations",
+        { expertId }
+      );
+      router.push(`/dashboard/messages?conversation=${res.data.conversation._id}`);
+    } catch (err: any) {
+      setActionError(err?.response?.data?.error?.message || "Failed to start direct message");
+    } finally {
+      setDmLoadingId(null);
     }
   }
 
@@ -811,6 +839,10 @@ export default function ThreadDetailPage() {
         {thread.body && (
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">{thread.body}</p>
         )}
+<<<<<<< HEAD
+=======
+
+>>>>>>> 4b4768d5d88102f74637de9070bf063979794b5f
       </div>
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
@@ -982,7 +1014,9 @@ export default function ThreadDetailPage() {
                   <span className="animate-bounce [animation-delay:0.1s]">•</span>
                   <span className="animate-bounce [animation-delay:0.2s]">•</span>
                 </div>
-                {typingUsers.length === 1 ? "Someone is typing…" : `${typingUsers.length} people are typing…`}
+                {typingUsers.length === 1
+                  ? `${typingUsers[0].name} is typing…`
+                  : `${typingUsers.map((typingUser) => typingUser.name).join(", ")} are typing…`}
               </div>
             )}
 
@@ -1340,13 +1374,22 @@ export default function ThreadDetailPage() {
                     return (
                       <div
                         key={id}
-                        className="flex items-start gap-3 border-b border-neutral-100 px-4 py-3 last:border-0 dark:border-neutral-700/50"
+                        className="flex items-start gap-3 border-b border-neutral-100 px-4 py-3 transition-colors last:border-0 hover:bg-neutral-50 dark:border-neutral-700/50 dark:hover:bg-neutral-900/50"
                       >
-                        <Avatar size="sm" initials={name.slice(0, 2).toUpperCase()} />
+                        <Link
+                          href={`/dashboard/profile/${id}`}
+                          className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                          aria-label={`Open ${name}'s profile`}
+                        >
+                          <Avatar size="sm" initials={name.slice(0, 2).toUpperCase()} />
+                        </Link>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-neutral-900 dark:text-white">
+                          <Link
+                            href={`/dashboard/profile/${id}`}
+                            className="text-sm font-medium text-neutral-900 underline-offset-4 hover:underline dark:text-white"
+                          >
                             {name}
-                          </p>
+                          </Link>
                           {score !== undefined && (
                             <p className="text-xs text-neutral-500">
                               Match score: {score.toFixed(0)}
@@ -1358,6 +1401,15 @@ export default function ThreadDetailPage() {
                             </p>
                           ))}
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => openExpertDm(id)}
+                          disabled={Boolean(dmLoadingId)}
+                          className="inline-flex min-h-[34px] shrink-0 items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-2.5 py-1.5 text-xs font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-wait disabled:opacity-60 dark:border-primary-900/50 dark:bg-primary-950/30 dark:text-primary-200 dark:hover:bg-primary-950/50"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5" />
+                          {dmLoadingId === id ? "Opening" : "DM"}
+                        </button>
                       </div>
                     );
                   })}

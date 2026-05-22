@@ -115,7 +115,7 @@ export function RegisterForm() {
         availabilityStatus: isMentor ? availabilityStatus : "offline",
         verificationDocument: isMentor ? verificationDocument : undefined,
       });
-      window.location.href = "/login?registered=1";
+      window.location.href = `/verify-email?email=${encodeURIComponent(email)}`;
     } catch (err: any) {
       setError(err.response?.data?.error?.message || "Failed to sign up");
     } finally {
@@ -268,12 +268,12 @@ export function RegisterForm() {
       >
         {loading ? "Creating account..." : accountType === "mentor" ? "Create mentor account" : "Create learner account"}
       </button>
-      <div className="space-y-2 pt-2">
+      <div className="grid grid-cols-2 gap-2 pt-2">
         <GoogleAuthButton onCredential={onGoogleSignIn} onError={setError} />
         {accountType === "learner" ? (
           <GithubAuthButton accountType={accountType} mode="register" />
         ) : (
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          <p className="flex min-h-10 items-center text-xs text-neutral-500 dark:text-neutral-400">
             GitHub mentor sign-up is unavailable because mentor verification requires a document upload.
           </p>
         )}

@@ -4,20 +4,21 @@ import { ReactNode, useCallback, useEffect, useState } from "react";
 import { CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 import { Captcha } from "../auth/Captcha";
 import { apiClient } from "../../lib/api";
+import { usePublicConfig } from "../../lib/publicConfig";
 
 type VerificationState = "checking" | "challenge" | "verified";
 
 const verificationStorageKey = "mekari_security_verified";
 
-function hasCaptchaSiteKey() {
-  const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+function hasCaptchaSiteKey(siteKey: string) {
   return Boolean(siteKey && siteKey !== "your-recaptcha-site-key");
 }
 
 export function SecurityVerificationGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<VerificationState>("checking");
   const [error, setError] = useState<string | null>(null);
-  const captchaConfigured = hasCaptchaSiteKey();
+  const { recaptchaSiteKey } = usePublicConfig();
+  const captchaConfigured = hasCaptchaSiteKey(recaptchaSiteKey);
 
   const completeVerification = useCallback(() => {
     sessionStorage.setItem(verificationStorageKey, "true");

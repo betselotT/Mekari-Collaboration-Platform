@@ -378,9 +378,18 @@ router.get("/:expertId/reviews", requireAuth, async (req: AuthRequest, res, next
 // GET /api/users/:id — public profile
 router.get("/:id", requireAuth, async (req: AuthRequest, res, next) => {
   try {
-    const user = await User.findById(req.params.id).select("-passwordHash");
+    const user = await User.findById(req.params.id)
+      .select("name avatarUrl role bio primaryTechnicalField roleOrStatus yearsOfExperience expertise skillTags availabilityStatus points badges reviews")
+      .lean();
     if (!user) return res.status(404).json({ error: { message: "User not found" } });
-    res.json({ user });
+
+    const { reviews = [], ...safeUser } = user;
+    res.json({
+      user: {
+        ...safeUser,
+        ...buildReviewStats(reviews),
+      },
+    });
   } catch (err) {
     next(err);
   }
