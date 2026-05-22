@@ -20,6 +20,8 @@ export default function ThreadsPage() {
 function ThreadsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const selectedSubject = searchParams?.get("subject") || "";
+  const selectedSubjectSlug = searchParams?.get("subjectSlug") || "";
   const [threads, setThreads] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +44,12 @@ function ThreadsContent() {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    if (selectedSubject && !subject.trim()) {
+      setSubject(selectedSubject);
+    }
+  }, [selectedSubject, subject]);
+
   const canCreate = useMemo(
     () => title.trim().length >= 5 && subject.trim().length >= 1 && initialMessage.trim().length >= 1,
     [title, subject, initialMessage]
@@ -51,7 +59,12 @@ function ThreadsContent() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiClient.get("/api/threads");
+      const subjectQuery = selectedSubjectSlug
+        ? `?subjectSlug=${encodeURIComponent(selectedSubjectSlug)}`
+        : selectedSubject
+          ? `?subject=${encodeURIComponent(selectedSubject)}`
+          : "";
+      const res = await apiClient.get(`/api/threads${subjectQuery}`);
       setThreads(res.data.threads || []);
     } catch (e: any) {
       setError(e?.response?.data?.error?.message || "Failed to load threads");
@@ -98,7 +111,8 @@ function ThreadsContent() {
 
   useEffect(() => {
     loadThreads();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSubject, selectedSubjectSlug]);
 
   return (
     <DashboardLayout title="Threads" searchPlaceholder="Search threads, experts...">
@@ -107,7 +121,7 @@ function ThreadsContent() {
         <div className="flex min-w-0 items-center gap-2">
           <MessageCircle className="h-5 w-5 text-primary-600" />
           <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-            THREADS
+            {selectedSubject ? `${selectedSubject.toUpperCase()} THREADS` : "THREADS"}
           </span>
         </div>
         <Button variant="primary" size="md" className="w-full sm:w-auto" onClick={() => setShowNewThread(true)}>

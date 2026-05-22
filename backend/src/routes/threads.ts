@@ -57,6 +57,140 @@ async function getThreadReadStats(threadIds: unknown[]) {
   };
 }
 
+function startOfWeek() {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const start = new Date(now);
+  start.setDate(diff);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+const subjectGroups = [
+  {
+    subject: "Software Engineering",
+    slug: "software-engineering",
+    patterns: ["software", "web", "frontend", "backend", "programming", "security"],
+  },
+  {
+    subject: "Data Structures",
+    slug: "data-structures",
+    patterns: ["data structures", "algorithm", "dsa"],
+  },
+  {
+    subject: "System Design",
+    slug: "system-design",
+    patterns: ["system design", "architecture", "scaling", "distributed"],
+  },
+  {
+    subject: "DevOps",
+    slug: "devops",
+    patterns: ["devops", "cloud", "deployment", "ci", "cd", "docker", "kubernetes"],
+  },
+] as const;
+
+function subjectRegex(patterns: readonly string[]) {
+  return new RegExp(patterns.map((pattern) => pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "i");
+}
+
+function subjectGroupForSlug(slug: string) {
+  return (
+    subjectGroups.find((group) => group.slug === slug) || {
+      subject: slug
+        .split("-")
+        .filter(Boolean)
+        .map((part) => part[0]?.toUpperCase() + part.slice(1))
+        .join(" ") || "Subject",
+      slug,
+      patterns: [slug.replace(/-/g, " ")],
+    }
+  );
+}
+
+function threadSubjectFilterForSlug(slug?: string) {
+  if (!slug) return {};
+  const group = subjectGroupForSlug(slug);
+  const regex = subjectRegex(group.patterns);
+  return {
+    $or: [
+      { subject: regex },
+      { tags: regex },
+    ],
+  };
+}
+
+async function buildSubjectSummaryForGroup(group: ReturnType<typeof subjectGroupForSlug>) {
+  const regex = subjectRegex(group.patterns);
+  const threadFilter = threadSubjectFilterForSlug(group.slug);
+  const weekStart = startOfWeek();
+
+  const [activeThreads, weeklyThreads, resourceCounts, onlineExperts] = await Promise.all([
+    Thread.countDocuments(threadFilter),
+    Thread.countDocuments({ ...threadFilter, createdAt: { $gte: weekStart } }),
+    Message.aggregate([
+      { $match: { thread: { $exists: true, $ne: null }, type: "FILE" } },
+      {
+        $lookup: {
+          from: "threads",
+          localField: "thread",
+          foreignField: "_id",
+          as: "threadDoc",
+        },
+      },
+      { $unwind: "$threadDoc" },
+      { $match: { $or: [{ "threadDoc.subject": regex }, { "threadDoc.tags": regex }] } },
+      { $count: "count" },
+    ]),
+    User.aggregate([
+      { $match: { role: "expert", availabilityStatus: "online" } },
+      { $unwind: "$expertise" },
+      { $match: { "expertise.subject": regex } },
+      { $count: "count" },
+    ]),
+  ]);
+
+  const previousThreads = Math.max(0, activeThreads - weeklyThreads);
+  const weeklyChange =
+    previousThreads === 0
+      ? weeklyThreads > 0
+        ? 100
+        : 0
+      : Math.round((weeklyThreads / previousThreads) * 100);
+
+  return {
+    subject: group.subject,
+    slug: group.slug,
+    activeThreads,
+    weeklyThreads,
+    weeklyChange,
+    expertsOnline: onlineExperts[0]?.count || 0,
+    resources: resourceCounts[0]?.count || 0,
+  };
+}
+
+async function buildSubjectSummaries() {
+  return Promise.all(subjectGroups.map((group) => buildSubjectSummaryForGroup(group)));
+}
+
+router.get("/subjects", requireAuth, async (_req: AuthRequest, res, next) => {
+  try {
+    const subjects = await buildSubjectSummaries();
+    res.json({ subjects });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/subjects/:slug", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const summary = await buildSubjectSummaryForGroup(subjectGroupForSlug(req.params.slug));
+    res.json({ subject: summary });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Public GET /public - list threads without authentication
 router.get("/public", async (req, res, next) => {
   try {
@@ -153,6 +287,7 @@ router.get("/public/:threadId/messages", async (req, res, next) => {
 router.get("/", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const subject = req.query.subject as string | undefined;
+    const subjectSlug = req.query.subjectSlug as string | undefined;
     const status = req.query.status as string | undefined;
     const tags = req.query.tags as string | undefined;
     const page = Math.max(1, parseInt(String(req.query.page || "1")));
@@ -160,7 +295,11 @@ router.get("/", requireAuth, async (req: AuthRequest, res, next) => {
     const skip = (page - 1) * limit;
 
     const filter: Record<string, unknown> = {};
-    if (subject) filter.subject = subject;
+    if (subjectSlug) {
+      Object.assign(filter, threadSubjectFilterForSlug(subjectSlug));
+    } else if (subject) {
+      filter.subject = subject;
+    }
     if (status) filter.status = status;
     if (tags) {
       const tagList = tags.split(",").map((t) => t.trim()).filter(Boolean);
