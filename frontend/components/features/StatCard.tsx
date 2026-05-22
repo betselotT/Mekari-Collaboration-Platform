@@ -47,7 +47,7 @@ export function StatCard({
       </div>
 
       {/* Change Indicator */}
-      {hasChange && (
+      {hasChange ? (
         <div className="flex items-center gap-2">
           <div
             className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${changeStyles}`}
@@ -67,7 +67,9 @@ export function StatCard({
             </p>
           )}
         </div>
-      )}
+      ) : description ? (
+        <p className="text-xs text-neutral-600 dark:text-neutral-400">{description}</p>
+      ) : null}
     </div>
   );
 }
