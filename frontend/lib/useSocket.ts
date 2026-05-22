@@ -4,10 +4,24 @@ import { useEffect, useRef } from "react";
 import type { Socket } from "socket.io-client";
 import { getAuthToken } from "./api";
 
-const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL ||
-  (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(/\/api\/?$/, "") ||
-  "http://localhost:4000";
+function resolveSocketUrl() {
+  if (process.env.NEXT_PUBLIC_SOCKET_URL) {
+    return process.env.NEXT_PUBLIC_SOCKET_URL;
+  }
+
+  const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(/\/api\/?$/, "");
+  if (apiBaseUrl) {
+    return apiBaseUrl;
+  }
+
+  if (typeof window !== "undefined" && window.location.hostname.endsWith("vercel.app")) {
+    return "https://mekari-collaboration-platform.onrender.com";
+  }
+
+  return "http://localhost:4000";
+}
+
+const SOCKET_URL = resolveSocketUrl();
 
 let globalSocket: Socket | null = null;
 let globalSocketToken: string | null = null;
