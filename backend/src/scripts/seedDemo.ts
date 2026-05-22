@@ -5,6 +5,7 @@ import { User } from "../models/User";
 import { Thread } from "../models/Thread";
 import { Message } from "../models/Message";
 import { MatchRequest } from "../models/MatchRequest";
+import { syncClassDiagramCollections } from "../config/classDiagramCollections";
 
 dotenv.config();
 
@@ -12,6 +13,7 @@ async function run() {
   const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/mekari";
   await mongoose.connect(MONGO_URI);
   console.log("Connected to MongoDB");
+  await syncClassDiagramCollections();
 
   await Promise.all([
     User.deleteMany({}),

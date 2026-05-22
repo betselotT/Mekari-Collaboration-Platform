@@ -12,7 +12,8 @@
     "start": "node dist/server.js",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "test": "mocha -r ts-node/register \"tests/**/*.test.ts\"",
-    "seed": "ts-node src/scripts/seedDemo.ts"
+    "seed": "ts-node src/scripts/seedDemo.ts",
+    "sync:diagram": "ts-node src/scripts/syncClassDiagramCollections.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

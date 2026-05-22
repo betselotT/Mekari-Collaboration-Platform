@@ -104,6 +104,7 @@ interface Thread {
   body?: string;
   tags: string[];
   status: string;
+  googleMeetLink?: string;
   aiResponse?: AIResponse;
   similarProblems?: SimilarProblem[];
   matchedExperts: Expert[];

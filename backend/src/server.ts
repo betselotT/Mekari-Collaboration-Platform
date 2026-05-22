@@ -8,6 +8,7 @@ import { createApp } from "./app";
 import { setIo } from "./sockets/ioInstance";
 import { registerChatHandlers } from "./sockets/chat";
 import { initRealtime, startPresenceExpiryLoop } from "./services/realtime";
+import { syncClassDiagramCollections } from "./config/classDiagramCollections";
 
 const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/mekari";
@@ -35,6 +36,7 @@ async function bootstrap() {
   try {
     await mongoose.connect(MONGO_URI);
     console.log("Connected to MongoDB");
+    await syncClassDiagramCollections();
 
     let redisClient: ReturnType<typeof createClient> | null = null;
     if (REDIS_URL) {
