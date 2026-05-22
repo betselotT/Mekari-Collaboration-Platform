@@ -600,6 +600,10 @@ function MessagesContent() {
         })
       );
     };
+    const handleWhiteboardOpened = (data: { conversationId?: string; openedBy?: string }) => {
+      if (!data.conversationId || data.openedBy === user._id) return;
+      router.push(`/dashboard/whiteboard?conversation=${encodeURIComponent(data.conversationId)}`);
+    };
 
     ensureSocket().then((socket) => {
       if (!mounted) return;
@@ -616,6 +620,7 @@ function MessagesContent() {
       socket.on("dm_user_stopped_typing", handleStoppedTyping);
       socket.on("dm_session_updated", handleSessionUpdated);
       socket.on("dm_messages_read", handleMessagesRead);
+      socket.on("dm_whiteboard_opened", handleWhiteboardOpened);
       cleanup = () => {
         if (activeIdRef.current) socket.emit("leave_dm", activeIdRef.current);
         socket.off("connect", joinActive);
@@ -626,6 +631,7 @@ function MessagesContent() {
         socket.off("dm_user_stopped_typing", handleStoppedTyping);
         socket.off("dm_session_updated", handleSessionUpdated);
         socket.off("dm_messages_read", handleMessagesRead);
+        socket.off("dm_whiteboard_opened", handleWhiteboardOpened);
       };
     });
 
@@ -901,6 +907,7 @@ function MessagesContent() {
 
   function openWhiteboard() {
     if (!activeId) return;
+    socketRef.current?.emit("open_dm_whiteboard", activeId);
     router.push(`/dashboard/whiteboard?conversation=${encodeURIComponent(activeId)}`);
   }
 

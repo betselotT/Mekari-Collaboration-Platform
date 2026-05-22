@@ -95,6 +95,8 @@ function WhiteboardContent() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const drawingRef = useRef(false);
+  const remoteCloseRef = useRef(false);
+  const closeSentRef = useRef(false);
   const currentStrokeRef = useRef<WhiteboardStroke | null>(null);
   const strokesRef = useRef<WhiteboardStroke[]>([]);
   const [strokes, setStrokes] = useState<WhiteboardStroke[]>([]);
@@ -191,15 +193,22 @@ function WhiteboardContent() {
         if (payload.roomId !== roomId) return;
         setStrokes((prev) => prev.filter((stroke) => stroke.id !== payload.strokeId));
       };
+      const handleWhiteboardClosed = (payload: { conversationId?: string; closedBy?: string }) => {
+        if (!conversationId || payload.conversationId !== conversationId) return;
+        remoteCloseRef.current = true;
+        router.push(`/dashboard/messages?conversation=${encodeURIComponent(conversationId)}`);
+      };
 
       socket.on("whiteboard_stroke", handleStroke);
       socket.on("whiteboard_clear", handleClear);
       socket.on("whiteboard_undo", handleUndo);
+      socket.on("dm_whiteboard_closed", handleWhiteboardClosed);
 
       cleanup = () => {
         socket.off("whiteboard_stroke", handleStroke);
         socket.off("whiteboard_clear", handleClear);
         socket.off("whiteboard_undo", handleUndo);
+        socket.off("dm_whiteboard_closed", handleWhiteboardClosed);
       };
     });
 
@@ -207,9 +216,26 @@ function WhiteboardContent() {
       mounted = false;
       cleanup?.();
       const socket = socketRef.current;
+      if (!remoteCloseRef.current) closeRemoteWhiteboard();
       if (socket) socket.emit("leave_whiteboard", roomId);
     };
-  }, [roomId]);
+  }, [conversationId, roomId, router]);
+
+  function closeRemoteWhiteboard() {
+    if (!conversationId || closeSentRef.current) return;
+    closeSentRef.current = true;
+    socketRef.current?.emit("close_dm_whiteboard", conversationId);
+  }
+
+  function leaveWhiteboard() {
+    if (conversationId && !remoteCloseRef.current) {
+      closeRemoteWhiteboard();
+      router.push(`/dashboard/messages?conversation=${encodeURIComponent(conversationId)}`);
+      return;
+    }
+
+    router.back();
+  }
 
   function pointerToPoint(event: PointerEvent<HTMLCanvasElement>): WhiteboardPoint {
     const canvas = canvasRef.current;
@@ -274,7 +300,7 @@ function WhiteboardContent() {
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
-              onClick={() => router.back()}
+              onClick={leaveWhiteboard}
               className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
               aria-label="Go back"
             >
