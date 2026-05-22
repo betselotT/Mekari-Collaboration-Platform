@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createThreadMessage, markThreadMessagesRead, threadMessageSchema } from "../services/threadMessages";
 import {
   broadcastToRoom,
+  broadcastToUser,
   forgetSocketPresence,
   markUserPresence,
   rememberSocketUser,
@@ -13,6 +14,7 @@ import {
 import {
   createDmMessage,
   dmMessageSchema,
+  getConversationForUser,
   markDmMessagesRead,
   userCanAccessDm,
 } from "../services/dmMessages";
@@ -198,6 +200,60 @@ export function registerChatHandlers(
         await markDmMessagesRead(conversationId, userId);
       } catch (err) {
         console.error("[socket dm_mark_read]", err);
+      }
+    });
+
+    socket.on("open_dm_whiteboard", async (conversationId: string) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId) return;
+
+      try {
+        const conversation = await getConversationForUser(conversationId, userId);
+        if (!conversation) return;
+
+        const payload = {
+          conversationId,
+          roomId: `dm:${conversationId}`,
+          openedBy: userId,
+        };
+
+        await Promise.all(
+          conversation.participants
+            .map((participantId) => String(participantId))
+            .filter((participantId) => participantId !== userId)
+            .map((participantId) =>
+              broadcastToUser(participantId, "dm_whiteboard_opened", payload)
+            )
+        );
+      } catch (err) {
+        console.error("[socket open_dm_whiteboard]", err);
+      }
+    });
+
+    socket.on("close_dm_whiteboard", async (conversationId: string) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId) return;
+
+      try {
+        const conversation = await getConversationForUser(conversationId, userId);
+        if (!conversation) return;
+
+        const payload = {
+          conversationId,
+          roomId: `dm:${conversationId}`,
+          closedBy: userId,
+        };
+
+        await Promise.all(
+          conversation.participants
+            .map((participantId) => String(participantId))
+            .filter((participantId) => participantId !== userId)
+            .map((participantId) =>
+              broadcastToUser(participantId, "dm_whiteboard_closed", payload)
+            )
+        );
+      } catch (err) {
+        console.error("[socket close_dm_whiteboard]", err);
       }
     });
 
