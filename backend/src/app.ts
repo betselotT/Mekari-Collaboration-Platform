@@ -23,6 +23,7 @@ import { securityRouter } from "./routes/security";
 import { whiteboardRouter } from "./routes/whiteboards";
 import swaggerUi from "swagger-ui-express";
 import { createOpenApiSpec } from "./swagger";
+import { FRONTEND_ORIGINS } from "./config/origins";
 
 export const createApp = () => {
   const app = express();
@@ -33,8 +34,7 @@ export const createApp = () => {
     [
       process.env.FRONTEND_ORIGIN,
       ...(process.env.FRONTEND_ORIGINS || "").split(","),
-      "http://localhost:3000",
-      "http://127.0.0.1:3000",
+      ...FRONTEND_ORIGINS,
     ]
       .map((origin) => origin?.trim())
       .filter(Boolean)

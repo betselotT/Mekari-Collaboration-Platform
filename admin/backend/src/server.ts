@@ -11,6 +11,7 @@ import { adminRouter } from "./routes/admin";
 import { authRouter } from "./routes/auth";
 import { requireAdminKey } from "./middleware/adminAuth";
 import { errorHandler } from "./middleware/errorHandler";
+import { ADMIN_FRONTEND_ORIGINS } from "./config/origins";
 
 dotenv.config();
 dotenv.config({ path: path.resolve(__dirname, "../../../backend/.env") });
@@ -23,8 +24,7 @@ async function bootstrap() {
     [
       process.env.ADMIN_FRONTEND_ORIGIN,
       ...(process.env.ADMIN_FRONTEND_ORIGINS || "").split(","),
-      "http://localhost:3100",
-      "http://127.0.0.1:3100",
+      ...ADMIN_FRONTEND_ORIGINS,
     ]
       .map((origin) => origin?.trim())
       .filter(Boolean)

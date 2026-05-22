@@ -10,6 +10,7 @@ import { registerChatHandlers } from "./sockets/chat";
 import { initRealtime, startPresenceExpiryLoop } from "./services/realtime";
 import { syncClassDiagramCollections } from "./config/classDiagramCollections";
 import { maskMongoUri, resolveMongoUri } from "./config/database";
+import { FRONTEND_ORIGINS as DEFAULT_FRONTEND_ORIGINS } from "./config/origins";
 
 const PORT = process.env.PORT || 4000;
 const MONGO_URI = resolveMongoUri();
@@ -17,8 +18,7 @@ const REDIS_URL = process.env.REDIS_URL;
 const FRONTEND_ORIGINS = [
   process.env.FRONTEND_ORIGIN,
   ...(process.env.FRONTEND_ORIGINS || "").split(","),
-  "http://localhost:3000",
-  "http://127.0.0.1:3000",
+  ...DEFAULT_FRONTEND_ORIGINS,
 ]
   .map((origin) => origin?.trim())
   .filter(Boolean) as string[];
