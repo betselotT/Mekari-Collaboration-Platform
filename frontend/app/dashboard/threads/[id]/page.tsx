@@ -102,12 +102,18 @@ interface Thread {
   body?: string;
   tags: string[];
   status: string;
+  googleMeetLink?: string;
   aiResponse?: AIResponse;
   similarProblems?: SimilarProblem[];
   matchedExperts: Expert[];
   createdBy: Sender;
   isSolved: boolean;
   solutionMsgId?: string;
+}
+
+interface ThreadSessionResponse {
+  meetLink: string;
+  message?: ChatMessage;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -259,6 +265,7 @@ export default function ThreadDetailPage() {
   const [tagDraft, setTagDraft] = useState("");
   const [tagError, setTagError] = useState<string | null>(null);
   const [savingTags, setSavingTags] = useState(false);
+  const [sessionStarting, setSessionStarting] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -635,6 +642,31 @@ export default function ThreadDetailPage() {
   }
 
   // ── Start session ───────────────────────────────────────────────────────
+  async function startSession() {
+    if (!threadId || sessionStarting) return;
+
+    setSessionStarting(true);
+    setActionError(null);
+    try {
+      const res = await apiClient.post<ThreadSessionResponse>(`/api/threads/${threadId}/session`);
+      setThread((prev) => (prev ? { ...prev, googleMeetLink: res.data.meetLink } : prev));
+
+      if (res.data.message) {
+        setMessages((prev) => {
+          const messageId = getMessageId(res.data.message!);
+          if (messageId && prev.some((msg) => getMessageId(msg) === messageId)) return prev;
+          return [...prev, res.data.message!];
+        });
+      }
+
+      window.open(res.data.meetLink, "_blank", "noopener,noreferrer");
+    } catch (err: any) {
+      setActionError(err?.response?.data?.error?.message || "Failed to start the live session");
+    } finally {
+      setSessionStarting(false);
+    }
+  }
+
   function startTagEdit() {
     setTagDraft(thread?.tags.join(", ") || "");
     setTagError(null);
@@ -822,7 +854,7 @@ export default function ThreadDetailPage() {
               isLoading={sessionStarting}
             >
               <Video className="mr-1.5 h-4 w-4" />
-              Start Session
+              {/* Start Session */}
             </Button>
           )}
         </div>
