@@ -5,7 +5,8 @@
 "use client";
 
 import { Suspense, useMemo, useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { MessageSquare } from "lucide-react";
 import { DashboardLayout } from "../../../components/layout/DashboardLayout";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
@@ -46,6 +47,7 @@ export default function MatchPage() {
 }
 
 function MatchContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
@@ -75,6 +77,7 @@ function MatchContent() {
   >(["chat"]);
 
   const [loading, setLoading] = useState(false);
+  const [dmLoadingId, setDmLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<MatchRequestResponse | null>(null);
 
@@ -121,6 +124,23 @@ function MatchContent() {
       if (prev.includes(value)) return prev.filter((v) => v !== value);
       return [...prev, value];
     });
+  }
+
+  async function openDm(expertId: string) {
+    if (dmLoadingId) return;
+    setDmLoadingId(expertId);
+    setError(null);
+    try {
+      const res = await apiClient.post<{ conversation: { _id: string } }>(
+        "/api/dms/conversations",
+        { expertId }
+      );
+      router.push(`/dashboard/messages?conversation=${res.data.conversation._id}`);
+    } catch (e: any) {
+      setError(e?.response?.data?.error?.message || "Failed to start direct message");
+    } finally {
+      setDmLoadingId(null);
+    }
   }
 
   return (
@@ -274,13 +294,31 @@ function MatchContent() {
             <div className="space-y-4">
               {result.matchRequest.recommendations.map((rec) => (
                 <div
+                  role="button"
+                  tabIndex={0}
                   key={rec.expert._id}
-                  className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900"
+                  onClick={() => openDm(rec.expert._id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openDm(rec.expert._id);
+                    }
+                  }}
+                  aria-disabled={dmLoadingId !== null}
+                  className={`w-full cursor-pointer rounded-lg border border-neutral-200 bg-white p-4 text-left transition-colors hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:border-primary-700 dark:hover:bg-primary-950/20 ${
+                    dmLoadingId !== null ? "cursor-wait opacity-70" : ""
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="text-sm font-bold text-neutral-900 dark:text-white">
-                        {rec.expert.name}
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-bold text-neutral-900 underline-offset-4 hover:underline dark:text-white">
+                          {rec.expert.name}
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-full border border-primary-200 bg-primary-50 px-2 py-0.5 text-[11px] font-bold text-primary-700 dark:border-primary-900/50 dark:bg-primary-950/30 dark:text-primary-200">
+                          <MessageSquare className="h-3 w-3" />
+                          {dmLoadingId === rec.expert._id ? "Opening..." : "DM"}
+                        </span>
                       </div>
                       <div className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
                         Availability: {rec.expert.availabilityStatus} • Points: {rec.expert.points}

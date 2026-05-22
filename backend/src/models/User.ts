@@ -67,6 +67,10 @@ export type CertificateAchievement = {
 export interface IUser extends Document {
   name: string;
   email: string;
+  emailVerified: boolean;
+  emailVerifiedAt?: Date;
+  emailVerificationOtpHash?: string;
+  emailVerificationOtpExpiresAt?: Date;
   passwordHash?: string;
   googleId?: string;
   githubId?: string;
@@ -208,6 +212,10 @@ const UserSchema = new Schema<IUser>(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, index: true },
+    emailVerified: { type: Boolean, default: false },
+    emailVerifiedAt: { type: Date },
+    emailVerificationOtpHash: { type: String },
+    emailVerificationOtpExpiresAt: { type: Date },
     passwordHash: { type: String },
     googleId: { type: String, index: true },
     githubId: { type: String, index: true },

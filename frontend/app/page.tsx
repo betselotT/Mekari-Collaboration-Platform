@@ -38,7 +38,6 @@ export default function LandingPage() {
       const res = await apiClient.post("/api/auth/login", {
         email: landingEmail,
         password: landingPassword,
-        accountType: "learner",
       });
       localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
@@ -54,7 +53,6 @@ export default function LandingPage() {
     try {
       const res = await apiClient.post("/api/auth/google", {
         credential,
-        accountType: "learner",
       });
       localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
@@ -309,9 +307,9 @@ export default function LandingPage() {
               </p>
             )}
 
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
               <GoogleAuthButton onCredential={onGoogleSignIn} onError={setAuthError} />
-              <GithubAuthButton accountType="learner" mode="login" />
+              <GithubAuthButton mode="login" />
             </div>
           </form>
 

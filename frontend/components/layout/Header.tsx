@@ -238,7 +238,12 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search...", o
           <LogOut className="h-5 w-5" />
         </button>
 
-        <div className="ml-0 flex items-center gap-2 border-l border-neutral-200 pl-1 dark:border-neutral-700 sm:ml-2 sm:gap-3 sm:pl-4">
+        <Link
+          href="/dashboard/profile"
+          className="ml-0 flex items-center gap-2 rounded-lg border-l border-neutral-200 pl-1 transition-colors hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:border-neutral-700 dark:hover:bg-neutral-800 sm:ml-2 sm:gap-3 sm:pl-4"
+          aria-label="Open your profile"
+          title="Open your profile"
+        >
           <div className="hidden text-right sm:block">
             <p className="text-sm font-medium text-neutral-900 dark:text-white">{displayName}</p>
             <p className="text-xs text-neutral-600 dark:text-neutral-400">{displayRole}</p>
@@ -254,7 +259,7 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search...", o
               {initials}
             </div>
           )}
-        </div>
+        </Link>
       </div>
     </header>
   );
