@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { ThemeToggle } from "../components/theme/ThemeToggle";
 import { GoogleAuthButton } from "../components/auth/GoogleAuthButton";
 import { GithubAuthButton } from "../components/auth/GithubAuthButton";
@@ -19,11 +19,46 @@ import {
   Video,
 } from "lucide-react";
 
+type LandingPreview = {
+  threadTitle: string;
+  subject: string;
+  tags: string[];
+  helpers: Array<{
+    name: string;
+    expertise: string;
+    availabilityStatus: string;
+    points: number;
+  }>;
+  hasLiveSession: boolean;
+  connectionPreferences: string[];
+  stats: {
+    activeMatchRequests: number;
+    approvedExperts: number;
+    solutionPoints: number;
+  };
+};
+
 export default function LandingPage() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [landingEmail, setLandingEmail] = useState("");
   const [landingPassword, setLandingPassword] = useState("");
   const [landingLoading, setLandingLoading] = useState(false);
+  const [landingPreview, setLandingPreview] = useState<LandingPreview | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    apiClient
+      .get<{ preview: LandingPreview }>("/api/matching/public/landing-preview")
+      .then((res) => {
+        if (isMounted) setLandingPreview(res.data.preview);
+      })
+      .catch(() => {
+        if (isMounted) setLandingPreview(null);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   function getAuthErrorMessage(err: any, fallback: string) {
     return err.response?.data?.message || err.response?.data?.error?.message || fallback;
@@ -64,6 +99,29 @@ export default function LandingPage() {
       );
     }
   }
+
+  const heroStats = [
+    {
+      icon: MessageSquare,
+      value: landingPreview ? String(landingPreview.stats.activeMatchRequests) : "-",
+      label: "active match requests",
+    },
+    {
+      icon: Users,
+      value: landingPreview ? String(landingPreview.stats.approvedExperts) : "-",
+      label: "approved experts",
+    },
+    {
+      icon: Award,
+      value: landingPreview ? String(landingPreview.stats.solutionPoints) : "-",
+      label: "solution points",
+    },
+  ];
+  const connectionLabel = landingPreview?.hasLiveSession
+    ? "Live session link saved"
+    : landingPreview?.connectionPreferences.length
+      ? landingPreview.connectionPreferences.map(formatConnectionPreference).join(", ")
+      : "No live session yet";
 
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950">
@@ -161,26 +219,31 @@ export default function LandingPage() {
                       Active thread
                     </p>
                     <h3 className="mt-1 text-base font-bold text-neutral-950 dark:text-white">
-                      MongoDB query timing out
+                      {landingPreview?.threadTitle || "Loading project activity..."}
                     </h3>
                   </div>
-                  <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                    Mentor online
-                  </span>
+                  {landingPreview?.helpers[0]?.availabilityStatus && (
+                    <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                      Mentor {landingPreview.helpers[0].availabilityStatus}
+                    </span>
+                  )}
                 </div>
 
                 <div className="space-y-3">
                   <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
                     <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white">
                       <Search className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-                      AI tagged the issue
+                      Saved tags
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {["mongodb", "indexing", "node-api"].map((tag) => (
+                      {(landingPreview?.tags || []).map((tag) => (
                         <span key={tag} className="rounded bg-primary-50 px-2 py-1 text-xs font-semibold text-primary-700 dark:bg-primary-950 dark:text-primary-300">
                           {tag}
                         </span>
                       ))}
+                      {landingPreview && landingPreview.tags.length === 0 && (
+                        <span className="text-xs text-neutral-500 dark:text-neutral-400">No tags saved yet</span>
+                      )}
                     </div>
                   </div>
 
@@ -190,14 +253,19 @@ export default function LandingPage() {
                       Matched helpers
                     </div>
                     <div className="space-y-2">
-                      {["Ari - Database design", "Nia - Backend APIs"].map((mentor, index) => (
-                        <div key={mentor} className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2 dark:bg-neutral-800">
-                          <span className="text-sm text-neutral-700 dark:text-neutral-200">{mentor}</span>
+                      {(landingPreview?.helpers || []).map((mentor) => (
+                        <div key={mentor.name} className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2 dark:bg-neutral-800">
+                          <span className="text-sm text-neutral-700 dark:text-neutral-200">{mentor.name} - {mentor.expertise}</span>
                           <span className="text-xs font-bold text-primary-600 dark:text-primary-400">
-                            {index === 0 ? "96%" : "88%"}
+                            {mentor.points} pts
                           </span>
                         </div>
                       ))}
+                      {landingPreview && landingPreview.helpers.length === 0 && (
+                        <p className="rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+                          No matched helpers saved yet
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -205,16 +273,20 @@ export default function LandingPage() {
                     <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
                       <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white">
                         <Video className="h-4 w-4 text-sky-500" />
-                        Live session
+                        Connection
                       </div>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400">Ready for voice and whiteboard handoff.</p>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                        {connectionLabel}
+                      </p>
                     </div>
                     <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
                       <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white">
                         <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                        Knowledge saved
+                        Project subject
                       </div>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400">Solved answers become searchable examples.</p>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                        {landingPreview?.subject ? `Subject: ${landingPreview.subject}` : "No subject loaded"}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -355,21 +427,8 @@ const features = [
   },
 ];
 
-const heroStats = [
-  {
-    icon: MessageSquare,
-    value: "2s",
-    label: "real-time replies",
-  },
-  {
-    icon: Users,
-    value: "96%",
-    label: "mentor match",
-  },
-  {
-    icon: Award,
-    value: "+20",
-    label: "solution points",
-  },
-];
+function formatConnectionPreference(preference: string) {
+  return preference.replace(/_/g, " ");
+}
+
 

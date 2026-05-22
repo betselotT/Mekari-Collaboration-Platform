@@ -4,7 +4,7 @@ import { PointEvent, PointEventType } from "../models/PointEvent";
 import { Notification } from "../models/Notification";
 import { broadcastToUser } from "./realtime";
 
-const POINT_VALUES: Record<PointEventType, number> = {
+export const POINT_VALUES: Record<PointEventType, number> = {
   ANSWERED_QUESTION: 5,
   ANSWER_MARKED_SOLUTION: 20,
   RECEIVED_UPVOTE: 15,
