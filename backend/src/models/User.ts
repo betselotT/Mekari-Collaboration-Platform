@@ -42,28 +42,6 @@ export type PushToken = {
   lastUsedAt: Date;
 };
 
-export type BadgeAchievement = {
-  badge: string;
-  refId: mongoose.Types.ObjectId;
-  earnedAt: Date;
-};
-
-export type ExpertReview = {
-  by: mongoose.Types.ObjectId;
-  stars: number;
-  comment?: string;
-  createdAt: Date;
-};
-
-export type CertificateAchievement = {
-  certificateId: string;
-  title: string;
-  description: string;
-  milestone: string;
-  issuedAt: Date;
-  refId?: string;
-};
-
 export interface IUser extends Document {
   name: string;
   email: string;
@@ -90,11 +68,6 @@ export interface IUser extends Document {
   notificationPreferences: NotificationPreferences;
   pushTokens: PushToken[];
   points: number;
-  badges: string[];
-  badgeCounts: Map<string, number>;
-  badgeAchievements: BadgeAchievement[];
-  reviews?: ExpertReview[];
-  certificates: CertificateAchievement[];
   role: "user" | "admin" | "learner" | "expert" | "mod";
   createdAt: Date;
   updatedAt: Date;
@@ -168,46 +141,6 @@ const PushTokenSchema = new Schema<PushToken>(
   { _id: false }
 );
 
-const BadgeAchievementSchema = new Schema<BadgeAchievement>(
-  {
-    badge: { type: String, required: true },
-    refId: { type: Schema.Types.ObjectId, required: true },
-    earnedAt: { type: Date, default: Date.now },
-  },
-  { _id: false }
-);
-
-const ExpertReviewSchema = new Schema<ExpertReview>(
-  {
-    by: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    stars: {
-      type: Number,
-      required: true,
-      min: 1,
-      max: 5,
-      validate: {
-        validator: (value: number) => Number.isInteger(value * 2),
-        message: "Stars must use 0.5 increments.",
-      },
-    },
-    comment: { type: String, trim: true, maxlength: 1000 },
-    createdAt: { type: Date, default: Date.now },
-  },
-  { _id: true }
-);
-
-const CertificateAchievementSchema = new Schema<CertificateAchievement>(
-  {
-    certificateId: { type: String, required: true },
-    title: { type: String, required: true },
-    description: { type: String, required: true },
-    milestone: { type: String, required: true },
-    issuedAt: { type: Date, default: Date.now },
-    refId: { type: String },
-  },
-  { _id: false }
-);
-
 const UserSchema = new Schema<IUser>(
   {
     name: { type: String, required: true },
@@ -245,15 +178,6 @@ const UserSchema = new Schema<IUser>(
     },
     pushTokens: { type: [PushTokenSchema], default: [] },
     points: { type: Number, default: 0 },
-    badges: { type: [String], default: [] },
-    badgeCounts: {
-      type: Map,
-      of: Number,
-      default: () => ({}),
-    },
-    badgeAchievements: { type: [BadgeAchievementSchema], default: [] },
-    reviews: { type: [ExpertReviewSchema], default: undefined },
-    certificates: { type: [CertificateAchievementSchema], default: [] },
     role: {
       type: String,
       enum: ["user", "admin", "learner", "expert", "mod"],
@@ -262,8 +186,5 @@ const UserSchema = new Schema<IUser>(
   },
   { timestamps: true }
 );
-
-UserSchema.index({ _id: 1, "badgeAchievements.badge": 1, "badgeAchievements.refId": 1 });
-UserSchema.index({ _id: 1, "certificates.certificateId": 1 });
 
 export const User = mongoose.model<IUser>("User", UserSchema);

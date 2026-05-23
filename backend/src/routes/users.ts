@@ -1,9 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
+import { Types } from "mongoose";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { User } from "../models/User";
+import { ExpertReview } from "../models/ExpertReview";
 import { logAuditEvent } from "../services/auditLog";
-import { normalizeBadgeCounts } from "../services/awardPoints";
+import { withAchievementSummaries, withAchievementSummary } from "../services/awardPoints";
 import { notifyAdmins } from "../services/notifications";
 
 const router = Router();
@@ -89,15 +91,51 @@ function buildReviewStats(reviews: ReviewStatsInput = []) {
   return { expertRatingAverage, expertReviewCount };
 }
 
+type ReviewStats = ReturnType<typeof buildReviewStats>;
+
+type ReviewStatsAggregate = {
+  _id: unknown;
+  expertRatingAverage: number;
+  expertReviewCount: number;
+};
+
+function buildReviewStatsFromAggregate(
+  stats?: Pick<ReviewStatsAggregate, "expertRatingAverage" | "expertReviewCount">
+): ReviewStats {
+  if (!stats || stats.expertReviewCount === 0) {
+    return { expertRatingAverage: undefined, expertReviewCount: 0 };
+  }
+
+  return {
+    expertRatingAverage: Number(stats.expertRatingAverage.toFixed(1)),
+    expertReviewCount: stats.expertReviewCount,
+  };
+}
+
+async function getReviewStatsForExpert(expertId: string) {
+  const [stats] = await ExpertReview.aggregate<ReviewStatsAggregate>([
+    { $match: { expert: new Types.ObjectId(expertId) } },
+    {
+      $group: {
+        _id: "$expert",
+        expertRatingAverage: { $avg: "$rating" },
+        expertReviewCount: { $sum: 1 },
+      },
+    },
+  ]);
+
+  return buildReviewStatsFromAggregate(stats);
+}
+
 router.get("/me", requireAuth, async (req: AuthRequest, res, next) => {
   try {
-    const user = await User.findById(req.userId).select("-passwordHash -badgeAchievements").lean();
+    const user = await User.findById(req.userId).select("-passwordHash").lean();
     if (!user) return res.status(404).json({ error: { message: "User not found" } });
 
     // Calculate global rank (count users with more points + 1)
     const rank = await User.countDocuments({ points: { $gt: user.points || 0 } }) + 1;
 
-    res.json({ user: { ...user, badgeCounts: normalizeBadgeCounts(user), rank } });
+    res.json({ user: { ...(await withAchievementSummary(user)), rank } });
   } catch (err) {
     next(err);
   }
@@ -110,11 +148,9 @@ router.put("/me", requireAuth, async (req: AuthRequest, res, next) => {
       req.userId,
       { $set: parsed },
       { new: true }
-    ).select("-passwordHash -badgeAchievements");
+    ).select("-passwordHash");
     res.json({
-      user: user
-        ? { ...user.toObject(), badgeCounts: normalizeBadgeCounts(user) }
-        : user,
+      user: user ? await withAchievementSummary(user.toObject()) : user,
     });
   } catch (err) {
     next(err);
@@ -255,18 +291,33 @@ router.get("/experts", requireAuth, async (_req: AuthRequest, res, next) => {
       role: "expert",
       "expertVerification.status": "approved",
     })
-      .select("name avatarUrl bio expertise skillTags availabilityStatus points badges role expertVerification reviews")
+      .select("name avatarUrl bio expertise skillTags availabilityStatus points role expertVerification")
       .sort({ points: -1 })
       .lean();
 
+    const expertIds = experts.map((expert) => expert._id);
+    const reviewStats = await ExpertReview.aggregate<ReviewStatsAggregate>([
+      { $match: { expert: { $in: expertIds } } },
+      {
+        $group: {
+          _id: "$expert",
+          expertRatingAverage: { $avg: "$rating" },
+          expertReviewCount: { $sum: 1 },
+        },
+      },
+    ]);
+    const statsByExpertId = new Map(
+      reviewStats.map((stats) => [
+        String(stats._id),
+        buildReviewStatsFromAggregate(stats),
+      ])
+    );
+
     res.json({
-      experts: experts.map((expert) => {
-        const { reviews = [], ...safeExpert } = expert;
-        return {
-          ...safeExpert,
-          ...buildReviewStats(reviews),
-        };
-      }),
+      experts: (await withAchievementSummaries(experts)).map((expert) => ({
+        ...expert,
+        ...(statsByExpertId.get(String(expert._id)) || buildReviewStatsFromAggregate()),
+      })),
     });
   } catch (err) {
     next(err);
@@ -326,28 +377,20 @@ router.post("/:expertId/reviews", requireAuth, async (req: AuthRequest, res, nex
       return res.status(400).json({ error: { message: "Experts cannot review themselves." } });
     }
 
-    const expert = await User.findOneAndUpdate(
-      { _id: req.params.expertId, role: "expert" },
-      {
-        $push: {
-          reviews: {
-            by: req.userId,
-            stars: parsed.stars,
-            comment: parsed.comment,
-            createdAt: new Date(),
-          },
-        },
-      },
-      { new: true, runValidators: true }
-    ).select("reviews");
+    const expert = await User.findOne({ _id: req.params.expertId, role: "expert" }).select("_id");
 
     if (!expert) {
       return res.status(404).json({ error: { message: "Expert not found." } });
     }
 
-    res.status(201).json({
-      ...buildReviewStats(expert.reviews || []),
+    await ExpertReview.create({
+      expert: expert._id,
+      reviewer: req.userId,
+      rating: parsed.stars,
+      comment: parsed.comment,
     });
+
+    res.status(201).json(await getReviewStatsForExpert(req.params.expertId));
   } catch (err) {
     next(err);
   }
@@ -356,19 +399,29 @@ router.post("/:expertId/reviews", requireAuth, async (req: AuthRequest, res, nex
 router.get("/:expertId/reviews", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const expert = await User.findOne({ _id: req.params.expertId, role: "expert" })
-      .select("reviews")
-      .populate("reviews.by", "name avatarUrl")
+      .select("_id")
       .lean();
 
     if (!expert) {
       return res.status(404).json({ error: { message: "Expert not found." } });
     }
 
-    const reviews = expert.reviews || [];
+    const reviews = await ExpertReview.find({ expert: req.params.expertId })
+      .select("reviewer rating comment createdAt")
+      .populate("reviewer", "name avatarUrl")
+      .sort({ createdAt: -1 })
+      .lean();
+    const serializedReviews = reviews.map((review) => ({
+      _id: review._id,
+      by: review.reviewer,
+      stars: review.rating,
+      comment: review.comment,
+      createdAt: review.createdAt,
+    }));
 
     res.json({
-      reviews,
-      ...buildReviewStats(reviews),
+      reviews: serializedReviews,
+      ...buildReviewStats(serializedReviews),
     });
   } catch (err) {
     next(err);
@@ -379,15 +432,19 @@ router.get("/:expertId/reviews", requireAuth, async (req: AuthRequest, res, next
 router.get("/:id", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const user = await User.findById(req.params.id)
-      .select("name avatarUrl role bio primaryTechnicalField roleOrStatus yearsOfExperience expertise skillTags availabilityStatus points badges reviews")
+      .select("name avatarUrl role bio primaryTechnicalField roleOrStatus yearsOfExperience expertise skillTags availabilityStatus points")
       .lean();
     if (!user) return res.status(404).json({ error: { message: "User not found" } });
 
-    const { reviews = [], ...safeUser } = user;
+    const reviewStats =
+      user.role === "expert"
+        ? await getReviewStatsForExpert(req.params.id)
+        : buildReviewStatsFromAggregate();
+
     res.json({
       user: {
-        ...safeUser,
-        ...buildReviewStats(reviews),
+        ...(await withAchievementSummary(user)),
+        ...reviewStats,
       },
     });
   } catch (err) {

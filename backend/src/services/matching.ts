@@ -390,7 +390,7 @@ export async function recommendExperts(params: {
         ],
       },
     ],
-  }).select("name avatarUrl expertise skillTags availabilityStatus points badges primaryTechnicalField bio");
+  }).select("name avatarUrl expertise skillTags availabilityStatus points primaryTechnicalField bio");
 
   const scored = candidates
     .filter((c) => allowedByAvailabilityPreference(c.availabilityStatus, availabilityPreference))
