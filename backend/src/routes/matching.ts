@@ -7,6 +7,7 @@ import { MatchRequest } from "../models/MatchRequest";
 import { User } from "../models/User";
 import { POINT_VALUES } from "../services/awardPoints";
 import { recommendExperts } from "../services/matching";
+import { generateContentTags } from "../services/tagExtraction";
 
 const router = Router();
 
@@ -161,10 +162,18 @@ router.get("/public/landing-preview", async (_req, res, next) => {
 router.post("/request", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const parsed = createMatchRequestSchema.parse(req.body);
+    const tags = await generateContentTags({
+      title: parsed.title,
+      subject: parsed.subject,
+      body: parsed.initialMessage,
+      existingTags: parsed.tags,
+    });
 
     const thread = await Thread.create({
       title: parsed.title,
       subject: parsed.subject,
+      body: parsed.initialMessage,
+      tags,
       createdBy: req.userId,
       participants: [req.userId],
     });
@@ -174,13 +183,14 @@ router.post("/request", requireAuth, async (req: AuthRequest, res, next) => {
       sender: req.userId,
       body: parsed.initialMessage,
       readBy: [{ user: req.userId, readAt: new Date() }],
+      isPinned: true,
       isFromAi: false,
     });
 
     const recommendations = await recommendExperts({
       requesterId: req.userId,
       subject: parsed.subject,
-      tags: parsed.tags,
+      tags,
       title: parsed.title,
       body: parsed.initialMessage,
       availabilityPreference: parsed.availabilityPreference,
@@ -191,7 +201,7 @@ router.post("/request", requireAuth, async (req: AuthRequest, res, next) => {
       requester: req.userId,
       thread: thread.id,
       subject: parsed.subject,
-      tags: parsed.tags,
+      tags,
       availabilityPreference: parsed.availabilityPreference,
       questionnaire: parsed.questionnaire,
       status: recommendations.length > 0 ? "matched" : "open",

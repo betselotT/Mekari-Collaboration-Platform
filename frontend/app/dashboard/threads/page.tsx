@@ -23,6 +23,7 @@ function ThreadsContent() {
   const selectedSubject = searchParams?.get("subject") || "";
   const selectedSubjectSlug = searchParams?.get("subjectSlug") || "";
   const [threads, setThreads] = useState<any[]>([]);
+  const [selectedThreadStatus, setSelectedThreadStatus] = useState("all");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [latestMatch, setLatestMatch] = useState<any | null>(null);
@@ -53,6 +54,22 @@ function ThreadsContent() {
   const canCreate = useMemo(
     () => title.trim().length >= 5 && subject.trim().length >= 1 && initialMessage.trim().length >= 1,
     [title, subject, initialMessage]
+  );
+  const statusChoices = [
+    { value: "all", label: "All" },
+    { value: "OPEN", label: "Open" },
+    { value: "PENDING_EXPERT", label: "Needs Expert" },
+    { value: "AI_RESOLVED", label: "AI Resolved" },
+    { value: "SOLVED", label: "Solved" },
+  ];
+  const visibleThreads = useMemo(
+    () =>
+      threads.filter((thread) => {
+        const statusMatches =
+          selectedThreadStatus === "all" || thread.status === selectedThreadStatus;
+        return statusMatches;
+      }),
+    [threads, selectedThreadStatus]
   );
 
   async function loadThreads() {
@@ -129,6 +146,33 @@ function ThreadsContent() {
           New Thread
         </Button>
       </div>
+
+      {threads.length > 0 && (
+        <div className="mb-6">
+          <div className="overflow-x-auto pb-1">
+            <div className="flex min-w-max gap-2">
+              {statusChoices.map((choice) => (
+                <button
+                  key={choice.value}
+                  type="button"
+                  onClick={() =>
+                    setSelectedThreadStatus((current) =>
+                      current === choice.value ? "all" : choice.value
+                    )
+                  }
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    selectedThreadStatus === choice.value
+                      ? "border-purple-600 bg-purple-600 text-white"
+                      : "border-neutral-300 bg-white text-neutral-700 hover:border-purple-300 hover:text-purple-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:border-purple-700 dark:hover:text-purple-200"
+                  }`}
+                >
+                  {choice.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200">
@@ -255,8 +299,12 @@ function ThreadsContent() {
           <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-400">
             No threads yet. Create one to get started.
           </div>
+        ) : visibleThreads.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-400">
+            No threads match the selected filters.
+          </div>
         ) : (
-          threads.map((t) => (
+          visibleThreads.map((t) => (
             <ThreadCard
               key={t._id || t.id}
               title={t.title}

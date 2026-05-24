@@ -31,6 +31,7 @@ import {
   Paperclip,
   Smile,
   MessageSquare,
+  Pin,
   } from "lucide-react";
 import type { Socket } from "socket.io-client";
 
@@ -51,6 +52,7 @@ interface ChatMessage {
   isFromAi: boolean;
   createdAt: string;
   upvotes?: string[];
+  isPinned?: boolean;
   parentMessageId?: string;
   readBy?: Array<{
     user: string | Sender;
@@ -258,14 +260,17 @@ export default function ThreadDetailPage() {
   const [deleteTarget, setDeleteTarget] = useState<ChatMessage | null>(null);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [upvotingMessageId, setUpvotingMessageId] = useState<string | null>(null);
+  const [pinningMessageId, setPinningMessageId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isEditingTags, setIsEditingTags] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
   const [tagError, setTagError] = useState<string | null>(null);
   const [savingTags, setSavingTags] = useState(false);
   const [dmLoadingId, setDmLoadingId] = useState<string | null>(null);
+  const [pinClock, setPinClock] = useState(() => Date.now());
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const pinnedMessageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -428,6 +433,15 @@ export default function ThreadDetailPage() {
         }
       );
 
+      socket.on("message_pinned", (data: { threadId: string; messageId: string }) => {
+        if (data.threadId !== threadId) return;
+        setMessages((prev) =>
+          prev.map((msg) =>
+            getMessageId(msg) === data.messageId ? { ...msg, isPinned: true } : msg
+          )
+        );
+      });
+
       socket.on(
         "thread_messages_read",
         (data: { threadId: string; userId: string; messageIds: string[]; readAt: string }) => {
@@ -475,6 +489,7 @@ export default function ThreadDetailPage() {
         socket.off("thread_tags_updated");
         socket.off("message_deleted");
         socket.off("message_upvoted");
+        socket.off("message_pinned");
         socket.off("thread_messages_read");
         socket.off("user_typing");
         socket.off("user_stopped_typing");
@@ -486,6 +501,11 @@ export default function ThreadDetailPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setPinClock(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // ── Typing indicator ────────────────────────────────────────────────────
   const latestOwnReadMessageId = useMemo(() => {
@@ -702,6 +722,24 @@ export default function ThreadDetailPage() {
     }
   }
 
+  async function pinSolutionMessage(msgId: string) {
+    if (!msgId || pinningMessageId) return;
+    setActionError(null);
+    setPinningMessageId(msgId);
+    try {
+      const res = await apiClient.patch<{ message: ChatMessage }>(
+        `/api/threads/${threadId}/messages/${msgId}/pin`
+      );
+      setMessages((prev) =>
+        prev.map((msg) => (getMessageId(msg) === msgId ? { ...msg, ...res.data.message, isPinned: true } : msg))
+      );
+    } catch (err: any) {
+      setActionError(err?.response?.data?.error?.message || "Failed to pin solution");
+    } finally {
+      setPinningMessageId(null);
+    }
+  }
+
   async function confirmDeleteMessage() {
     const msgId = deleteTarget ? getMessageId(deleteTarget) : "";
     if (!msgId || deletingMessageId) return;
@@ -761,6 +799,29 @@ export default function ThreadDetailPage() {
   const hasExperts = thread.matchedExperts && thread.matchedExperts.length > 0;
   const similarProblems = thread.similarProblems || [];
   const hasSimilarProblems = similarProblems.length > 0;
+  const initialPinnedMessage = messages.find((msg) => msg.type !== "SYSTEM_EVENT");
+  const explicitPinnedMessages = messages.filter((msg) => msg.isPinned && msg.type !== "SYSTEM_EVENT");
+  const pinnedMessages = [
+    ...new Map(
+      [initialPinnedMessage, ...explicitPinnedMessages]
+        .filter((msg): msg is ChatMessage => Boolean(msg))
+        .map((msg) => [getMessageId(msg), msg])
+    ).values(),
+  ];
+  const pinnedMessageIds = new Set(pinnedMessages.map(getMessageId));
+  const chatMessages = messages;
+  const pinnedSolutionMessage = pinnedMessages.find((msg) => getMessageId(msg) === thread.solutionMsgId);
+  const activePinnedMessage =
+    pinnedSolutionMessage && Math.floor(pinClock / 60_000) % 2 === 1
+      ? pinnedSolutionMessage
+      : initialPinnedMessage || pinnedSolutionMessage || pinnedMessages[0];
+
+  function scrollToPinnedMessage(message?: ChatMessage) {
+    const target = message || activePinnedMessage;
+    if (!target) return;
+    const id = getMessageId(target);
+    pinnedMessageRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 
   return (
     <DashboardLayout title={thread.title} searchPlaceholder="Search threads...">
@@ -835,18 +896,47 @@ export default function ThreadDetailPage() {
           </div>
         )}
         <h1 className="break-words text-xl font-bold text-neutral-900 dark:text-white sm:text-2xl">{thread.title}</h1>
-        {thread.body && (
-          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">{thread.body}</p>
-        )}
       </div>
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         {/* ── Chat area (2/3) ─────────────────────────────────────────── */}
         <div className="flex min-w-0 flex-col gap-4">
+          {pinnedMessages.length > 0 && (
+            <div className="sticky top-2 z-10 rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 shadow-sm dark:border-purple-900/50 dark:bg-purple-950">
+              <div className="flex items-start gap-3">
+                <Pin className="mt-0.5 h-4 w-4 shrink-0 text-purple-700 dark:text-purple-300" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap gap-2">
+                    {initialPinnedMessage && (
+                      <button
+                        type="button"
+                        onClick={() => scrollToPinnedMessage(initialPinnedMessage)}
+                        className="rounded-md border border-purple-200 bg-white px-2.5 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-200 dark:hover:bg-purple-900/50"
+                      >
+                        Initial question
+                      </button>
+                    )}
+                    {pinnedSolutionMessage && (
+                      <button
+                        type="button"
+                        onClick={() => scrollToPinnedMessage(pinnedSolutionMessage)}
+                        className="rounded-md border border-purple-200 bg-white px-2.5 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-200 dark:hover:bg-purple-900/50"
+                      >
+                        Pinned solution
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Messages */}
           <div className="flex min-h-[360px] max-h-[62dvh] flex-col gap-3 overflow-y-auto overflow-x-hidden rounded-xl border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-800/50 sm:min-h-[400px] sm:p-4">
-            {messages.map((msg) => {
+            {chatMessages.map((msg) => {
               const msgId = getMessageId(msg);
+              const isPinnedMessage = pinnedMessageIds.has(msgId);
+              const pinnedLabel = msgId === thread.solutionMsgId ? "Pinned solution" : "Pinned initial message";
               const isMe = user && (typeof msg.sender === "object"
                 ? msg.sender._id === user._id
                 : msg.sender === user._id);
@@ -874,6 +964,9 @@ export default function ThreadDetailPage() {
               return (
                 <div
                   key={msgId}
+                  ref={(node) => {
+                    if (isPinnedMessage) pinnedMessageRefs.current[msgId] = node;
+                  }}
                   className={`flex min-w-0 gap-2 sm:gap-3 ${isMe ? "flex-row-reverse" : ""}`}
                 >
                   {isAiMsg ? (
@@ -924,13 +1017,20 @@ export default function ThreadDetailPage() {
   </div>
 )}
     <MessageContent message={msg} />
-    {isSolutionMessage && (
-      <div className="mt-3 flex items-center gap-1.5 border-t border-emerald-200 pt-2 text-xs font-semibold text-emerald-700 dark:border-emerald-500/30 dark:text-emerald-300">
-        <CheckCircle className="h-3.5 w-3.5" />
-        This message was marked as the answer
+    {isPinnedMessage && (
+      <div className="mt-3 flex items-center gap-1.5 rounded-md border border-purple-200 bg-purple-50 px-2 py-1.5 text-xs font-semibold text-purple-800 dark:border-purple-500/30 dark:bg-purple-950/60 dark:text-purple-200">
+        <Pin className="h-3.5 w-3.5" />
+        {pinnedLabel}
       </div>
     )}
   </div>
+
+  {isSolutionMessage && (
+    <div className={`mt-1 flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 ${isMe ? "justify-end" : "justify-start"}`}>
+      <CheckCircle className="h-3.5 w-3.5" />
+      This message was marked as the answer
+    </div>
+  )}
 
   {isMe && msgId === latestOwnReadMessageId && (
     <div className="mt-1 flex items-center justify-end gap-1 text-[11px] font-medium text-primary-600 dark:text-primary-300">
@@ -969,7 +1069,7 @@ export default function ThreadDetailPage() {
       </button>
 
    
-      {canDelete && !isSolutionMessage && (
+      {canDelete && !isSolutionMessage && !isPinnedMessage && (
         <button
           type="button"
           onClick={() => setDeleteTarget(msg)}
@@ -994,6 +1094,16 @@ export default function ThreadDetailPage() {
                       >
                         <CheckCircle className="h-3.5 w-3.5" />
                         Mark as solution
+                      </button>
+                    )}
+                    {isAuthor && isSolutionMessage && !isMe && !isPinnedMessage && (
+                      <button
+                        onClick={() => pinSolutionMessage(msgId)}
+                        disabled={pinningMessageId === msgId}
+                        className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-700 disabled:cursor-wait disabled:opacity-60 dark:text-purple-300 dark:hover:text-purple-200"
+                      >
+                        <Pin className="h-3.5 w-3.5" />
+                        {pinningMessageId === msgId ? "Pinning..." : "Pin answer"}
                       </button>
                     )}
                   </div>
