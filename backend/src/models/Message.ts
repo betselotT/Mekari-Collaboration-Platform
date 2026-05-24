@@ -15,6 +15,7 @@ export interface IMessage extends Document {
     readAt: Date;
   }>;
   upvotes: Types.ObjectId[];
+  isPinned: boolean;
   isFromAi: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -41,6 +42,7 @@ const MessageSchema = new Schema<IMessage>(
       },
     ],
     upvotes: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    isPinned: { type: Boolean, default: false, index: true },
     isFromAi: { type: Boolean, default: false },
   },
   { timestamps: true }

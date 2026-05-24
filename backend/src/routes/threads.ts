@@ -361,26 +361,27 @@ router.get("/", requireAuth, async (req: AuthRequest, res, next) => {
         { $match: { thread: { $in: threadIds } } },
         { $group: { _id: "$thread", count: { $sum: 1 } } },
       ]),
-      Message.find({ thread: { $in: threadIds } })
-        .sort({ createdAt: -1 })
-        .select("thread body createdAt")
+      Message.find({ thread: { $in: threadIds }, type: { $ne: "SYSTEM_EVENT" } })
+        .sort({ createdAt: 1 })
+        .select("thread body createdAt isPinned")
         .lean(),
     ]);
 
     const countMap = new Map<string, number>(
       counts.map((c) => [String(c._id), c.count as number])
     );
-    const previewMap = new Map<string, string>();
+    const previewMap = new Map<string, { body: string; isPinned: boolean }>();
     for (const m of previews) {
       const key = String(m.thread);
-      if (!previewMap.has(key)) previewMap.set(key, String(m.body || "").slice(0, 160));
+      const preview = { body: String(m.body || "").slice(0, 160), isPinned: Boolean(m.isPinned) };
+      if (!previewMap.has(key) || preview.isPinned) previewMap.set(key, preview);
     }
 
     res.json({
       threads: threads.map((t) => ({
         ...t.toObject(),
         messageCount: countMap.get(String(t._id)) || 0,
-        preview: previewMap.get(String(t._id)) || "",
+        preview: previewMap.get(String(t._id))?.body || "",
       })),
       total,
       page,
@@ -562,6 +563,7 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
       body: parsed.initialMessage,
       type: "TEXT",
       readBy: [{ user: req.userId, readAt: new Date() }],
+      isPinned: true,
       isFromAi: false,
     });
 
@@ -710,6 +712,42 @@ router.post("/:threadId/messages/:messageId/upvote", requireAuth, async (req: Au
 });
 
 // PATCH /:threadId/solve — mark solved, capture knowledge (CRITICAL BEHAVIOR #5)
+router.patch("/:threadId/messages/:messageId/pin", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const { threadId, messageId } = req.params;
+
+    const thread = await Thread.findById(threadId).select("createdBy solutionMsgId");
+    if (!thread) return res.status(404).json({ error: { message: "Thread not found" } });
+
+    if (String(thread.createdBy) !== String(req.userId)) {
+      return res.status(403).json({ error: { message: "Only the thread author can pin the solution" } });
+    }
+
+    if (!thread.solutionMsgId || String(thread.solutionMsgId) !== String(messageId)) {
+      return res.status(409).json({ error: { message: "Only the marked solution can be pinned" } });
+    }
+
+    const message = await Message.findOneAndUpdate(
+      { _id: messageId, thread: threadId, sender: { $ne: req.userId }, isFromAi: false },
+      { $set: { isPinned: true } },
+      { new: true }
+    ).populate("sender", "name avatarUrl");
+
+    if (!message) {
+      return res.status(404).json({ error: { message: "Solution message not found" } });
+    }
+
+    await broadcastToRoom(roomName("thread", threadId), "message_pinned", {
+      threadId,
+      messageId,
+    });
+
+    res.json({ message });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.patch("/:threadId/solve", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const { threadId } = req.params;
@@ -853,6 +891,12 @@ router.delete("/:threadId/messages/:messageId", requireAuth, async (req: AuthReq
     if (thread.solutionMsgId && String(thread.solutionMsgId) === String(message._id)) {
       return res.status(409).json({
         error: { message: "Cannot delete the message marked as the solution" },
+      });
+    }
+
+    if (message.isPinned) {
+      return res.status(409).json({
+        error: { message: "Cannot delete the pinned initial message" },
       });
     }
 

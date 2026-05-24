@@ -12,6 +12,51 @@ import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { apiClient } from "../../../lib/api";
 
+const SUBJECT_OPTIONS = [
+  "Software Engineering",
+  "Databases",
+  "Frontend Development",
+  "Backend Development",
+  "DevOps",
+  "Artificial Intelligence",
+  "Data Structures and Algorithms",
+  "Electrical Engineering",
+  "Mechanical Engineering",
+  "Electromechanical Engineering",
+];
+
+const TECHNICAL_FIELD_OPTIONS = [
+  "Software Engineering",
+  "Computer Science",
+  "Information Systems",
+  "Data Science",
+  "Artificial Intelligence",
+  "Electrical Engineering",
+  "Mechanical Engineering",
+  "Electromechanical Engineering",
+  "Cybersecurity",
+  "DevOps",
+];
+
+const ROLE_OPTIONS = [
+  "Student",
+  "Junior Developer",
+  "Mid-level Developer",
+  "Senior Developer",
+  "Researcher",
+  "Instructor",
+  "Engineer",
+  "Hobbyist",
+];
+
+const EXPERIENCE_OPTIONS = [
+  "Less than 1 year",
+  "1-3 years",
+  "3-5 years",
+  "5-10 years",
+  "10+ years",
+];
+
 type MatchRequestResponse = {
   thread: { _id?: string; id?: string; title: string; subject: string };
   matchRequest: {
@@ -89,6 +134,7 @@ function MatchContent() {
         .filter(Boolean),
     [tags]
   );
+
 // Submits the expert matching request to the backend service.
 // Handles loading state, error management,
 // and stores recommendation results for display
@@ -167,7 +213,13 @@ function MatchContent() {
               placeholder="e.g., Databases"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
+              list="match-subject-options"
             />
+            <datalist id="match-subject-options">
+              {SUBJECT_OPTIONS.map((option) => (
+                <option key={option} value={option} />
+              ))}
+            </datalist>
 
             <Input
               label="Topic tags (comma-separated)"
@@ -194,13 +246,25 @@ function MatchContent() {
                 placeholder="e.g., Software Engineering"
                 value={primaryTechnicalField}
                 onChange={(e) => setPrimaryTechnicalField(e.target.value)}
+                list="match-technical-field-options"
               />
+              <datalist id="match-technical-field-options">
+                {TECHNICAL_FIELD_OPTIONS.map((option) => (
+                  <option key={option} value={option} />
+                ))}
+              </datalist>
               <Input
                 label="Role/status"
                 placeholder="e.g., Student"
                 value={roleOrStatus}
                 onChange={(e) => setRoleOrStatus(e.target.value)}
+                list="match-role-options"
               />
+              <datalist id="match-role-options">
+                {ROLE_OPTIONS.map((option) => (
+                  <option key={option} value={option} />
+                ))}
+              </datalist>
             </div>
 
             <Input
@@ -208,7 +272,13 @@ function MatchContent() {
               placeholder="e.g., 1–3 years"
               value={yearsOfExperience}
               onChange={(e) => setYearsOfExperience(e.target.value)}
+              list="match-experience-options"
             />
+            <datalist id="match-experience-options">
+              {EXPERIENCE_OPTIONS.map((option) => (
+                <option key={option} value={option} />
+              ))}
+            </datalist>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div>

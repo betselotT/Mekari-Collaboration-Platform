@@ -40,6 +40,7 @@ export async function createThreadMessage(input: ThreadMessageInput) {
     attachmentUrl: input.attachmentUrl,
     parentMessageId: input.parentMessageId || undefined,
     readBy: [{ user: input.userId, readAt: new Date() }],
+    isPinned: false,
     isFromAi: false,
   });
 
@@ -79,6 +80,7 @@ export async function createThreadMessage(input: ThreadMessageInput) {
     parentMessageId: message.parentMessageId,
     readBy: message.readBy,
     upvotes: [],
+    isPinned: message.isPinned,
     isFromAi: false,
     createdAt: message.createdAt,
   };
