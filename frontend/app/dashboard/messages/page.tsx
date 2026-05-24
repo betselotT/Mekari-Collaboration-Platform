@@ -72,6 +72,7 @@ interface DmMessage {
     user: string | DmUser;
     readAt: string;
   }>;
+  editedAt?: string;
   createdAt: string;
 }
 
@@ -429,6 +430,9 @@ function MessagesContent() {
   const [endingSession, setEndingSession] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<DmMessage | null>(null);
+  const [editingMessage, setEditingMessage] = useState<DmMessage | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [savingEditId, setSavingEditId] = useState<string | null>(null);
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DmMessage | null>(null);
   const [showEndSessionDialog, setShowEndSessionDialog] = useState(false);
@@ -518,6 +522,7 @@ function MessagesContent() {
       conversationId?: string;
       message?: DmMessage;
       deletedMessageId?: string;
+      editedMessage?: DmMessage;
       session?: DmSession | null;
     }) => {
       if (data?.conversationId && "session" in data) {
@@ -535,11 +540,24 @@ function MessagesContent() {
       if (data?.conversationId === activeIdRef.current && data.deletedMessageId) {
         setMessages((prev) => prev.filter((message) => getId(message) !== data.deletedMessageId));
       }
+      if (data?.conversationId === activeIdRef.current && data.editedMessage) {
+        setMessages((prev) =>
+          prev.map((message) =>
+            getId(message) === getId(data.editedMessage!) ? { ...message, ...data.editedMessage! } : message
+          )
+        );
+      }
       loadConversations();
     };
     const handleDeleted = (data: { conversationId: string; messageId: string }) => {
       if (data.conversationId !== activeIdRef.current) return;
       setMessages((prev) => prev.filter((message) => getId(message) !== data.messageId));
+    };
+    const handleEdited = (data: { conversationId: string; message: DmMessage }) => {
+      if (data.conversationId !== activeIdRef.current) return;
+      setMessages((prev) =>
+        prev.map((message) => (getId(message) === getId(data.message) ? { ...message, ...data.message } : message))
+      );
     };
     const handleTyping = (data: { conversationId: string; userId: string; userName?: string }) => {
       const senderId = normalizeId(data.userId);
@@ -616,6 +634,7 @@ function MessagesContent() {
       socket.on("new_dm_message", handleNewMessage);
       socket.on("dm_conversation_updated", handleConversationUpdated);
       socket.on("dm_message_deleted", handleDeleted);
+      socket.on("dm_message_edited", handleEdited);
       socket.on("dm_user_typing", handleTyping);
       socket.on("dm_user_stopped_typing", handleStoppedTyping);
       socket.on("dm_session_updated", handleSessionUpdated);
@@ -627,6 +646,7 @@ function MessagesContent() {
         socket.off("new_dm_message", handleNewMessage);
         socket.off("dm_conversation_updated", handleConversationUpdated);
         socket.off("dm_message_deleted", handleDeleted);
+        socket.off("dm_message_edited", handleEdited);
         socket.off("dm_user_typing", handleTyping);
         socket.off("dm_user_stopped_typing", handleStoppedTyping);
         socket.off("dm_session_updated", handleSessionUpdated);
@@ -726,6 +746,39 @@ function MessagesContent() {
     if (message.type === "SYSTEM_EVENT") return;
     setReplyTo(message);
     requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
+  function startEdit(message: DmMessage) {
+    if (message.type === "SYSTEM_EVENT" || message.type === "IMAGE" || message.type === "FILE") return;
+    setEditingMessage(message);
+    setEditDraft(message.body);
+    setError(null);
+  }
+
+  async function saveMessageEdit() {
+    const messageId = editingMessage ? getId(editingMessage) : "";
+    const body = editDraft.trim();
+    if (!activeId || !messageId || !body || savingEditId) return;
+
+    setSavingEditId(messageId);
+    setError(null);
+    try {
+      const res = await apiClient.patch<{ message: DmMessage }>(
+        `/api/dms/conversations/${activeId}/messages/${messageId}`,
+        { body }
+      );
+      setMessages((prev) =>
+        prev.map((message) =>
+          getId(message) === messageId ? { ...message, ...res.data.message } : message
+        )
+      );
+      setEditingMessage(null);
+      setEditDraft("");
+    } catch (e: any) {
+      setError(e?.response?.data?.error?.message || "Failed to edit message");
+    } finally {
+      setSavingEditId(null);
+    }
   }
 
   function handleDraftChange(value: string) {
@@ -1153,6 +1206,8 @@ function MessagesContent() {
                     const parent = getParentMessage(message.parentMessageId);
                     const isLatestSeenOwnMessage =
                       isMine && messageId === latestOwnReadMessageId;
+                    const isEditingThisMessage = editingMessage ? getId(editingMessage) === messageId : false;
+                    const canEdit = isMine && (message.type === "TEXT" || message.type === "CODE");
                     if (isSystemEvent) {
                       return (
                         <div key={messageId} className="flex justify-center">
@@ -1199,7 +1254,42 @@ function MessagesContent() {
                                   </p>
                                 </div>
                               )}
-                              <MessageContent message={message} />
+                              {isEditingThisMessage ? (
+                                <div className="space-y-2">
+                                  <textarea
+                                    value={editDraft}
+                                    onChange={(event) => setEditDraft(event.target.value)}
+                                    rows={message.type === "CODE" ? 5 : 3}
+                                    className="w-full min-w-[240px] resize-none rounded-lg border border-primary-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-primary-500 dark:border-primary-700 dark:bg-neutral-950 dark:text-neutral-100"
+                                  />
+                                  <div className="flex justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingMessage(null);
+                                        setEditDraft("");
+                                      }}
+                                      disabled={savingEditId === messageId}
+                                      className="rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={saveMessageEdit}
+                                      disabled={!editDraft.trim() || savingEditId === messageId}
+                                      className="rounded-md bg-primary-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      {savingEditId === messageId ? "Saving..." : "Save"}
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <MessageContent message={message} />
+                              )}
+                              {message.editedAt && !isEditingThisMessage && (
+                                <div className="mt-1 text-[11px] font-medium opacity-70">edited</div>
+                              )}
                             </div>
                             {isLatestSeenOwnMessage && (
                               <div className="mt-1 flex items-center justify-end gap-1 text-[11px] font-medium text-primary-600 dark:text-primary-300">
@@ -1217,6 +1307,16 @@ function MessagesContent() {
                                 <Reply className="h-3 w-3" />
                                 Reply
                               </button>
+                              {canEdit && !isEditingThisMessage && (
+                                <button
+                                  type="button"
+                                  onClick={() => startEdit(message)}
+                                  className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-primary-500 hover:underline"
+                                >
+                                  <PenLine className="h-3 w-3" />
+                                  Edit
+                                </button>
+                              )}
                               {isMine && (
                                 <button
                                   type="button"

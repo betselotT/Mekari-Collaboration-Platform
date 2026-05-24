@@ -294,7 +294,7 @@ function WhiteboardContent() {
   }
 
   return (
-    <DashboardLayout>
+    <DashboardLayout title="Collaborative Whiteboard">
       <div className="flex h-[calc(100vh-5rem)] min-h-[560px] flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
           <div className="flex min-w-0 items-center gap-3">
@@ -307,9 +307,6 @@ function WhiteboardContent() {
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div className="min-w-0">
-              <h1 className="truncate text-base font-bold text-neutral-900 dark:text-white">
-                Collaborative Whiteboard
-              </h1>
               <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">
                 {loading ? "Loading board..." : error || "Draw together during a live session"}
               </p>

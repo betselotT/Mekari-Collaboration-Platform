@@ -19,6 +19,10 @@ export const dmMessageSchema = z.object({
   parentMessageId: z.string().optional(),
 });
 
+export const updateDmMessageSchema = z.object({
+  body: z.string().trim().min(1),
+});
+
 export const endDmSessionSchema = z.object({
   helpDelivered: z.boolean().default(false),
 });
@@ -507,6 +511,55 @@ export async function deleteDmMessage(conversationId: string, messageId: string,
     await broadcastToUser(String(participantId), "dm_conversation_updated", {
       conversationId,
       deletedMessageId: messageId,
+    });
+  }
+
+  return payload;
+}
+
+export async function updateDmMessage(conversationId: string, messageId: string, userId: string, body: string) {
+  const conversation = await getConversationForUser(conversationId, userId);
+  if (!conversation) throw forbidden();
+
+  const message = await Message.findOne({ _id: messageId, conversation: conversationId });
+  if (!message) {
+    const error = new Error("Message not found") as Error & { status?: number };
+    error.status = 404;
+    throw error;
+  }
+
+  if (String(message.sender) !== String(userId)) throw forbidden("You can only edit your own messages");
+  if (message.isFromAi || message.type === "SYSTEM_EVENT") {
+    const error = new Error("This message cannot be edited") as Error & { status?: number };
+    error.status = 400;
+    throw error;
+  }
+  if (message.type === "IMAGE" || message.type === "FILE") {
+    const error = new Error("Attachment messages cannot be edited") as Error & { status?: number };
+    error.status = 400;
+    throw error;
+  }
+
+  message.body = body;
+  message.editedAt = new Date();
+  await message.save();
+
+  const latest = await Message.findOne({ conversation: conversationId }).sort({ createdAt: -1 });
+  await DmConversation.findByIdAndUpdate(conversationId, {
+    $set: {
+      lastMessagePreview: String(latest?._id) === String(message._id) ? body.slice(0, 160) : latest?.body || "",
+      lastMessageAt: latest?.createdAt,
+      updatedAt: new Date(),
+    },
+  });
+
+  const populated = await message.populate("sender", "name avatarUrl role");
+  const payload = { conversationId, message: populated };
+  await broadcastToRoom(roomName("dm", conversationId), "dm_message_edited", payload);
+  for (const participantId of conversation.participants) {
+    await broadcastToUser(String(participantId), "dm_conversation_updated", {
+      conversationId,
+      editedMessage: populated,
     });
   }
 

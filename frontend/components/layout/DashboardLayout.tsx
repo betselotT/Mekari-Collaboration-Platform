@@ -13,7 +13,6 @@ interface DashboardLayoutProps {
 export function DashboardLayout({
   children,
   title = "Dashboard",
-  searchPlaceholder = "Search...",
 }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -25,11 +24,7 @@ export function DashboardLayout({
       {/* Main Content */}
       <main className="flex min-h-dvh min-w-0 flex-col lg:ml-60">
         {/* Header */}
-        <Header
-          title={title}
-          searchPlaceholder={searchPlaceholder}
-          onMenuClick={() => setSidebarOpen(true)}
-        />
+        <Header title={title} onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Page Content */}
         <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-6 pt-20 sm:px-6 sm:pb-8 lg:px-8">

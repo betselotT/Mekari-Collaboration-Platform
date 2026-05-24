@@ -29,6 +29,7 @@ import {
   FileText,
   Image as ImageIcon,
   Paperclip,
+  PenLine,
   Smile,
   MessageSquare,
   Pin,
@@ -53,6 +54,7 @@ interface ChatMessage {
   createdAt: string;
   upvotes?: string[];
   isPinned?: boolean;
+  editedAt?: string;
   parentMessageId?: string;
   readBy?: Array<{
     user: string | Sender;
@@ -261,6 +263,9 @@ export default function ThreadDetailPage() {
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [upvotingMessageId, setUpvotingMessageId] = useState<string | null>(null);
   const [pinningMessageId, setPinningMessageId] = useState<string | null>(null);
+  const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [savingEditId, setSavingEditId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isEditingTags, setIsEditingTags] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
@@ -433,6 +438,13 @@ export default function ThreadDetailPage() {
         }
       );
 
+      socket.on("message_edited", (data: { threadId: string; message: ChatMessage }) => {
+        if (data.threadId !== threadId) return;
+        setMessages((prev) =>
+          prev.map((msg) => (getMessageId(msg) === getMessageId(data.message) ? { ...msg, ...data.message } : msg))
+        );
+      });
+
       socket.on("message_pinned", (data: { threadId: string; messageId: string }) => {
         if (data.threadId !== threadId) return;
         setMessages((prev) =>
@@ -489,6 +501,7 @@ export default function ThreadDetailPage() {
         socket.off("thread_tags_updated");
         socket.off("message_deleted");
         socket.off("message_upvoted");
+        socket.off("message_edited");
         socket.off("message_pinned");
         socket.off("thread_messages_read");
         socket.off("user_typing");
@@ -703,6 +716,36 @@ export default function ThreadDetailPage() {
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
+  function startEdit(message: ChatMessage) {
+    setEditingMessage(message);
+    setEditDraft(message.body);
+    setActionError(null);
+  }
+
+  async function saveMessageEdit() {
+    const msgId = editingMessage ? getMessageId(editingMessage) : "";
+    const body = editDraft.trim();
+    if (!msgId || !body || savingEditId) return;
+
+    setSavingEditId(msgId);
+    setActionError(null);
+    try {
+      const res = await apiClient.patch<{ message: ChatMessage }>(
+        `/api/threads/${threadId}/messages/${msgId}`,
+        { body }
+      );
+      setMessages((prev) =>
+        prev.map((msg) => (getMessageId(msg) === msgId ? { ...msg, ...res.data.message } : msg))
+      );
+      setEditingMessage(null);
+      setEditDraft("");
+    } catch (err: any) {
+      setActionError(err?.response?.data?.error?.message || "Failed to edit message");
+    } finally {
+      setSavingEditId(null);
+    }
+  }
+
   async function upvoteMessage(msgId: string) {
     if (!msgId || upvotingMessageId) return;
 
@@ -895,7 +938,6 @@ export default function ThreadDetailPage() {
             </div>
           </div>
         )}
-        <h1 className="break-words text-xl font-bold text-neutral-900 dark:text-white sm:text-2xl">{thread.title}</h1>
       </div>
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
@@ -948,6 +990,8 @@ export default function ThreadDetailPage() {
               const isSolutionMessage = thread.solutionMsgId === msgId;
               const isSys = msg.type === "SYSTEM_EVENT";
               const isAiMsg = msg.isFromAi;
+              const isEditingThisMessage = editingMessage ? getMessageId(editingMessage) === msgId : false;
+              const canEdit = !!isMe && !isAiMsg && (msg.type === "TEXT" || msg.type === "CODE");
               const hasUpvoted = !!user && (msg.upvotes || []).some((id) => String(id) === user._id);
 
               if (isSys) {
@@ -1016,7 +1060,42 @@ export default function ThreadDetailPage() {
     </p>
   </div>
 )}
-    <MessageContent message={msg} />
+    {isEditingThisMessage ? (
+      <div className="space-y-2">
+        <textarea
+          value={editDraft}
+          onChange={(event) => setEditDraft(event.target.value)}
+          rows={msg.type === "CODE" ? 5 : 3}
+          className="w-full min-w-[240px] resize-none rounded-lg border border-primary-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-primary-500 dark:border-primary-700 dark:bg-neutral-950 dark:text-neutral-100"
+        />
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setEditingMessage(null);
+              setEditDraft("");
+            }}
+            disabled={savingEditId === msgId}
+            className="rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={saveMessageEdit}
+            disabled={!editDraft.trim() || savingEditId === msgId}
+            className="rounded-md bg-primary-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {savingEditId === msgId ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </div>
+    ) : (
+      <MessageContent message={msg} />
+    )}
+    {msg.editedAt && !isEditingThisMessage && (
+      <div className="mt-1 text-[11px] font-medium opacity-70">edited</div>
+    )}
     {isPinnedMessage && (
       <div className="mt-3 flex items-center gap-1.5 rounded-md border border-purple-200 bg-purple-50 px-2 py-1.5 text-xs font-semibold text-purple-800 dark:border-purple-500/30 dark:bg-purple-950/60 dark:text-purple-200">
         <Pin className="h-3.5 w-3.5" />
@@ -1041,7 +1120,7 @@ export default function ThreadDetailPage() {
 
   
   {!isAiMsg && (
-    <div className="mt-1 flex flex-wrap items-center justify-end gap-2 rounded-lg text-xs sm:absolute sm:-top-3 sm:right-2 sm:mt-0 sm:hidden sm:border sm:border-neutral-200 sm:bg-white sm:px-2 sm:py-1 sm:shadow-md sm:group-hover:flex sm:dark:border-neutral-700 sm:dark:bg-neutral-900">
+    <div className="mt-1 flex flex-nowrap items-center justify-end gap-2 overflow-x-auto rounded-lg text-xs sm:absolute sm:-top-3 sm:right-2 sm:mt-0 sm:hidden sm:border sm:border-neutral-200 sm:bg-white sm:px-2 sm:py-1 sm:shadow-md sm:group-hover:flex sm:dark:border-neutral-700 sm:dark:bg-neutral-900">
       
       
       <button
@@ -1068,6 +1147,17 @@ export default function ThreadDetailPage() {
         {upvotingMessageId === msgId ? "..." : msg.upvotes?.length || 0}
       </button>
 
+      {canEdit && !isEditingThisMessage && (
+        <button
+          type="button"
+          onClick={() => startEdit(msg)}
+          className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-primary-500 hover:underline"
+          title="Edit message"
+        >
+          <PenLine className="h-3 w-3" />
+          Edit
+        </button>
+      )}
    
       {canDelete && !isSolutionMessage && !isPinnedMessage && (
         <button

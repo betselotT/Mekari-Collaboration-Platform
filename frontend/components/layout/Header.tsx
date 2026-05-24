@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, LogOut, Menu, MessageCircle, Search } from "lucide-react";
+import { Bell, LogOut, Menu, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "../theme/ThemeToggle";
 import { useAuth } from "../../lib/useAuth";
@@ -20,11 +20,10 @@ type NotificationItem = {
 
 interface HeaderProps {
   title?: string;
-  searchPlaceholder?: string;
   onMenuClick?: () => void;
 }
 
-export function Header({ title = "Dashboard", searchPlaceholder = "Search...", onMenuClick }: HeaderProps) {
+export function Header({ title = "Dashboard", onMenuClick }: HeaderProps) {
   const { user } = useAuth(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [open, setOpen] = useState(false);
@@ -128,7 +127,7 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search...", o
 
   return (
     <header className="fixed left-0 right-0 top-0 z-30 flex h-16 min-w-0 items-center justify-between gap-2 border-b border-neutral-200 bg-white px-3 dark:border-neutral-700 dark:bg-neutral-900 sm:gap-3 sm:px-6 lg:left-60 lg:px-8">
-      {/* Left side - Title and Search */}
+      {/* Left side - Mobile menu */}
       <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
         <button
           type="button"
@@ -139,15 +138,9 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search...", o
         >
           <Menu className="h-5 w-5" />
         </button>
-        <h1 className="min-w-0 truncate text-sm font-bold text-neutral-900 dark:text-white sm:text-lg">{title}</h1>
-        <div className="relative hidden md:flex md:w-64 xl:w-80">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-          <input
-            type="text"
-            placeholder={searchPlaceholder}
-            className="input w-full pl-10"
-          />
-        </div>
+        <h1 className="min-w-0 truncate text-sm font-bold text-neutral-900 dark:text-white sm:text-lg">
+          {title}
+        </h1>
       </div>
 
       {/* Right side - Actions and Profile */}

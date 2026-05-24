@@ -707,10 +707,6 @@ export default function ExpertsPage() {
         <div className="pointer-events-none absolute -bottom-24 left-1/4 h-56 w-56 rounded-full bg-primary-400/5 blur-3xl" />
         <div className="relative grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary-200 bg-white/70 px-3 py-1 text-xs font-bold uppercase tracking-wide text-primary-700 shadow-sm backdrop-blur-sm dark:border-primary-400/20 dark:bg-white/10 dark:text-primary-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary-500 shadow-[0_0_8px_rgba(139,92,246,0.6)] animate-pulse" />
-              Expert Network
-            </div>
             <h2 className="max-w-3xl text-2xl font-bold tracking-tight text-neutral-950 dark:text-white md:text-3xl">
               Find the right mentor for your next technical move.
             </h2>
