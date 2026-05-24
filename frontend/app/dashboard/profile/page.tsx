@@ -441,8 +441,7 @@ export default function ProfilePage() {
   return (
     <DashboardLayout title="Profile">
       {/* Edit Profile Button */}
-      <div className="mb-8 flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">Profile</h2>
+      <div className="mb-8 flex items-center justify-end">
         <div className="flex gap-2">
           <Button type="button" variant={needsSetup ? "primary" : "secondary"} size="md" onClick={() => setShowSetup((value) => !value)}>
             <CheckCircle2 className="h-4 w-4 mr-2" />

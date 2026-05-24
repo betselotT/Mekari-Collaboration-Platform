@@ -15,6 +15,8 @@ import {
   listDmMessages,
   markDmMessagesRead,
   startDmSession,
+  updateDmMessage,
+  updateDmMessageSchema,
 } from "../services/dmMessages";
 
 const router = Router();
@@ -187,6 +189,29 @@ router.delete(
         String(req.userId)
       );
       res.json({ deleted: true, ...deleted });
+    } catch (err) {
+      const status = statusFromError(err);
+      if (status !== 500) {
+        return res.status(status).json({ error: { message: (err as Error).message } });
+      }
+      next(err);
+    }
+  }
+);
+
+router.patch(
+  "/conversations/:conversationId/messages/:messageId",
+  requireAuth,
+  async (req: AuthRequest, res, next) => {
+    try {
+      const parsed = updateDmMessageSchema.parse(req.body);
+      const updated = await updateDmMessage(
+        req.params.conversationId,
+        req.params.messageId,
+        String(req.userId),
+        parsed.body
+      );
+      res.json(updated);
     } catch (err) {
       const status = statusFromError(err);
       if (status !== 500) {

@@ -6,7 +6,7 @@ import { DashboardLayout } from "../../../components/layout";
 import { ThreadCard } from "../../../components/features/ThreadCard";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
-import { MessageCircle, Plus, Users } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 import { apiClient } from "../../../lib/api";
 
 export default function ThreadsPage() {
@@ -133,23 +133,9 @@ function ThreadsContent() {
 
   return (
     <DashboardLayout title="Threads" searchPlaceholder="Search threads, experts...">
-      {/* Header with filters */}
-      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-center gap-2">
-          <MessageCircle className="h-5 w-5 text-primary-600" />
-          <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-            {selectedSubject ? `${selectedSubject.toUpperCase()} THREADS` : "THREADS"}
-          </span>
-        </div>
-        <Button variant="primary" size="md" className="w-full sm:w-auto" onClick={() => setShowNewThread(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Thread
-        </Button>
-      </div>
-
-      {threads.length > 0 && (
-        <div className="mb-6">
-          <div className="overflow-x-auto pb-1">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {threads.length > 0 && (
+          <div className="min-w-0 overflow-x-auto pb-1 sm:pb-0">
             <div className="flex min-w-max gap-2">
               {statusChoices.map((choice) => (
                 <button
@@ -171,8 +157,12 @@ function ThreadsContent() {
               ))}
             </div>
           </div>
-        </div>
-      )}
+        )}
+        <Button variant="primary" size="md" className="w-full sm:w-auto" onClick={() => setShowNewThread(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          New Thread
+        </Button>
+      </div>
 
       {error && (
         <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200">

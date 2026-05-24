@@ -213,7 +213,6 @@ export default function SubjectPage() {
     <DashboardLayout title={title} searchPlaceholder="Search threads, experts...">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="mb-2 text-3xl font-bold text-neutral-900 dark:text-white">{title}</h2>
           <p className="text-neutral-600 dark:text-neutral-400">
             Browse active discussions, mentors, and files shared in this subject.
           </p>

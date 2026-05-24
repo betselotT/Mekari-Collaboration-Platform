@@ -34,6 +34,10 @@ const updateTagsSchema = z.object({
   tags: z.array(z.string().min(1)).max(12),
 });
 
+const updateMessageSchema = z.object({
+  body: z.string().trim().min(1),
+});
+
 async function getThreadReadStats(threadIds: unknown[]) {
   const [messageCounts, upvoteCounts] = await Promise.all([
     Message.aggregate([
@@ -706,6 +710,45 @@ router.post("/:threadId/messages/:messageId/upvote", requireAuth, async (req: Au
     });
 
     res.json({ message: updated, upvoted: !hasUpvoted });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch("/:threadId/messages/:messageId", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const { threadId, messageId } = req.params;
+    const parsed = updateMessageSchema.parse(req.body);
+
+    const message = await Message.findOne({ _id: messageId, thread: threadId });
+    if (!message) {
+      return res.status(404).json({ error: { message: "Message not found" } });
+    }
+
+    if (String(message.sender) !== String(req.userId)) {
+      return res.status(403).json({ error: { message: "You can only edit your own messages" } });
+    }
+
+    if (message.isFromAi || message.type === "SYSTEM_EVENT") {
+      return res.status(400).json({ error: { message: "This message cannot be edited" } });
+    }
+
+    if (message.type === "IMAGE" || message.type === "FILE") {
+      return res.status(400).json({ error: { message: "Attachment messages cannot be edited" } });
+    }
+
+    message.body = parsed.body;
+    message.editedAt = new Date();
+    await message.save();
+    await Thread.findByIdAndUpdate(threadId, { $set: { updatedAt: new Date() } });
+
+    const updated = await message.populate("sender", "name avatarUrl");
+    await broadcastToRoom(roomName("thread", threadId), "message_edited", {
+      threadId,
+      message: updated,
+    });
+
+    res.json({ message: updated });
   } catch (err) {
     next(err);
   }

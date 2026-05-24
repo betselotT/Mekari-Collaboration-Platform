@@ -302,7 +302,7 @@ function MatchContent() {
                 <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
                   Preferred connection
                 </label>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 xl:flex-nowrap">
                   {(
                     [
                       { id: "chat", label: "Chat" },
@@ -314,7 +314,7 @@ function MatchContent() {
                       key={opt.id}
                       type="button"
                       onClick={() => toggleConnectionPreference(opt.id)}
-                      className={`rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
+                      className={`min-w-max rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
                         connectionPreferences.includes(opt.id)
                           ? "border-primary-600 bg-primary-600 text-white"
                           : "border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
