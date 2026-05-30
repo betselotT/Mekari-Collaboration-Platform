@@ -2,18 +2,18 @@
 
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { LanguageToggle } from "@/components/i18n/LanguageToggle";
 import { RegisterForm } from "@/components/auth/RegisterForm";
+import { useLanguage } from "@/lib/i18n";
 
 const APP_NAME = "Mekari";
-
-const registerHeading = "Create Account";
-const registerSubtitle = "Join our technical community";
-const authFooterText = "Already have an account?";
 
 const registerCardClassName =
   "w-full max-w-3xl rounded-lg border border-neutral-200 bg-white p-8 dark:border-neutral-700 dark:bg-neutral-800";
 
 export default function RegisterPage() {
+  const { t } = useLanguage();
+
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-neutral-950">
       {/* Navigation */}
@@ -29,7 +29,10 @@ export default function RegisterPage() {
             </span>
           </Link>
 
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <LanguageToggle />
+          </div>
         </div>
       </nav>
 
@@ -37,23 +40,23 @@ export default function RegisterPage() {
       <div className="flex flex-1 items-center justify-center px-6 py-12">
         <div className={registerCardClassName}>
           <h1 className="mb-2 text-2xl font-bold text-neutral-900 dark:text-white">
-            {registerHeading}
+            {t("auth.createAccount")}
           </h1>
 
           <p className="mb-8 text-neutral-600 dark:text-neutral-400">
-            {registerSubtitle}
+            {t("auth.joinCommunity")}
           </p>
 
           <RegisterForm />
 
           <p className="mt-6 text-center text-sm text-neutral-600 dark:text-neutral-400">
-            {authFooterText}{" "}
+            {t("auth.hasAccount")}{" "}
 
             <Link
               href="/login"
               className="font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400"
             >
-              Sign in
+              {t("auth.signIn")}
             </Link>
           </p>
         </div>

@@ -11,6 +11,7 @@ import { DashboardLayout } from "../../../components/layout/DashboardLayout";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { apiClient } from "../../../lib/api";
+import { useLanguage } from "../../../lib/i18n";
 
 const SUBJECT_OPTIONS = [
   "Software Engineering",
@@ -92,6 +93,7 @@ export default function MatchPage() {
 }
 
 function MatchContent() {
+  const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [title, setTitle] = useState("");
@@ -159,7 +161,7 @@ function MatchContent() {
       });
       setResult(res.data);
     } catch (e: any) {
-      setError(e?.response?.data?.error?.message || "Failed to create match request");
+      setError(e?.response?.data?.error?.message || t("Failed to create match request"));
     } finally {
       setLoading(false);
     }
@@ -183,18 +185,18 @@ function MatchContent() {
       );
       router.push(`/dashboard/messages?conversation=${res.data.conversation._id}`);
     } catch (e: any) {
-      setError(e?.response?.data?.error?.message || "Failed to start direct message");
+      setError(e?.response?.data?.error?.message || t("Failed to start direct message"));
     } finally {
       setDmLoadingId(null);
     }
   }
 
   return (
-    <DashboardLayout title="Match with an Expert" searchPlaceholder="Search experts, topics...">
+    <DashboardLayout title={t("Match with an Expert")} searchPlaceholder={t("Search experts, topics...")}>
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
           <h2 className="mb-1 text-lg font-bold text-neutral-900 dark:text-white">
-            Tell us what you need help with
+            {t("Tell us what you need help with")}
           </h2>
           <p className="mb-6 text-sm text-neutral-600 dark:text-neutral-400">
             We’ll compute a weighted match using topic tags, reputation, and availability.
@@ -202,14 +204,14 @@ function MatchContent() {
 
           <div className="space-y-4">
             <Input
-              label="Thread title"
+              label={t("Thread title")}
               placeholder="e.g., Designing MongoDB indexes for analytics"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
 
             <Input
-              label="Primary subject"
+              label={t("Primary subject")}
               placeholder="e.g., Databases"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
@@ -222,7 +224,7 @@ function MatchContent() {
             </datalist>
 
             <Input
-              label="Topic tags (comma-separated)"
+              label={t("Topic tags (comma-separated)")}
               placeholder="e.g., MongoDB, Indexing, Query Optimization"
               value={tags}
               onChange={(e) => setTags(e.target.value)}
@@ -230,7 +232,7 @@ function MatchContent() {
 
             <div>
               <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                Problem description
+                {t("Problem description")}
               </label>
               <textarea
                 className="min-h-[120px] w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100"
@@ -242,7 +244,7 @@ function MatchContent() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <Input
-                label="Your technical field"
+                label={t("Your technical field")}
                 placeholder="e.g., Software Engineering"
                 value={primaryTechnicalField}
                 onChange={(e) => setPrimaryTechnicalField(e.target.value)}
@@ -254,7 +256,7 @@ function MatchContent() {
                 ))}
               </datalist>
               <Input
-                label="Role/status"
+                label={t("Role/status")}
                 placeholder="e.g., Student"
                 value={roleOrStatus}
                 onChange={(e) => setRoleOrStatus(e.target.value)}
@@ -268,7 +270,7 @@ function MatchContent() {
             </div>
 
             <Input
-              label="Years of experience"
+              label={t("auth.experience")}
               placeholder="e.g., 1–3 years"
               value={yearsOfExperience}
               onChange={(e) => setYearsOfExperience(e.target.value)}
@@ -283,7 +285,7 @@ function MatchContent() {
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                  Availability preference
+                  {t("Availability preference")}
                 </label>
                 <select
                   value={availabilityPreference}
@@ -292,22 +294,22 @@ function MatchContent() {
                   }
                   className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100"
                 >
-                  <option value="online_only">Online only</option>
-                  <option value="online_or_busy">Online or busy</option>
-                  <option value="any">Any (including offline)</option>
+                  <option value="online_only">{t("Online only")}</option>
+                  <option value="online_or_busy">{t("Online or busy")}</option>
+                  <option value="any">{t("Any (including offline)")}</option>
                 </select>
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                  Preferred connection
+                  {t("Preferred connection")}
                 </label>
                 <div className="flex flex-wrap gap-2 xl:flex-nowrap">
                   {(
                     [
-                      { id: "chat", label: "Chat" },
-                      { id: "voice_video", label: "Voice/Video" },
-                      { id: "group_channel", label: "Group channel" },
+                      { id: "chat", label: t("Chat") },
+                      { id: "voice_video", label: t("Voice/Video") },
+                      { id: "group_channel", label: t("Group channel") },
                     ] as const
                   ).map((opt) => (
                     <button
@@ -339,14 +341,14 @@ function MatchContent() {
               onClick={submit}
               disabled={loading || !title || !subject || !initialMessage}
             >
-              {loading ? "Matching..." : "Find experts"}
+              {loading ? t("Matching...") : t("Find experts")}
             </Button>
           </div>
         </div>
 
         <div className="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
           <h2 className="mb-1 text-lg font-bold text-neutral-900 dark:text-white">
-            Recommendations
+            {t("Recommendations")}
           </h2>
           <p className="mb-6 text-sm text-neutral-600 dark:text-neutral-400">
             Results are ranked by weighted score (tag match, proficiency, reputation, availability).
@@ -354,11 +356,11 @@ function MatchContent() {
 
           {!result ? (
             <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-400">
-              Submit a match request to see recommended experts here.
+              {t("Submit a match request to see recommended experts here.")}
             </div>
           ) : result.matchRequest.recommendations.length === 0 ? (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
-              No available experts matched your tags yet. Try broader tags or allow busy experts.
+              {t("No available experts matched your tags yet. Try broader tags or allow busy experts.")}
             </div>
           ) : (
             <div className="space-y-4">
@@ -387,7 +389,7 @@ function MatchContent() {
                         </span>
                         <span className="inline-flex items-center gap-1 rounded-full border border-primary-200 bg-primary-50 px-2 py-0.5 text-[11px] font-bold text-primary-700 dark:border-primary-900/50 dark:bg-primary-950/30 dark:text-primary-200">
                           <MessageSquare className="h-3 w-3" />
-                          {dmLoadingId === rec.expert._id ? "Opening..." : "DM"}
+                          {dmLoadingId === rec.expert._id ? t("Opening...") : "DM"}
                         </span>
                       </div>
                       <div className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">

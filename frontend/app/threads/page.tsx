@@ -16,8 +16,10 @@ import {
 import { apiClient } from "../../lib/api";
 
 import { ThemeToggle } from "../../components/theme/ThemeToggle";
+import { LanguageToggle } from "../../components/i18n/LanguageToggle";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
+import { useLanguage } from "../../lib/i18n";
 
 interface PublicThread {
   _id: string;
@@ -39,6 +41,7 @@ const EMPTY_STATE_MESSAGE = "No public threads yet.";
 const THREADS_ENDPOINT = "/api/threads/public";
 
 export default function PublicThreadsPage() {
+  const { t } = useLanguage();
   const [threads, setThreads] = useState<PublicThread[]>([]);
 
   const [query, setQuery] = useState("");
@@ -58,7 +61,7 @@ export default function PublicThreadsPage() {
       .catch((err) => {
         setError(
           err?.response?.data?.error?.message ||
-            "Failed to load threads"
+            t("threads.loadError")
         );
       })
       .finally(() => {
@@ -117,11 +120,12 @@ export default function PublicThreadsPage() {
 
           <div className="flex items-center gap-3">
             <ThemeToggle />
+            <LanguageToggle />
 
             <Link href="/login">
               <Button variant="outline" size="sm">
                 <LogIn className="mr-2 h-4 w-4" />
-                Sign in
+                {t("auth.signIn")}
               </Button>
             </Link>
           </div>
@@ -132,17 +136,15 @@ export default function PublicThreadsPage() {
         <div className="mb-8 grid gap-6 lg:grid-cols-[1fr_320px]">
           <div>
             <Badge variant="info">
-              Public threads
+              {t("Public threads")}
             </Badge>
 
             <h1 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
-              Browse discussion threads
+              {t("Browse discussion threads")}
             </h1>
 
             <p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-600 dark:text-neutral-400">
-              Explore community questions,
-              answers, and solved discussions
-              before joining the conversation.
+              {t("Explore community questions, answers, and solved discussions before joining the conversation.")}
             </p>
 
             <div className="mt-5 max-w-xl">
@@ -154,7 +156,7 @@ export default function PublicThreadsPage() {
                   onChange={(event) =>
                     setQuery(event.target.value)
                   }
-                  placeholder="Search by title, subject, author, or tag"
+                  placeholder={t("Search by title, subject, author, or tag")}
                   className="w-full rounded-lg border border-neutral-300 bg-white py-3 pl-10 pr-3 text-sm outline-none transition focus:border-primary-500 focus:ring-1 focus:ring-primary-500 dark:border-neutral-700 dark:bg-neutral-900"
                 />
               </div>
@@ -176,21 +178,21 @@ export default function PublicThreadsPage() {
             <div className="flex items-center gap-2 text-sm font-semibold">
               <Sparkles className="h-4 w-4 text-primary-500" />
 
-              Community discussions
+              {t("Community discussions")}
             </div>
 
             <span className="text-xs text-neutral-500 dark:text-neutral-400">
-              {filteredThreads.length} shown
+              {filteredThreads.length} {t("shown")}
             </span>
           </div>
 
           {loading ? (
             <div className="p-4 text-sm text-neutral-600 dark:text-neutral-400">
-              Loading threads...
+              {t("threads.loading")}
             </div>
           ) : filteredThreads.length === 0 ? (
             <div className="p-6 text-sm text-neutral-600 dark:text-neutral-400">
-              {EMPTY_STATE_MESSAGE}
+              {t(EMPTY_STATE_MESSAGE)}
             </div>
           ) : (
             filteredThreads.map((thread) => (
@@ -205,13 +207,13 @@ export default function PublicThreadsPage() {
                       {thread.repliesCount || 0}
                     </span>
 
-                    replies
+                    {t("threads.replyLabel")}
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <div className="mb-2 flex flex-wrap items-center gap-2">
                       <Badge variant="info">
-                        {thread.subject || "General"}
+                        {thread.subject || t("threads.defaultCategory")}
                       </Badge>
 
                       <Badge variant="default">
@@ -240,9 +242,9 @@ export default function PublicThreadsPage() {
 
                     <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-neutral-500 dark:text-neutral-400">
                       <span>
-                        By{" "}
+                        {t("By")}{" "}
                         {thread.createdBy?.name ||
-                          "Unknown"}
+                          t("threads.unknownAuthor")}
                       </span>
 
                       <span className="inline-flex items-center gap-1">
@@ -257,13 +259,13 @@ export default function PublicThreadsPage() {
                       <span className="inline-flex items-center gap-1 sm:hidden">
                         <MessageCircle className="h-3.5 w-3.5" />
 
-                        {thread.repliesCount || 0} replies
+                        {thread.repliesCount || 0} {t("threads.replyLabel")}
                       </span>
 
                       <span className="inline-flex items-center gap-1">
                         <ArrowUp className="h-3.5 w-3.5" />
 
-                        {thread.upvoteCount || 0} upvotes
+                        {thread.upvoteCount || 0} {t("upvotes")}
                       </span>
                     </div>
                   </div>

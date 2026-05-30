@@ -8,6 +8,7 @@ import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Plus, Users } from "lucide-react";
 import { apiClient } from "../../../lib/api";
+import { useLanguage } from "../../../lib/i18n";
 
 export default function ThreadsPage() {
   return (
@@ -20,6 +21,7 @@ export default function ThreadsPage() {
 function ThreadsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
   const selectedSubject = searchParams?.get("subject") || "";
   const selectedSubjectSlug = searchParams?.get("subjectSlug") || "";
   const [threads, setThreads] = useState<any[]>([]);
@@ -40,10 +42,10 @@ function ThreadsContent() {
   useEffect(() => {
     const expertName = searchParams?.get("expert");
     if (expertName) {
-      setInitialMessage(`Hi ${expertName}, I'd like to get your help with...`);
+      setInitialMessage(t("threads.prefillExpert", { name: expertName }));
       setShowNewThread(true);
     }
-  }, [searchParams]);
+  }, [searchParams, t]);
 
   useEffect(() => {
     if (selectedSubject && !subject.trim()) {
@@ -56,11 +58,11 @@ function ThreadsContent() {
     [title, subject, initialMessage]
   );
   const statusChoices = [
-    { value: "all", label: "All" },
-    { value: "OPEN", label: "Open" },
-    { value: "PENDING_EXPERT", label: "Needs Expert" },
-    { value: "AI_RESOLVED", label: "AI Resolved" },
-    { value: "SOLVED", label: "Solved" },
+    { value: "all", label: t("threads.all") },
+    { value: "OPEN", label: t("threads.open") },
+    { value: "PENDING_EXPERT", label: t("threads.needsExpert") },
+    { value: "AI_RESOLVED", label: t("threads.aiResolved") },
+    { value: "SOLVED", label: t("threads.solved") },
   ];
   const visibleThreads = useMemo(
     () =>
@@ -84,7 +86,7 @@ function ThreadsContent() {
       const res = await apiClient.get(`/api/threads${subjectQuery}`);
       setThreads(res.data.threads || []);
     } catch (e: any) {
-      setError(e?.response?.data?.error?.message || "Failed to load threads");
+      setError(e?.response?.data?.error?.message || t("threads.loadError"));
     } finally {
       setLoading(false);
     }
@@ -104,7 +106,7 @@ function ThreadsContent() {
       const createdThread = res.data.thread;
       const createdThreadId = createdThread?._id || createdThread?.id;
       if (!createdThreadId) {
-        throw new Error("The server created the thread but did not return its id.");
+        throw new Error(t("threads.missingCreatedId"));
       }
       setLatestMatch({
         thread: createdThread,
@@ -119,7 +121,7 @@ function ThreadsContent() {
       await loadThreads();
       router.push(`/dashboard/threads/${createdThreadId}`);
     } catch (e: any) {
-      setError(e?.response?.data?.error?.message || e?.message || "Failed to create thread");
+      setError(e?.response?.data?.error?.message || e?.message || t("threads.createError"));
     } finally {
       creatingRef.current = false;
       setCreating(false);
@@ -132,7 +134,7 @@ function ThreadsContent() {
   }, [selectedSubject, selectedSubjectSlug]);
 
   return (
-    <DashboardLayout title="Threads" searchPlaceholder="Search threads, experts...">
+    <DashboardLayout title={t("threads.title")} searchPlaceholder={t("threads.searchPlaceholder")}>
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {threads.length > 0 && (
           <div className="min-w-0 overflow-x-auto pb-1 sm:pb-0">
@@ -160,7 +162,7 @@ function ThreadsContent() {
         )}
         <Button variant="primary" size="md" className="w-full sm:w-auto" onClick={() => setShowNewThread(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          New Thread
+          {t("threads.newThread")}
         </Button>
       </div>
 
@@ -177,10 +179,10 @@ function ThreadsContent() {
               <Users className="h-5 w-5 text-amber-700 dark:text-amber-300" />
               <div>
                 <h3 className="text-sm font-bold text-amber-950 dark:text-amber-100">
-                  Suggested mentors for your new thread
+                  {t("threads.suggestedMentors")}
                 </h3>
                 <p className="text-xs text-amber-800 dark:text-amber-200">
-                  Based on the generated tags and mentor expertise.
+                  {t("threads.suggestedMentorsHelp")}
                 </p>
               </div>
             </div>
@@ -188,13 +190,13 @@ function ThreadsContent() {
               href={`/dashboard/threads/${latestMatch.thread?._id || latestMatch.thread?.id}`}
               className="inline-flex min-h-[36px] shrink-0 items-center justify-center rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
             >
-              Open thread
+              {t("threads.openThread")}
             </a>
           </div>
 
           {latestMatch.suggestedExperts.length === 0 ? (
             <p className="text-sm text-amber-900 dark:text-amber-100">
-              No mentor matched strongly yet. Broader tags or more detail can improve matching.
+              {t("threads.noStrongMatch")}
             </p>
           ) : (
             <div className="grid gap-3 md:grid-cols-3">
@@ -213,10 +215,10 @@ function ThreadsContent() {
                       {expertise} - {expert.availabilityStatus}
                     </div>
                     <div className="mt-2 rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
-                      Match score {Math.round(rec.score)}
+                      {t("threads.matchScore")} {Math.round(rec.score)}
                     </div>
                     <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-                      {rec.reasons?.[0] || "Relevant mentor"}
+                      {rec.reasons?.[0] || t("threads.relevantMentor")}
                     </p>
                   </div>
                 );
@@ -232,46 +234,46 @@ function ThreadsContent() {
           <div className="max-h-[calc(100dvh-3rem)] w-full max-w-xl overflow-y-auto rounded-xl border border-neutral-200 bg-white p-4 shadow-xl dark:border-neutral-700 dark:bg-neutral-900 sm:p-6">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
               <div>
-                <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Create a new thread</h3>
+                <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{t("threads.createTitle")}</h3>
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                  Add your own tags. Gemini will add extra topic tags from the content.
+                  {t("threads.createHelp")}
                 </p>
               </div>
               <button
                 className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
                 onClick={() => setShowNewThread(false)}
               >
-                Close
+                {t("threads.close")}
               </button>
             </div>
 
             <div className="space-y-4">
-              <Input label="Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Min 5 characters" />
-              <Input label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g., Software Engineering" />
+              <Input label={t("threads.fieldTitle")} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("threads.titlePlaceholder")} />
+              <Input label={t("threads.subject")} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={t("threads.subjectPlaceholder")} />
               <Input
-                label="Your tags"
+                label={t("threads.tags")}
                 value={manualTags}
                 onChange={(e) => setManualTags(e.target.value)}
-                placeholder="e.g., mongodb, indexing, performance"
+                placeholder={t("threads.tagsPlaceholder")}
               />
               <div>
                 <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                  Initial message
+                  {t("threads.initialMessage")}
                 </label>
                 <textarea
                   className="min-h-[120px] w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
                   value={initialMessage}
                   onChange={(e) => setInitialMessage(e.target.value)}
-                  placeholder="Describe the problem, what you've tried, constraints, and expected outcome..."
+                  placeholder={t("threads.initialPlaceholder")}
                 />
               </div>
 
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
                 <Button variant="secondary" size="md" onClick={() => setShowNewThread(false)}>
-                  Cancel
+                  {t("threads.cancel")}
                 </Button>
                 <Button variant="primary" size="md" disabled={!canCreate || creating} onClick={() => void createThread()}>
-                  {creating ? "Creating..." : "Create thread"}
+                  {creating ? t("threads.creating") : t("threads.createThread")}
                 </Button>
               </div>
             </div>
@@ -283,29 +285,29 @@ function ThreadsContent() {
       <div className="space-y-4">
         {loading ? (
           <div className="rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
-            Loading threads...
+            {t("threads.loading")}
           </div>
         ) : threads.length === 0 ? (
           <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-400">
-            No threads yet. Create one to get started.
+            {t("threads.empty")}
           </div>
         ) : visibleThreads.length === 0 ? (
           <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-400">
-            No threads match the selected filters.
+            {t("threads.noFilterMatch")}
           </div>
         ) : (
-          visibleThreads.map((t) => (
+          visibleThreads.map((thread) => (
             <ThreadCard
-              key={t._id || t.id}
-              title={t.title}
-              category={String(t.subject || "General").toUpperCase()}
-              description={t.preview || "Open the thread to view details."}
-              author={t.createdBy?.name || "Unknown"}
-              timestamp={new Date(t.updatedAt || t.createdAt || Date.now()).toLocaleString()}
-              replyCount={Math.max(0, (t.messageCount || 1) - 1)}
-              tags={t.tags || []}
-              status={t.status}
-              href={`/dashboard/threads/${t._id || t.id}`}
+              key={thread._id || thread.id}
+              title={thread.title}
+              category={String(thread.subject || t("threads.defaultCategory")).toUpperCase()}
+              description={thread.preview || t("threads.defaultDescription")}
+              author={thread.createdBy?.name || t("threads.unknownAuthor")}
+              timestamp={new Date(thread.updatedAt || thread.createdAt || Date.now()).toLocaleString()}
+              replyCount={Math.max(0, (thread.messageCount || 1) - 1)}
+              tags={thread.tags || []}
+              status={thread.status}
+              href={`/dashboard/threads/${thread._id || thread.id}`}
             />
           ))
         )}

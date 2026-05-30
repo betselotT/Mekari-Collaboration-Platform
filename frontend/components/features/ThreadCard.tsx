@@ -4,6 +4,7 @@ import Link from "next/link";
 import { MessageCircle } from "lucide-react";
 import { Avatar } from "../ui/Avatar";
 import { Badge } from "../ui/Badge";
+import { TranslationKey, useLanguage } from "../../lib/i18n";
 
 export interface ThreadCardProps {
   title: string;
@@ -18,12 +19,12 @@ export interface ThreadCardProps {
   status?: string;
 }
 
-const STATUS_BADGE: Record<string, { label: string; variant: "success" | "warning" | "info" | "default" | "error" | "primary" }> = {
-  SOLVED: { label: "Solved", variant: "success" },
-  AI_RESOLVED: { label: "AI Resolved", variant: "info" },
-  PENDING_EXPERT: { label: "Needs Expert", variant: "warning" },
-  OPEN: { label: "Open", variant: "default" },
-  CLOSED: { label: "Closed", variant: "error" },
+const STATUS_BADGE: Record<string, { labelKey: TranslationKey; variant: "success" | "warning" | "info" | "default" | "error" | "primary" }> = {
+  SOLVED: { labelKey: "threads.solved", variant: "success" },
+  AI_RESOLVED: { labelKey: "threads.aiResolved", variant: "info" },
+  PENDING_EXPERT: { labelKey: "threads.needsExpert", variant: "warning" },
+  OPEN: { labelKey: "threads.open", variant: "default" },
+  CLOSED: { labelKey: "threads.closed", variant: "error" },
 };
 
 export function ThreadCard({
@@ -37,6 +38,7 @@ export function ThreadCard({
   href,
   status,
 }: ThreadCardProps) {
+  const { t } = useLanguage();
   const statusMeta = status ? STATUS_BADGE[status] : null;
 
   return (
@@ -44,7 +46,7 @@ export function ThreadCard({
       {/* Category + Status Badges */}
       <div className="mb-3 flex items-center gap-2 flex-wrap">
         <Badge variant="info">{category}</Badge>
-        {statusMeta && <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>}
+        {statusMeta && <Badge variant={statusMeta.variant}>{t(statusMeta.labelKey)}</Badge>}
       </div>
 
       {/* Title */}
@@ -87,7 +89,7 @@ export function ThreadCard({
         </div>
         <div className="flex shrink-0 items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
           <MessageCircle className="h-4 w-4" />
-          <span className="font-medium">{replyCount} replies</span>
+          <span className="font-medium">{replyCount} {t("threads.replyLabel")}</span>
         </div>
       </div>
     </div>

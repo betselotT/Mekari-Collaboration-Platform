@@ -5,12 +5,14 @@ import Link from "next/link";
 import { apiClient } from "../../lib/api";
 import { GoogleAuthButton } from "./GoogleAuthButton";
 import { GithubAuthButton } from "./GithubAuthButton";
+import { useLanguage } from "../../lib/i18n";
 
 function getAuthErrorMessage(err: any, fallback: string) {
   return err.response?.data?.message || err.response?.data?.error?.message || fallback;
 }
 
 export function LoginForm() {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -31,7 +33,7 @@ export function LoginForm() {
       localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
     } catch (err: any) {
-      const message = getAuthErrorMessage(err, "Failed to log in");
+      const message = getAuthErrorMessage(err, t("auth.loginFailed"));
       setError(message);
       setNeedsEmailVerification(message.toLowerCase().includes("verify your email"));
     } finally {
@@ -48,7 +50,7 @@ export function LoginForm() {
       localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
     } catch (err: any) {
-      setError(getAuthErrorMessage(err, "Google sign-in failed"));
+      setError(getAuthErrorMessage(err, t("auth.googleLoginFailed")));
     } finally {
       setLoading(false);
     }
@@ -64,14 +66,14 @@ export function LoginForm() {
               href={`/verify-email${email ? `?email=${encodeURIComponent(email)}` : ""}`}
               className="mt-2 inline-flex font-semibold text-red-200 underline underline-offset-2 hover:text-white"
             >
-              Verify your email
+              {t("auth.verifyEmail")}
             </Link>
           )}
         </div>
       )}
       <div className="space-y-1">
         <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-          Email
+          {t("auth.email")}
         </label>
         <input
           type="email"
@@ -83,7 +85,7 @@ export function LoginForm() {
       </div>
       <div className="space-y-1">
         <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-          Password
+          {t("auth.password")}
         </label>
         <input
           type="password"
@@ -98,7 +100,7 @@ export function LoginForm() {
         disabled={loading}
         className="mt-2 w-full rounded bg-primary-500 px-3 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-60"
       >
-        {loading ? "Signing in..." : "Sign in"}
+        {loading ? t("auth.signingIn") : t("auth.signIn")}
       </button>
       <div className="grid grid-cols-2 gap-2 pt-2">
         <GoogleAuthButton onCredential={onGoogleSignIn} onError={setError} />

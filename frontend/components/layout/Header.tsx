@@ -4,9 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Bell, LogOut, Menu, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "../theme/ThemeToggle";
+import { LanguageToggle } from "../i18n/LanguageToggle";
 import { useAuth } from "../../lib/useAuth";
 import { apiClient, clearAuthToken } from "../../lib/api";
 import { ensureSocket } from "../../lib/useSocket";
+import { useLanguage } from "../../lib/i18n";
 
 type NotificationItem = {
   _id?: string;
@@ -25,18 +27,19 @@ interface HeaderProps {
 
 export function Header({ title = "Dashboard", onMenuClick }: HeaderProps) {
   const { user } = useAuth(false);
+  const { t } = useLanguage();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const displayName = user?.name || "Mekari User";
   const displayRole =
     user?.role === "expert"
-      ? "Mentor"
+      ? t("role.mentor")
       : user?.role === "learner"
-        ? "Learner"
+        ? t("role.learner")
         : user?.role
           ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
-          : "Member";
+          : t("role.member");
   const initials = displayName
     .split(" ")
     .filter(Boolean)
@@ -133,13 +136,13 @@ export function Header({ title = "Dashboard", onMenuClick }: HeaderProps) {
           type="button"
           onClick={onMenuClick}
           className="rounded-lg p-2 text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800 lg:hidden"
-          aria-label="Open navigation"
-          title="Open navigation"
+          aria-label={t("header.openNavigation")}
+          title={t("header.openNavigation")}
         >
           <Menu className="h-5 w-5" />
         </button>
         <h1 className="min-w-0 truncate text-sm font-bold text-neutral-900 dark:text-white sm:text-lg">
-          {title}
+          {t(title)}
         </h1>
       </div>
 
@@ -150,8 +153,8 @@ export function Header({ title = "Dashboard", onMenuClick }: HeaderProps) {
             type="button"
             className="relative rounded-lg p-2 text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
             onClick={() => setOpen((value) => !value)}
-            aria-label="Notifications"
-            title="Notifications"
+            aria-label={t("header.notifications")}
+            title={t("header.notifications")}
           >
             <Bell className="h-5 w-5" />
             {unreadCount > 0 && (
@@ -163,19 +166,19 @@ export function Header({ title = "Dashboard", onMenuClick }: HeaderProps) {
           {open && (
             <div className="fixed left-4 right-4 top-16 mt-2 max-h-[calc(100vh-5rem)] overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-3 sm:w-96 sm:max-w-sm">
               <div className="flex min-w-0 items-center justify-between gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
-                <h2 className="min-w-0 truncate text-sm font-bold text-neutral-900 dark:text-white">Notifications</h2>
+                <h2 className="min-w-0 truncate text-sm font-bold text-neutral-900 dark:text-white">{t("header.notifications")}</h2>
                 <button
                   type="button"
                   onClick={markAllRead}
                   className="shrink-0 text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400"
                 >
-                  Mark all read
+                  {t("header.markAllRead")}
                 </button>
               </div>
               <div className="max-h-[calc(100vh-9rem)] overflow-y-auto sm:max-h-96">
                 {notifications.length === 0 ? (
                   <div className="px-4 py-6 text-sm text-neutral-500 dark:text-neutral-400">
-                    No notifications yet.
+                    {t("header.noNotifications")}
                   </div>
                 ) : (
                   notifications.map((notification) => (
@@ -214,18 +217,19 @@ export function Header({ title = "Dashboard", onMenuClick }: HeaderProps) {
           href="/dashboard/messages"
           className="relative p-2 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors dark:text-neutral-400 dark:hover:bg-neutral-800"
           aria-label="Messages"
-          title="Messages"
+          title={t("header.messages")}
         >
           <MessageCircle className="h-5 w-5" />
         </Link>
 
         <ThemeToggle />
+        <LanguageToggle />
 
         <button
           type="button"
           onClick={handleLogout}
-          title="Sign out"
-          aria-label="Sign out"
+          title={t("header.signOut")}
+          aria-label={t("header.signOut")}
           className="p-2 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors dark:text-neutral-400 dark:hover:bg-neutral-800"
         >
           <LogOut className="h-5 w-5" />
@@ -234,8 +238,8 @@ export function Header({ title = "Dashboard", onMenuClick }: HeaderProps) {
         <Link
           href="/dashboard/profile"
           className="ml-0 flex items-center gap-2 rounded-lg border-l border-neutral-200 pl-1 transition-colors hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:border-neutral-700 dark:hover:bg-neutral-800 sm:ml-2 sm:gap-3 sm:pl-4"
-          aria-label="Open your profile"
-          title="Open your profile"
+          aria-label={t("header.openProfile")}
+          title={t("header.openProfile")}
         >
           <div className="hidden text-right sm:block">
             <p className="text-sm font-medium text-neutral-900 dark:text-white">{displayName}</p>

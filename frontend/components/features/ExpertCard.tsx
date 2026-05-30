@@ -3,6 +3,7 @@
 import { Star, StarHalf, MessageSquare, Sparkles } from "lucide-react";
 import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
+import { useLanguage } from "../../lib/i18n";
 
 export interface ExpertCardProps {
   name: string;
@@ -19,6 +20,7 @@ export interface ExpertCardProps {
 }
 
 export function ExpertCard(props: ExpertCardProps) {
+  const { t } = useLanguage();
   const {
     name,
     title,
@@ -75,7 +77,7 @@ export function ExpertCard(props: ExpertCardProps) {
           className={`absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold backdrop-blur-sm transition-colors duration-300 ${config.color}`}
         >
           <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} />
-          {config.text}
+          {t(config.text)}
         </div>
       </div>
 
@@ -138,7 +140,7 @@ export function ExpertCard(props: ExpertCardProps) {
                 onClick={onReviewsClick}
                 className="font-medium text-primary-600 hover:text-primary-750 hover:underline dark:text-primary-400 dark:hover:text-primary-300 transition-colors focus:outline-none"
               >
-                {reviewCount} review{reviewCount === 1 ? "" : "s"}
+                {reviewCount} {t(reviewCount === 1 ? "review" : "reviews")}
               </button>
             </>
           ) : (
@@ -148,7 +150,7 @@ export function ExpertCard(props: ExpertCardProps) {
               className="inline-flex items-center gap-1 font-medium text-neutral-400 hover:text-primary-650 hover:underline dark:text-neutral-550 dark:hover:text-primary-400 transition-colors focus:outline-none"
             >
               <Sparkles className="h-3.5 w-3.5 text-neutral-300 dark:text-neutral-700" />
-              <span>Be the first to review</span>
+              <span>{t("Be the first to review")}</span>
             </button>
           )}
         </div>
@@ -172,7 +174,7 @@ export function ExpertCard(props: ExpertCardProps) {
             className="flex-1 rounded-xl bg-primary-600 text-white text-xs font-semibold shadow-sm transition-all hover:bg-primary-700 hover:scale-[1.01] active:scale-[0.99]"
             onClick={onConsult}
           >
-            Consult
+            {t("Consult")}
           </Button>
           <Button
             variant="secondary"

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ThemeProvider } from "../components/theme/ThemeProvider";
 import { SecurityVerificationGate } from "../components/security/SecurityVerificationGate";
 import { PublicConfigProvider } from "../lib/publicConfig";
+import { LanguageProvider } from "../lib/i18n";
 
 export const metadata = {
   title: "Mekari - Enterprise Hub",
@@ -25,9 +26,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <body>
         <PublicConfigProvider value={publicConfig}>
-          <ThemeProvider>
-            <SecurityVerificationGate>{children}</SecurityVerificationGate>
-          </ThemeProvider>
+          <LanguageProvider>
+            <ThemeProvider>
+              <SecurityVerificationGate>{children}</SecurityVerificationGate>
+            </ThemeProvider>
+          </LanguageProvider>
         </PublicConfigProvider>
       </body>
     </html>
