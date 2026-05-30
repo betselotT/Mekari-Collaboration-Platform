@@ -13,10 +13,10 @@ import { requireAdminKey } from "./middleware/adminAuth";
 import { errorHandler } from "./middleware/errorHandler";
 import { ADMIN_FRONTEND_ORIGINS } from "./config/origins";
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 dotenv.config({ path: path.resolve(__dirname, "../../../backend/.env") });
 
-const port = Number(process.env.PORT || process.env.ADMIN_PORT || 4100);
+const port = Number(process.env.ADMIN_PORT || process.env.PORT || 4100);
 
 async function bootstrap() {
   const app = express();
