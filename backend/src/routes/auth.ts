@@ -1,12 +1,18 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { OAuth2Client } from "google-auth-library";
 import { IUser, User } from "../models/User";
-import { verifyCaptchaToken } from "../services/captcha";
 import { logAuditEvent } from "../services/auditLog";
 import { loginRateLimiter } from "../middleware/loginRateLimiter";
+import { sendVerificationOtpEmail } from "../services/email";
+import {
+  deleteEmailOtpHash,
+  getEmailOtpHash,
+  storeEmailOtpHash,
+} from "../services/emailOtpStore";
 
 const router = Router();
 const googleClient = new OAuth2Client();
@@ -23,10 +29,29 @@ const verificationDocumentSchema = z.object({
   dataUrl: z.string().startsWith("data:").max(7_000_000),
 });
 
+const fullNameSchema = z
+  .string()
+  .transform((value) => value.trim().replace(/\s+/g, " "))
+  .pipe(
+    z
+      .string()
+      .min(2, "Full name must be at least 2 characters")
+      .max(50, "Full name must be 50 characters or fewer")
+      .regex(/^[A-Za-z]+(?: [A-Za-z]+)*$/, "Full name must contain letters and spaces only")
+  );
+
+const passwordSchema = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .regex(/[A-Z]/, "Password must include at least 1 uppercase letter")
+  .regex(/[a-z]/, "Password must include at least 1 lowercase letter")
+  .regex(/[0-9]/, "Password must include at least 1 number")
+  .regex(/[^A-Za-z0-9]/, "Password must include at least 1 special character");
+
 const registerSchema = z.object({
-  name: z.string().min(2),
+  name: fullNameSchema,
   email: z.string().email(),
-  password: z.string().min(6),
+  password: passwordSchema,
   accountType: accountTypeSchema,
   primaryTechnicalField: z.string().min(1),
   roleOrStatus: z.string().min(1),
@@ -39,14 +64,21 @@ const registerSchema = z.object({
     .enum(["online", "busy", "offline", "in_session"])
     .default("offline"),
   verificationDocument: verificationDocumentSchema.optional(),
-  captchaToken: z.string().min(1),
 });
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
-  accountType: accountTypeSchema,
-  captchaToken: z.string().min(1),
+  accountType: accountTypeSchema.optional(),
+});
+
+const verifyEmailOtpSchema = z.object({
+  email: z.string().email(),
+  otp: z.string().regex(/^\d{6}$/, "OTP must be a 6-digit code"),
+});
+
+const resendVerificationOtpSchema = z.object({
+  email: z.string().email(),
 });
 
 const googleAuthSchema = z.object({
@@ -55,12 +87,12 @@ const googleAuthSchema = z.object({
 });
 
 const githubStartSchema = z.object({
-  accountType: accountTypeSchema.default("learner"),
+  accountType: accountTypeSchema.optional(),
   mode: z.enum(["login", "register"]).default("login"),
 });
 
 type OAuthState = {
-  accountType: z.infer<typeof accountTypeSchema>;
+  accountType?: z.infer<typeof accountTypeSchema>;
   mode: "login" | "register";
 };
 
@@ -72,6 +104,46 @@ function signAuthToken(userId: string, role: string) {
   );
 }
 
+function generateOtp() {
+  return crypto.randomInt(100000, 1000000).toString();
+}
+
+function hashOtp(email: string, otp: string) {
+  return crypto
+    .createHash("sha256")
+    .update(`${email.toLowerCase()}:${otp}:${process.env.JWT_SECRET || "dev-secret"}`)
+    .digest("hex");
+}
+
+async function queueVerificationOtp(user: IUser) {
+  const otp = generateOtp();
+  const otpHash = hashOtp(user.email, otp);
+  const storedInRedis = await storeEmailOtpHash(user.email, otpHash);
+
+  if (storedInRedis) {
+    if (user.emailVerificationOtpHash || user.emailVerificationOtpExpiresAt) {
+      user.emailVerificationOtpHash = undefined;
+      user.emailVerificationOtpExpiresAt = undefined;
+      await user.save();
+    }
+  } else {
+    user.emailVerificationOtpHash = otpHash;
+    user.emailVerificationOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+  }
+
+  void sendVerificationOtpEmail({
+    to: user.email,
+    name: user.name,
+    otp,
+  }).catch((err) => {
+    console.error(`Failed to send verification OTP to ${user.email}`, err);
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`[email] Development fallback OTP for ${user.email}: ${otp}`);
+    }
+  });
+}
+
 function signOAuthState(state: OAuthState) {
   return jwt.sign(state, process.env.JWT_SECRET || "dev-secret", { expiresIn: "10m" });
 }
@@ -79,7 +151,7 @@ function signOAuthState(state: OAuthState) {
 function verifyOAuthState(state: string): OAuthState {
   const decoded = jwt.verify(state, process.env.JWT_SECRET || "dev-secret") as OAuthState;
   return {
-    accountType: accountTypeSchema.parse(decoded.accountType),
+    accountType: decoded.accountType ? accountTypeSchema.parse(decoded.accountType) : undefined,
     mode: z.enum(["login", "register"]).parse(decoded.mode),
   };
 }
@@ -112,6 +184,7 @@ function serializeUser(user: IUser) {
     id: user.id,
     name: user.name,
     email: user.email,
+    emailVerified: user.emailVerified,
     role: user.role,
     expertVerification: user.expertVerification,
   };
@@ -120,10 +193,9 @@ function serializeUser(user: IUser) {
 router.post("/register", async (req, res, next) => {
   try {
     const parsed = registerSchema.parse(req.body);
+    const email = parsed.email.toLowerCase();
 
-    await verifyCaptchaToken(parsed.captchaToken);
-
-    const existing = await User.findOne({ email: parsed.email });
+    const existing = await User.findOne({ email });
     if (existing) {
       return res.status(409).json({ error: { message: "Email already in use" } });
     }
@@ -143,7 +215,8 @@ router.post("/register", async (req, res, next) => {
 
     const user = await User.create({
       name: parsed.name,
-      email: parsed.email,
+      email,
+      emailVerified: false,
       passwordHash,
       role: roleForAccountType(parsed.accountType),
       primaryTechnicalField: parsed.primaryTechnicalField,
@@ -167,7 +240,8 @@ router.post("/register", async (req, res, next) => {
       profileSetupCompleted: true,
     });
 
-    const token = signAuthToken(user.id, user.role);
+    await queueVerificationOtp(user);
+
     await logAuditEvent({
       actorId: user.id,
       actorName: user.name,
@@ -181,7 +255,7 @@ router.post("/register", async (req, res, next) => {
 
     res.json({
       user: serializeUser(user),
-      token,
+      message: "Account created. Check your email for the 6-digit verification code.",
     });
   } catch (err) {
     next(err);
@@ -191,8 +265,6 @@ router.post("/register", async (req, res, next) => {
 router.post("/login", loginRateLimiter, async (req, res, next) => {
   try {
     const parsed = loginSchema.parse(req.body);
-
-    await verifyCaptchaToken(parsed.captchaToken);
 
     const user = await User.findOne({ email: parsed.email });
     if (!user) {
@@ -210,7 +282,15 @@ router.post("/login", loginRateLimiter, async (req, res, next) => {
       return res.status(401).json({ error: { message: "Invalid credentials" } });
     }
 
-    if (!isMatchingAccountType(user.role, parsed.accountType)) {
+    if (!user.emailVerified) {
+      return res.status(403).json({
+        error: {
+          message: "Please verify your email with the OTP code before signing in.",
+        },
+      });
+    }
+
+    if (parsed.accountType && !isMatchingAccountType(user.role, parsed.accountType)) {
       return res.status(403).json({
         error: {
           message: `This account is registered as a ${accountTypeForRole(user.role)}. Choose the matching sign-in option.`,
@@ -218,7 +298,7 @@ router.post("/login", loginRateLimiter, async (req, res, next) => {
       });
     }
 
-    if (user.role === "user" && parsed.accountType === "learner") {
+    if (user.role === "user") {
       user.role = "learner";
       await user.save();
     }
@@ -246,6 +326,72 @@ router.post("/login", loginRateLimiter, async (req, res, next) => {
 
 router.post("/logout", (_req, res) => {
   res.json({ ok: true });
+});
+
+router.post("/verify-email", async (req, res, next) => {
+  try {
+    const parsed = verifyEmailOtpSchema.parse(req.body);
+    const email = parsed.email.toLowerCase();
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(400).json({ error: { message: "Invalid or expired OTP code" } });
+    }
+
+    if (user.emailVerified) {
+      return res.json({ message: "Email already verified. You can sign in now." });
+    }
+
+    const otpHash = hashOtp(email, parsed.otp);
+    const redisOtpHash = await getEmailOtpHash(email);
+    const mongoOtpMatches =
+      user.emailVerificationOtpHash === otpHash &&
+      !!user.emailVerificationOtpExpiresAt &&
+      user.emailVerificationOtpExpiresAt.getTime() >= Date.now();
+
+    if (redisOtpHash !== otpHash && !mongoOtpMatches) {
+      return res.status(400).json({ error: { message: "Invalid or expired OTP code" } });
+    }
+
+    user.emailVerified = true;
+    user.emailVerifiedAt = new Date();
+    user.emailVerificationOtpHash = undefined;
+    user.emailVerificationOtpExpiresAt = undefined;
+    await deleteEmailOtpHash(email);
+    await user.save();
+
+    await logAuditEvent({
+      actorId: user.id,
+      actorName: user.name,
+      actorEmail: user.email,
+      actionType: "email_verified",
+      action: `${user.name} verified their email with OTP`,
+      targetType: "user",
+      targetId: user.id,
+      status: user.role,
+    });
+
+    res.json({ message: "Email verified. You can sign in now." });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/resend-verification", loginRateLimiter, async (req, res, next) => {
+  try {
+    const parsed = resendVerificationOtpSchema.parse(req.body);
+    const user = await User.findOne({ email: parsed.email.toLowerCase() });
+
+    if (user && !user.emailVerified && user.passwordHash) {
+      await queueVerificationOtp(user);
+    }
+
+    res.json({
+      message: "If that account needs verification, a new OTP code has been sent.",
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.post("/google", loginRateLimiter, async (req, res, next) => {
@@ -285,6 +431,8 @@ router.post("/google", loginRateLimiter, async (req, res, next) => {
       user = await User.create({
         name: payload.name || payload.email.split("@")[0],
         email: payload.email.toLowerCase(),
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
         googleId: payload.sub,
         oauthProvider: "google",
         avatarUrl: payload.picture,
@@ -300,6 +448,13 @@ router.post("/google", loginRateLimiter, async (req, res, next) => {
             message: `This Google account is registered as a ${accountTypeForRole(user.role)}. Choose the matching sign-in option.`,
           },
         });
+      }
+      if (!user.emailVerified) {
+        user.emailVerified = true;
+        user.emailVerifiedAt = new Date();
+        user.emailVerificationOtpHash = undefined;
+        user.emailVerificationOtpExpiresAt = undefined;
+        await deleteEmailOtpHash(user.email);
       }
       user.googleId = payload.sub;
       user.oauthProvider = "google";
@@ -337,6 +492,7 @@ router.post("/google", loginRateLimiter, async (req, res, next) => {
 router.get("/github/start", loginRateLimiter, (req, res, next) => {
   try {
     const parsed = githubStartSchema.parse(req.query);
+    const accountType = parsed.accountType || "learner";
     if (parsed.accountType === "mentor" && parsed.mode === "register") {
       return res.redirect(
         frontendUrl("/register", {
@@ -357,7 +513,13 @@ router.get("/github/start", loginRateLimiter, (req, res, next) => {
     githubUrl.searchParams.set("client_id", clientId);
     githubUrl.searchParams.set("redirect_uri", callbackUrl);
     githubUrl.searchParams.set("scope", "read:user user:email");
-    githubUrl.searchParams.set("state", signOAuthState(parsed));
+    githubUrl.searchParams.set(
+      "state",
+      signOAuthState({
+        mode: parsed.mode,
+        accountType: parsed.mode === "register" ? accountType : parsed.accountType,
+      })
+    );
 
     res.redirect(githubUrl.toString());
   } catch (err) {
@@ -442,7 +604,8 @@ router.get("/github/callback", async (req, res, next) => {
     let isNewUser = false;
 
     if (!user) {
-      if (state.accountType === "mentor") {
+      const accountType = state.accountType || "learner";
+      if (accountType === "mentor") {
         return res.redirect(
           frontendUrl("/register", {
             error: "Mentor GitHub sign-up requires a verification document.",
@@ -452,21 +615,30 @@ router.get("/github/callback", async (req, res, next) => {
       user = await User.create({
         name: profile.name || profile.login || primaryEmail.split("@")[0],
         email: primaryEmail.toLowerCase(),
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
         githubId: String(profile.id),
         oauthProvider: "github",
         avatarUrl: profile.avatar_url,
-        role: roleForAccountType(state.accountType),
+        role: roleForAccountType(accountType),
         expertVerification: { status: "not_required" },
         profileSetupCompleted: false,
       });
       isNewUser = true;
     } else {
-      if (accountTypeForRole(user.role) !== state.accountType) {
+      if (state.accountType && accountTypeForRole(user.role) !== state.accountType) {
         return res.redirect(
           frontendUrl("/login", {
             error: `This GitHub account is registered as a ${accountTypeForRole(user.role)}.`,
           })
         );
+      }
+      if (!user.emailVerified) {
+        user.emailVerified = true;
+        user.emailVerifiedAt = new Date();
+        user.emailVerificationOtpHash = undefined;
+        user.emailVerificationOtpExpiresAt = undefined;
+        await deleteEmailOtpHash(user.email);
       }
       user.githubId = String(profile.id);
       user.oauthProvider = "github";

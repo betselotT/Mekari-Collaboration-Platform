@@ -3,6 +3,7 @@ import { z } from "zod";
 import { DmConversation } from "../models/DmConversation";
 import { Message, type MessageType } from "../models/Message";
 import { User } from "../models/User";
+import { awardPoints } from "./awardPoints";
 import { createGoogleMeetSpace } from "./googleMeet";
 import { createNotification } from "./notifications";
 import { broadcastToRoom, broadcastToUser, roomName } from "./realtime";
@@ -14,8 +15,25 @@ export const createDmConversationSchema = z.object({
 export const dmMessageSchema = z.object({
   body: z.string().trim().min(1),
   type: z.enum(["TEXT", "CODE", "IMAGE", "FILE", "SYSTEM_EVENT"]).optional(),
+  attachmentUrl: z.string().max(7_000_000).optional(),
   parentMessageId: z.string().optional(),
 });
+
+export const updateDmMessageSchema = z.object({
+  body: z.string().trim().min(1),
+});
+
+export const endDmSessionSchema = z.object({
+  helpDelivered: z.boolean().default(false),
+});
+
+const MIN_HELPFUL_LIVE_SESSION_MINUTES = Number(
+  process.env.MIN_HELPFUL_LIVE_SESSION_MINUTES || 10
+);
+const MIN_HELPFUL_LIVE_SESSION_MS =
+  Number.isFinite(MIN_HELPFUL_LIVE_SESSION_MINUTES) && MIN_HELPFUL_LIVE_SESSION_MINUTES > 0
+    ? MIN_HELPFUL_LIVE_SESSION_MINUTES * 60 * 1000
+    : 10 * 60 * 1000;
 
 function participantKey(userIdA: string, userIdB: string) {
   return [String(userIdA), String(userIdB)].sort().join(":");
@@ -24,6 +42,14 @@ function participantKey(userIdA: string, userIdB: string) {
 function forbidden(message = "You do not have access to this conversation") {
   const error = new Error(message) as Error & { status?: number };
   error.status = 403;
+  return error;
+}
+
+function mentorUnavailable() {
+  const error = new Error("Mentor isn't available right now. Try again later.") as Error & {
+    status?: number;
+  };
+  error.status = 409;
   return error;
 }
 
@@ -49,6 +75,14 @@ export async function findOrCreateDmConversation(learnerId: string, expertId: st
     const error = new Error("Expert not found") as Error & { status?: number };
     error.status = 404;
     throw error;
+  }
+
+  const requester = await User.findById(learnerId).select("role");
+  if (
+    (requester?.role === "learner" || requester?.role === "user") &&
+    expert.availabilityStatus !== "online"
+  ) {
+    throw mentorUnavailable();
   }
 
   const key = participantKey(learnerId, expertId);
@@ -83,9 +117,47 @@ export async function listDmMessages(conversationId: string, userId: string) {
   const conversation = await getConversationForUser(conversationId, userId);
   if (!conversation) throw forbidden();
 
+  await markDmMessagesRead(conversationId, userId);
+
   return Message.find({ conversation: conversationId })
     .sort({ createdAt: 1 })
     .populate("sender", "name avatarUrl role");
+}
+
+export async function markDmMessagesRead(conversationId: string, userId: string) {
+  const conversation = await getConversationForUser(conversationId, userId);
+  if (!conversation) throw forbidden();
+
+  const readAt = new Date();
+  const unreadMessages = await Message.find({
+    conversation: conversationId,
+    sender: { $ne: userId },
+    "readBy.user": { $ne: userId },
+  }).select("_id");
+
+  const messageIds = unreadMessages.map((message) => String(message._id));
+  if (messageIds.length === 0) {
+    return { conversationId, userId, messageIds, readAt };
+  }
+
+  await Message.updateMany(
+    { _id: { $in: messageIds } },
+    { $push: { readBy: { user: userId, readAt } } }
+  );
+
+  const payload = {
+    conversationId,
+    userId,
+    messageIds,
+    readAt: readAt.toISOString(),
+  };
+
+  await broadcastToRoom(roomName("dm", conversationId), "dm_messages_read", payload);
+  for (const participantId of conversation.participants) {
+    await broadcastToUser(String(participantId), "dm_messages_read", payload);
+  }
+
+  return payload;
 }
 
 function serializeDmSession(conversation: Awaited<ReturnType<typeof getConversationForUser>>) {
@@ -108,10 +180,18 @@ export async function createDmMessage(input: {
   userId: string;
   body: string;
   type?: MessageType;
+  attachmentUrl?: string;
   parentMessageId?: string;
 }) {
   const conversation = await getConversationForUser(input.conversationId, input.userId);
   if (!conversation) throw forbidden();
+
+  if (String(conversation.learner) === String(input.userId)) {
+    const expert = await User.findById(conversation.expert).select("availabilityStatus");
+    if (expert?.availabilityStatus !== "online") {
+      throw mentorUnavailable();
+    }
+  }
 
   if (input.parentMessageId) {
     const parent = await Message.exists({
@@ -130,7 +210,9 @@ export async function createDmMessage(input: {
     sender: input.userId,
     body: input.body,
     type: input.type || "TEXT",
+    attachmentUrl: input.attachmentUrl,
     parentMessageId: input.parentMessageId || undefined,
+    readBy: [{ user: input.userId, readAt: new Date() }],
   });
 
   await DmConversation.findByIdAndUpdate(input.conversationId, {
@@ -149,7 +231,9 @@ export async function createDmMessage(input: {
     sender: populated.sender,
     body: message.body,
     type: message.type,
+    attachmentUrl: message.attachmentUrl,
     parentMessageId: message.parentMessageId,
+    readBy: message.readBy,
     createdAt: message.createdAt,
   };
 
@@ -248,6 +332,7 @@ export async function startDmSession(conversationId: string, userId: string) {
     body: `Live session started. Join here: ${created.meetLink}`,
     type: "SYSTEM_EVENT",
   });
+
   const populatedMessage = await systemMsg.populate("sender", "name avatarUrl role");
   const messagePayload = {
     _id: systemMsg.id,
@@ -308,7 +393,11 @@ export async function getActiveDmSession(conversationId: string, userId: string)
   return serializeDmSession(conversation);
 }
 
-export async function endDmSession(conversationId: string, userId: string) {
+export async function endDmSession(
+  conversationId: string,
+  userId: string,
+  options: z.infer<typeof endDmSessionSchema> = { helpDelivered: false }
+) {
   const conversation = await getConversationForUser(conversationId, userId);
   if (!conversation) throw forbidden();
 
@@ -318,9 +407,14 @@ export async function endDmSession(conversationId: string, userId: string) {
     throw error;
   }
 
+  const sessionStartedAt = new Date(conversation.activeSession.startedAt);
+  const sessionEndedAt = new Date();
+  const durationMs = sessionEndedAt.getTime() - sessionStartedAt.getTime();
+  const helpConfirmed = options.helpDelivered;
+
   conversation.activeSession.status = "ended";
   conversation.activeSession.endedBy = new mongoose.Types.ObjectId(userId);
-  conversation.activeSession.endedAt = new Date();
+  conversation.activeSession.endedAt = sessionEndedAt;
   conversation.lastMessagePreview = "Live session ended";
   conversation.lastMessageAt = new Date();
   await conversation.save();
@@ -331,6 +425,24 @@ export async function endDmSession(conversationId: string, userId: string) {
     body: "Live session ended.",
     type: "SYSTEM_EVENT",
   });
+
+  const helpedInLiveSessionAwarded =
+    helpConfirmed && durationMs >= MIN_HELPFUL_LIVE_SESSION_MS;
+  let helpedInLiveSessionPoints:
+    | { pointsAwarded: number; totalPoints: number; awardedToUserId: string }
+    | null = null;
+  if (helpedInLiveSessionAwarded) {
+    const awarded = await awardPoints(
+      String(conversation.expert),
+      "HELPED_IN_LIVE_SESSION",
+      String(systemMsg._id)
+    );
+    helpedInLiveSessionPoints = {
+      ...awarded,
+      awardedToUserId: String(conversation.expert),
+    };
+  }
+
   const populatedMessage = await systemMsg.populate("sender", "name avatarUrl role");
   const messagePayload = {
     _id: systemMsg.id,
@@ -358,7 +470,17 @@ export async function endDmSession(conversationId: string, userId: string) {
     });
   }
 
-  return { session, message: populatedMessage };
+  return {
+    session,
+    message: populatedMessage,
+    gamification: {
+      helpedInLiveSessionAwarded,
+      durationMs,
+      minDurationMs: MIN_HELPFUL_LIVE_SESSION_MS,
+      helpConfirmed,
+      helpedInLiveSessionPoints,
+    },
+  };
 }
 
 export async function deleteDmMessage(conversationId: string, messageId: string, userId: string) {
@@ -389,6 +511,55 @@ export async function deleteDmMessage(conversationId: string, messageId: string,
     await broadcastToUser(String(participantId), "dm_conversation_updated", {
       conversationId,
       deletedMessageId: messageId,
+    });
+  }
+
+  return payload;
+}
+
+export async function updateDmMessage(conversationId: string, messageId: string, userId: string, body: string) {
+  const conversation = await getConversationForUser(conversationId, userId);
+  if (!conversation) throw forbidden();
+
+  const message = await Message.findOne({ _id: messageId, conversation: conversationId });
+  if (!message) {
+    const error = new Error("Message not found") as Error & { status?: number };
+    error.status = 404;
+    throw error;
+  }
+
+  if (String(message.sender) !== String(userId)) throw forbidden("You can only edit your own messages");
+  if (message.isFromAi || message.type === "SYSTEM_EVENT") {
+    const error = new Error("This message cannot be edited") as Error & { status?: number };
+    error.status = 400;
+    throw error;
+  }
+  if (message.type === "IMAGE" || message.type === "FILE") {
+    const error = new Error("Attachment messages cannot be edited") as Error & { status?: number };
+    error.status = 400;
+    throw error;
+  }
+
+  message.body = body;
+  message.editedAt = new Date();
+  await message.save();
+
+  const latest = await Message.findOne({ conversation: conversationId }).sort({ createdAt: -1 });
+  await DmConversation.findByIdAndUpdate(conversationId, {
+    $set: {
+      lastMessagePreview: String(latest?._id) === String(message._id) ? body.slice(0, 160) : latest?.body || "",
+      lastMessageAt: latest?.createdAt,
+      updatedAt: new Date(),
+    },
+  });
+
+  const populated = await message.populate("sender", "name avatarUrl role");
+  const payload = { conversationId, message: populated };
+  await broadcastToRoom(roomName("dm", conversationId), "dm_message_edited", payload);
+  for (const participantId of conversation.participants) {
+    await broadcastToUser(String(participantId), "dm_conversation_updated", {
+      conversationId,
+      editedMessage: populated,
     });
   }
 

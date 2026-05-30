@@ -20,6 +20,8 @@
   --card-hover: 248 250 252;
 }
 
+/* Checking */
+
 html.dark {
   /* Dark mode colors */
   --background: 15 23 42;

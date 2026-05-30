@@ -2,15 +2,32 @@ import { Server, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
 import { RedisClientType } from "redis";
 import { z } from "zod";
-import { createThreadMessage, threadMessageSchema } from "../services/threadMessages";
+import { createThreadMessage, markThreadMessagesRead, threadMessageSchema } from "../services/threadMessages";
 import {
   broadcastToRoom,
+  broadcastToUser,
   forgetSocketPresence,
   markUserPresence,
   rememberSocketUser,
   roomName,
 } from "../services/realtime";
-import { createDmMessage, dmMessageSchema, userCanAccessDm } from "../services/dmMessages";
+import {
+  createDmMessage,
+  dmMessageSchema,
+  getConversationForUser,
+  markDmMessagesRead,
+  userCanAccessDm,
+} from "../services/dmMessages";
+import { User } from "../models/User";
+import {
+  addWhiteboardStroke,
+  clearWhiteboard,
+  undoWhiteboardStroke,
+  userCanAccessWhiteboard,
+  whiteboardClearSchema,
+  whiteboardRoomName,
+  whiteboardStrokeSchema,
+} from "../services/whiteboards";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
 const socketThreadMessageSchema = threadMessageSchema.extend({
@@ -24,6 +41,18 @@ type SocketAuth = {
   sub?: string;
   role?: string;
 };
+
+const typingUserNameCache = new Map<string, string>();
+
+async function getTypingUserName(userId: string) {
+  const cached = typingUserNameCache.get(userId);
+  if (cached) return cached;
+
+  const user = await User.findById(userId).select("name email").lean().catch(() => null);
+  const name = user?.name || user?.email || "Someone";
+  typingUserNameCache.set(userId, name);
+  return name;
+}
 
 function authenticateSocket(socket: Socket) {
   const token = socket.handshake.auth?.token as string | undefined;
@@ -77,6 +106,7 @@ export function registerChatHandlers(
           userId,
           body: parsed.data.body,
           type: parsed.data.type,
+          attachmentUrl: parsed.data.attachmentUrl,
           parentMessageId: parsed.data.parentMessageId,
         });
       } catch (err) {
@@ -84,16 +114,31 @@ export function registerChatHandlers(
       }
     });
 
-    socket.on("typing_start", (threadId: string) => {
+    socket.on("typing_start", async (threadId: string) => {
       const userId = socket.data.userId as string | undefined;
       if (!userId || !threadId) return;
-      broadcastToRoom(roomName("thread", threadId), "user_typing", { userId, threadId });
+      const userName = await getTypingUserName(userId);
+      broadcastToRoom(roomName("thread", threadId), "user_typing", {
+        userId,
+        userName,
+        threadId,
+      });
     });
 
     socket.on("typing_stop", (threadId: string) => {
       const userId = socket.data.userId as string | undefined;
       if (!userId || !threadId) return;
       broadcastToRoom(roomName("thread", threadId), "user_stopped_typing", { userId, threadId });
+    });
+
+    socket.on("thread_mark_read", async (threadId: string) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId || !threadId) return;
+      try {
+        await markThreadMessagesRead(threadId, userId);
+      } catch (err) {
+        console.error("[socket thread_mark_read]", err);
+      }
     });
 
     socket.on("join_dm", async (conversationId: string) => {
@@ -129,20 +174,151 @@ export function registerChatHandlers(
 
     socket.on("dm_typing_start", async (conversationId: string) => {
       const userId = socket.data.userId as string | undefined;
+      if (!userId) return;
       if (!(await userCanAccessDm(conversationId, userId))) return;
-      broadcastToRoom(roomName("dm", conversationId), "dm_user_typing", {
+      const userName = await getTypingUserName(userId);
+      socket.to(roomName("dm", conversationId)).emit("dm_user_typing", {
         conversationId,
         userId,
+        userName,
       });
     });
 
     socket.on("dm_typing_stop", async (conversationId: string) => {
       const userId = socket.data.userId as string | undefined;
       if (!(await userCanAccessDm(conversationId, userId))) return;
-      broadcastToRoom(roomName("dm", conversationId), "dm_user_stopped_typing", {
+      socket.to(roomName("dm", conversationId)).emit("dm_user_stopped_typing", {
         conversationId,
         userId,
       });
+    });
+
+    socket.on("dm_mark_read", async (conversationId: string) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId) return;
+      try {
+        await markDmMessagesRead(conversationId, userId);
+      } catch (err) {
+        console.error("[socket dm_mark_read]", err);
+      }
+    });
+
+    socket.on("open_dm_whiteboard", async (conversationId: string) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId) return;
+
+      try {
+        const conversation = await getConversationForUser(conversationId, userId);
+        if (!conversation) return;
+
+        const payload = {
+          conversationId,
+          roomId: `dm:${conversationId}`,
+          openedBy: userId,
+        };
+
+        await Promise.all(
+          conversation.participants
+            .map((participantId) => String(participantId))
+            .filter((participantId) => participantId !== userId)
+            .map((participantId) =>
+              broadcastToUser(participantId, "dm_whiteboard_opened", payload)
+            )
+        );
+      } catch (err) {
+        console.error("[socket open_dm_whiteboard]", err);
+      }
+    });
+
+    socket.on("close_dm_whiteboard", async (conversationId: string) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId) return;
+
+      try {
+        const conversation = await getConversationForUser(conversationId, userId);
+        if (!conversation) return;
+
+        const payload = {
+          conversationId,
+          roomId: `dm:${conversationId}`,
+          closedBy: userId,
+        };
+
+        await Promise.all(
+          conversation.participants
+            .map((participantId) => String(participantId))
+            .filter((participantId) => participantId !== userId)
+            .map((participantId) =>
+              broadcastToUser(participantId, "dm_whiteboard_closed", payload)
+            )
+        );
+      } catch (err) {
+        console.error("[socket close_dm_whiteboard]", err);
+      }
+    });
+
+    socket.on("join_whiteboard", async (roomId: string) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!(await userCanAccessWhiteboard(roomId, userId))) return;
+      socket.join(whiteboardRoomName(roomId));
+    });
+
+    socket.on("leave_whiteboard", (roomId: string) => {
+      if (!roomId) return;
+      socket.leave(whiteboardRoomName(roomId));
+    });
+
+    socket.on("whiteboard_stroke", async (payload: unknown) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId) return;
+
+      const parsed = whiteboardStrokeSchema.safeParse(payload);
+      if (!parsed.success) return;
+
+      try {
+        const stroke = await addWhiteboardStroke(parsed.data, userId);
+        if (!stroke) return;
+        broadcastToRoom(whiteboardRoomName(parsed.data.roomId), "whiteboard_stroke", {
+          roomId: parsed.data.roomId,
+          stroke,
+        });
+      } catch (err) {
+        console.error("[socket whiteboard_stroke]", err);
+      }
+    });
+
+    socket.on("whiteboard_clear", async (payload: unknown) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId) return;
+
+      const parsed = whiteboardClearSchema.safeParse(payload);
+      if (!parsed.success) return;
+
+      try {
+        const cleared = await clearWhiteboard(parsed.data.roomId, userId);
+        if (!cleared) return;
+        broadcastToRoom(whiteboardRoomName(parsed.data.roomId), "whiteboard_clear", {
+          roomId: parsed.data.roomId,
+        });
+      } catch (err) {
+        console.error("[socket whiteboard_clear]", err);
+      }
+    });
+
+    socket.on("whiteboard_undo", async (payload: unknown) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId || typeof payload !== "object" || !payload) return;
+
+      const { roomId, strokeId } = payload as { roomId?: string; strokeId?: string };
+      if (!roomId || !strokeId) return;
+
+      try {
+        const removed = await undoWhiteboardStroke(roomId, strokeId, userId);
+        if (!removed) return;
+        broadcastToRoom(whiteboardRoomName(roomId), "whiteboard_undo", { roomId, strokeId });
+      } catch (err) {
+        console.error("[socket whiteboard_undo]", err);
+      }
     });
 
     socket.on("update_presence", async (status: string) => {

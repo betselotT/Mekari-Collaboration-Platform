@@ -10,37 +10,45 @@ import {
   Bot,
   ShieldAlert,
   Code2,
-  Database,
-  Layers,
-  GitBranch,
+  Cpu,
+  Cog,
+  Wrench,
   Zap,
+  X,
 } from "lucide-react";
+import { TranslationKey, useLanguage } from "../../lib/i18n";
 
 export interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
-  label: string;
+  labelKey: TranslationKey;
   href: string;
 }
 
 const mainMenu: NavItem[] = [
-  { icon: MessageSquare, label: "Threads", href: "/dashboard/threads" },
-  { icon: Zap, label: "Match with Expert", href: "/dashboard/match" },
-  { icon: Users, label: "Experts", href: "/dashboard/experts" },
-  { icon: BarChart3, label: "Leaderboard", href: "/dashboard/leaderboard" },
-  { icon: User, label: "Profile", href: "/dashboard/profile" },
-  { icon: Bot, label: "AI Assistant", href: "/dashboard/ai-assistant" },
-  { icon: ShieldAlert, label: "Report User", href: "/dashboard/reports" },
+  { icon: MessageSquare, labelKey: "nav.threads", href: "/dashboard/threads" },
+  { icon: Zap, labelKey: "nav.match", href: "/dashboard/match" },
+  { icon: Users, labelKey: "nav.experts", href: "/dashboard/experts" },
+  { icon: BarChart3, labelKey: "nav.leaderboard", href: "/dashboard/leaderboard" },
+  { icon: User, labelKey: "nav.profile", href: "/dashboard/profile" },
+  { icon: Bot, labelKey: "nav.aiAssistant", href: "/dashboard/ai-assistant" },
+  { icon: ShieldAlert, labelKey: "nav.reportUser", href: "/dashboard/reports" },
 ];
 
 const subjectsMenu: NavItem[] = [
-  { icon: Code2, label: "Software Engineering", href: "/dashboard/subjects/software-engineering" },
-  { icon: Database, label: "Data Structures", href: "/dashboard/subjects/data-structures" },
-  { icon: Layers, label: "System Design", href: "/dashboard/subjects/system-design" },
-  { icon: GitBranch, label: "DevOps", href: "/dashboard/subjects/devops" },
+  { icon: Code2, labelKey: "nav.softwareEngineering", href: "/dashboard/subjects/software-engineering" },
+  { icon: Cpu, labelKey: "nav.electricalEngineering", href: "/dashboard/subjects/electrical-engineering" },
+  { icon: Cog, labelKey: "nav.mechanicalEngineering", href: "/dashboard/subjects/mechanical-engineering" },
+  { icon: Wrench, labelKey: "nav.electromechanicalEngineering", href: "/dashboard/subjects/electromechanical-engineering" },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+function SidebarContent({ onNavigate, showClose }: { onNavigate?: () => void; showClose?: boolean }) {
   const pathname = usePathname();
+  const { t } = useLanguage();
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
@@ -48,22 +56,35 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-60 border-r border-neutral-200 bg-white px-6 py-6 overflow-y-auto dark:border-neutral-700 dark:bg-neutral-900 flex flex-col">
+    <>
       {/* Logo */}
-      <div className="mb-8 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-600 text-white font-bold">
-          M
+      <div className="mb-8 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-600 text-white font-bold">
+            M
+          </div>
+          <div className="flex min-w-0 flex-col">
+            <span className="text-base font-bold text-neutral-900 dark:text-white">Mekari</span>
+            <span className="text-xs text-neutral-600 dark:text-neutral-400">KNOWLEDGE HUB</span>
+          </div>
         </div>
-        <div className="flex flex-col">
-          <span className="text-base font-bold text-neutral-900 dark:text-white">Mekari</span>
-          <span className="text-xs text-neutral-600 dark:text-neutral-400">KNOWLEDGE HUB</span>
-        </div>
+        {showClose && (
+          <button
+            type="button"
+            onClick={onNavigate}
+            className="rounded-lg p-2 text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+            aria-label={t("header.closeNavigation")}
+            title={t("header.closeNavigation")}
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       {/* Main Menu */}
       <nav className="mb-8 flex flex-col gap-1">
         <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-          Main Menu
+          {t("nav.mainMenu")}
         </div>
         {mainMenu.map((item) => {
           const Icon = item.icon;
@@ -72,14 +93,15 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
                 active
                   ? "bg-primary-600 text-white"
                   : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
               }`}
             >
-              <Icon className="h-5 w-5" />
-              <span>{item.label}</span>
+              <Icon className="h-5 w-5 shrink-0" />
+              <span>{t(item.labelKey)}</span>
             </Link>
           );
         })}
@@ -88,7 +110,7 @@ export function Sidebar() {
       {/* Subjects Menu */}
       <nav className="mb-8 flex flex-col gap-1">
         <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-          Subjects
+          {t("nav.subjects")}
         </div>
         {subjectsMenu.map((item) => {
           const Icon = item.icon;
@@ -97,31 +119,43 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
                 active
                   ? "bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-200"
                   : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
               }`}
             >
-              <Icon className="h-5 w-5" />
-              <span>{item.label}</span>
+              <Icon className="h-5 w-5 shrink-0" />
+              <span>{t(item.labelKey)}</span>
             </Link>
           );
         })}
       </nav>
+    </>
+  );
+}
 
-      {/* Pro Plan Card */}
-      <div className="mt-auto rounded-lg border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
-        <div className="mb-3 text-xs font-bold uppercase tracking-wider text-primary-600 dark:text-primary-400">
-          Pro Plan
+export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
+  return (
+    <>
+      <aside className="fixed left-0 top-0 z-40 hidden h-screen w-60 flex-col overflow-y-auto border-r border-neutral-200 bg-white px-6 py-6 dark:border-neutral-700 dark:bg-neutral-900 lg:flex">
+        <SidebarContent />
+      </aside>
+
+      {isOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 h-full w-full bg-black/40"
+            onClick={onClose}
+            aria-label="Close navigation overlay"
+          />
+          <aside className="relative flex h-dvh w-72 max-w-[85vw] flex-col overflow-y-auto border-r border-neutral-200 bg-white px-6 py-6 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
+            <SidebarContent onNavigate={onClose} showClose />
+          </aside>
         </div>
-        <p className="mb-4 text-xs text-neutral-600 dark:text-neutral-400">
-          Get unlimited AI responses and expert access.
-        </p>
-        <button className="w-full rounded-lg bg-primary-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700">
-          Upgrade Now
-        </button>
-      </div>
-    </aside>
+      )}
+    </>
   );
 }

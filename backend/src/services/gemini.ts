@@ -66,24 +66,33 @@ export async function askGemini(
   const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-goog-api-key": apiKey,
-    },
-    body: JSON.stringify({
-      systemInstruction: {
-        parts: [{ text: engineeringSystemInstruction.trim() }],
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
       },
-      contents: normalizeHistory(messages, prompt),
-      generationConfig: {
-        temperature: 0.45,
-        topP: 0.9,
-        maxOutputTokens: 900,
-      },
-    }),
-  });
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: engineeringSystemInstruction.trim() }],
+        },
+        contents: normalizeHistory(messages, prompt),
+        generationConfig: {
+          temperature: 0.45,
+          topP: 0.9,
+          maxOutputTokens: 900,
+        },
+      }),
+    });
+  } catch {
+    const error = new Error(
+      "Could not reach the Gemini API. Check the backend internet connection, firewall, and GEMINI_API_KEY."
+    );
+    (error as Error & { status?: number }).status = 503;
+    throw error;
+  }
 
   const data = (await response.json().catch(() => ({}))) as GeminiResponse;
 

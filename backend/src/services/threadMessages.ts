@@ -10,6 +10,7 @@ import { generateContentTags } from "./tagExtraction";
 export const threadMessageSchema = z.object({
   body: z.string().trim().min(1),
   type: z.enum(["TEXT", "CODE", "IMAGE", "FILE", "SYSTEM_EVENT"]).optional(),
+  attachmentUrl: z.string().max(7_000_000).optional(),
   parentMessageId: z.string().optional(),
 });
 
@@ -18,6 +19,7 @@ type ThreadMessageInput = {
   userId: string;
   body: string;
   type?: "TEXT" | "CODE" | "IMAGE" | "FILE" | "SYSTEM_EVENT";
+  attachmentUrl?: string;
   parentMessageId?: string;
   broadcast?: boolean;
 };
@@ -35,7 +37,10 @@ export async function createThreadMessage(input: ThreadMessageInput) {
     sender: input.userId,
     body: input.body,
     type: input.type || "TEXT",
+    attachmentUrl: input.attachmentUrl,
     parentMessageId: input.parentMessageId || undefined,
+    readBy: [{ user: input.userId, readAt: new Date() }],
+    isPinned: false,
     isFromAi: false,
   });
 
@@ -71,8 +76,11 @@ export async function createThreadMessage(input: ThreadMessageInput) {
     sender: populated.sender,
     body: message.body,
     type: message.type,
+    attachmentUrl: message.attachmentUrl,
     parentMessageId: message.parentMessageId,
+    readBy: message.readBy,
     upvotes: [],
+    isPinned: message.isPinned,
     isFromAi: false,
     createdAt: message.createdAt,
   };
@@ -119,4 +127,42 @@ export async function createThreadMessage(input: ThreadMessageInput) {
   }
 
   return { message: populated, payload, thread };
+}
+
+export async function markThreadMessagesRead(threadId: string, userId: string) {
+  const thread = await Thread.findById(threadId).select("_id");
+  if (!thread) {
+    const error = new Error("Thread not found") as Error & { status?: number };
+    error.status = 404;
+    throw error;
+  }
+
+  const readAt = new Date();
+  const unreadMessages = await Message.find({
+    thread: threadId,
+    sender: { $ne: userId },
+    type: { $ne: "SYSTEM_EVENT" },
+    "readBy.user": { $ne: userId },
+  }).select("_id");
+
+  const messageIds = unreadMessages.map((message) => String(message._id));
+  if (messageIds.length === 0) {
+    return { threadId, userId, messageIds, readAt };
+  }
+
+  await Message.updateMany(
+    { _id: { $in: messageIds } },
+    { $push: { readBy: { user: userId, readAt } } }
+  );
+
+  const payload = {
+    threadId,
+    userId,
+    messageIds,
+    readAt: readAt.toISOString(),
+  };
+
+  await broadcastToRoom(roomName("thread", threadId), "thread_messages_read", payload);
+
+  return payload;
 }

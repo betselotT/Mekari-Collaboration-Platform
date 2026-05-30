@@ -6,11 +6,11 @@ import { Thread } from "../models/Thread";
 import { Message } from "../models/Message";
 import { PointEvent } from "../models/PointEvent";
 import { User } from "../models/User";
-import { awardPoints } from "../services/awardPoints";
+import { awardPoints, awardRepeatableBadge } from "../services/awardPoints";
 import { captureKnowledge } from "../services/knowledgeCapture";
 import { runAIPipeline } from "../services/aiPipeline";
 import { broadcastToRoom, roomName } from "../services/realtime";
-import { createThreadMessage, threadMessageSchema } from "../services/threadMessages";
+import { createThreadMessage, markThreadMessagesRead, threadMessageSchema } from "../services/threadMessages";
 import { generateContentTags, normalizeContentTags } from "../services/tagExtraction";
 import { findSimilarProblems } from "../services/similarProblems";
 import { recommendExperts } from "../services/matching";
@@ -32,6 +32,10 @@ const solveSchema = z.object({
 
 const updateTagsSchema = z.object({
   tags: z.array(z.string().min(1)).max(12),
+});
+
+const updateMessageSchema = z.object({
+  body: z.string().trim().min(1),
 });
 
 async function getThreadReadStats(threadIds: unknown[]) {
@@ -56,6 +60,179 @@ async function getThreadReadStats(threadIds: unknown[]) {
     ),
   };
 }
+
+function startOfWeek() {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const start = new Date(now);
+  start.setDate(diff);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+const subjectGroups = [
+  {
+    subject: "Software Engineering",
+    slug: "software-engineering",
+    patterns: ["software", "web", "frontend", "backend", "programming", "security"],
+  },
+  {
+    subject: "Electrical Engineering",
+    slug: "electrical-engineering",
+    patterns: ["electrical", "electronics", "circuit", "power", "embedded", "signal"],
+  },
+  {
+    subject: "Mechanical Engineering",
+    slug: "mechanical-engineering",
+    patterns: ["mechanical", "mechanics", "thermodynamics", "manufacturing", "cad", "machine"],
+  },
+  {
+    subject: "Electromechanical Engineering",
+    slug: "electromechanical-engineering",
+    patterns: ["electromechanical", "mechatronics", "robotics", "automation", "control systems", "actuator", "sensor"],
+  },
+] as const;
+
+function subjectRegex(patterns: readonly string[]) {
+  return new RegExp(patterns.map((pattern) => pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "i");
+}
+
+function subjectGroupForSlug(slug: string) {
+  return (
+    subjectGroups.find((group) => group.slug === slug) || {
+      subject: slug
+        .split("-")
+        .filter(Boolean)
+        .map((part) => part[0]?.toUpperCase() + part.slice(1))
+        .join(" ") || "Subject",
+      slug,
+      patterns: [slug.replace(/-/g, " ")],
+    }
+  );
+}
+
+function threadSubjectFilterForSlug(slug?: string) {
+  if (!slug) return {};
+  const group = subjectGroupForSlug(slug);
+  const regex = subjectRegex(group.patterns);
+  return {
+    $or: [
+      { subject: regex },
+      { tags: regex },
+    ],
+  };
+}
+
+async function buildSubjectSummaryForGroup(group: ReturnType<typeof subjectGroupForSlug>) {
+  const regex = subjectRegex(group.patterns);
+  const threadFilter = threadSubjectFilterForSlug(group.slug);
+  const weekStart = startOfWeek();
+
+  const [activeThreads, weeklyThreads, resourceCounts, onlineExperts] = await Promise.all([
+    Thread.countDocuments(threadFilter),
+    Thread.countDocuments({ ...threadFilter, createdAt: { $gte: weekStart } }),
+    Message.aggregate([
+      { $match: { thread: { $exists: true, $ne: null }, type: "FILE" } },
+      {
+        $lookup: {
+          from: "threads",
+          localField: "thread",
+          foreignField: "_id",
+          as: "threadDoc",
+        },
+      },
+      { $unwind: "$threadDoc" },
+      { $match: { $or: [{ "threadDoc.subject": regex }, { "threadDoc.tags": regex }] } },
+      { $count: "count" },
+    ]),
+    User.aggregate([
+      { $match: { role: "expert", availabilityStatus: "online" } },
+      { $unwind: "$expertise" },
+      { $match: { "expertise.subject": regex } },
+      { $count: "count" },
+    ]),
+  ]);
+
+  const previousThreads = Math.max(0, activeThreads - weeklyThreads);
+  const weeklyChange =
+    previousThreads === 0
+      ? weeklyThreads > 0
+        ? 100
+        : 0
+      : Math.round((weeklyThreads / previousThreads) * 100);
+
+  return {
+    subject: group.subject,
+    slug: group.slug,
+    activeThreads,
+    weeklyThreads,
+    weeklyChange,
+    expertsOnline: onlineExperts[0]?.count || 0,
+    resources: resourceCounts[0]?.count || 0,
+  };
+}
+
+async function buildSubjectSummaries() {
+  return Promise.all(subjectGroups.map((group) => buildSubjectSummaryForGroup(group)));
+}
+
+router.get("/subjects", requireAuth, async (_req: AuthRequest, res, next) => {
+  try {
+    const subjects = await buildSubjectSummaries();
+    res.json({ subjects });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/subjects/:slug", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const summary = await buildSubjectSummaryForGroup(subjectGroupForSlug(req.params.slug));
+    res.json({ subject: summary });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/subjects/:slug/experts", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const group = subjectGroupForSlug(req.params.slug);
+    const regex = subjectRegex(group.patterns);
+    const experts = await User.find({
+      role: "expert",
+      availabilityStatus: "online",
+      "expertise.subject": regex,
+    })
+      .select("name avatarUrl bio expertise skillTags availabilityStatus points role")
+      .sort({ points: -1, name: 1 })
+      .lean();
+
+    res.json({ experts });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/subjects/:slug/resources", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const threadIds = await Thread.find(threadSubjectFilterForSlug(req.params.slug)).select("_id").lean();
+    const resources = await Message.find({
+      thread: { $in: threadIds.map((thread) => thread._id) },
+      type: "FILE",
+    })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .populate("thread", "title subject")
+      .populate("sender", "name avatarUrl")
+      .select("thread sender body attachmentUrl createdAt")
+      .lean();
+
+    res.json({ resources });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // Public GET /public - list threads without authentication
 router.get("/public", async (req, res, next) => {
@@ -111,7 +288,7 @@ router.get("/public/:threadId", async (req, res, next) => {
   try {
     const thread = await Thread.findById(req.params.threadId)
       .populate("createdBy", "name avatarUrl")
-      .populate("matchedExperts", "name avatarUrl expertise availabilityStatus points badges");
+      .populate("matchedExperts", "name avatarUrl expertise availabilityStatus points");
 
     if (!thread) return res.status(404).json({ error: { message: "Thread not found" } });
 
@@ -153,6 +330,7 @@ router.get("/public/:threadId/messages", async (req, res, next) => {
 router.get("/", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const subject = req.query.subject as string | undefined;
+    const subjectSlug = req.query.subjectSlug as string | undefined;
     const status = req.query.status as string | undefined;
     const tags = req.query.tags as string | undefined;
     const page = Math.max(1, parseInt(String(req.query.page || "1")));
@@ -160,7 +338,11 @@ router.get("/", requireAuth, async (req: AuthRequest, res, next) => {
     const skip = (page - 1) * limit;
 
     const filter: Record<string, unknown> = {};
-    if (subject) filter.subject = subject;
+    if (subjectSlug) {
+      Object.assign(filter, threadSubjectFilterForSlug(subjectSlug));
+    } else if (subject) {
+      filter.subject = subject;
+    }
     if (status) filter.status = status;
     if (tags) {
       const tagList = tags.split(",").map((t) => t.trim()).filter(Boolean);
@@ -183,26 +365,27 @@ router.get("/", requireAuth, async (req: AuthRequest, res, next) => {
         { $match: { thread: { $in: threadIds } } },
         { $group: { _id: "$thread", count: { $sum: 1 } } },
       ]),
-      Message.find({ thread: { $in: threadIds } })
-        .sort({ createdAt: -1 })
-        .select("thread body createdAt")
+      Message.find({ thread: { $in: threadIds }, type: { $ne: "SYSTEM_EVENT" } })
+        .sort({ createdAt: 1 })
+        .select("thread body createdAt isPinned")
         .lean(),
     ]);
 
     const countMap = new Map<string, number>(
       counts.map((c) => [String(c._id), c.count as number])
     );
-    const previewMap = new Map<string, string>();
+    const previewMap = new Map<string, { body: string; isPinned: boolean }>();
     for (const m of previews) {
       const key = String(m.thread);
-      if (!previewMap.has(key)) previewMap.set(key, String(m.body || "").slice(0, 160));
+      const preview = { body: String(m.body || "").slice(0, 160), isPinned: Boolean(m.isPinned) };
+      if (!previewMap.has(key) || preview.isPinned) previewMap.set(key, preview);
     }
 
     res.json({
       threads: threads.map((t) => ({
         ...t.toObject(),
         messageCount: countMap.get(String(t._id)) || 0,
-        preview: previewMap.get(String(t._id)) || "",
+        preview: previewMap.get(String(t._id))?.body || "",
       })),
       total,
       page,
@@ -240,7 +423,7 @@ router.get("/:threadId", requireAuth, async (req: AuthRequest, res, next) => {
 
     const thread = await Thread.findById(req.params.threadId)
       .populate("createdBy", "name avatarUrl")
-      .populate("matchedExperts", "name avatarUrl expertise skillTags availabilityStatus points badges");
+      .populate("matchedExperts", "name avatarUrl expertise skillTags availabilityStatus points");
 
     if (!thread) return res.status(404).json({ error: { message: "Thread not found" } });
     res.json({ thread });
@@ -322,6 +505,33 @@ router.patch("/:threadId/tags", requireAuth, async (req: AuthRequest, res, next)
 router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, next) => {
   try {
     const parsed = createThreadSchema.parse(req.body);
+    const duplicateWindow = new Date(Date.now() - 30_000);
+    const recentSameTitle = await Thread.findOne({
+      createdBy: req.userId,
+      title: parsed.title.trim(),
+      subject: parsed.subject.trim(),
+      createdAt: { $gte: duplicateWindow },
+    }).sort({ createdAt: -1 });
+
+    if (recentSameTitle) {
+      const existingInitialMessage = await Message.findOne({
+        thread: recentSameTitle._id,
+        sender: req.userId,
+        body: parsed.initialMessage,
+      }).select("_id");
+
+      if (existingInitialMessage) {
+        await recentSameTitle.populate([
+          { path: "createdBy", select: "name avatarUrl" },
+          {
+            path: "matchedExperts",
+            select: "name avatarUrl expertise skillTags availabilityStatus points",
+          },
+        ]);
+        return res.status(200).json({ thread: recentSameTitle, duplicate: true });
+      }
+    }
+
     const tags = await generateContentTags({
       title: parsed.title,
       subject: parsed.subject,
@@ -356,11 +566,13 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
       sender: req.userId,
       body: parsed.initialMessage,
       type: "TEXT",
+      readBy: [{ user: req.userId, readAt: new Date() }],
+      isPinned: true,
       isFromAi: false,
     });
 
     const experts = await User.find({ _id: { $in: recommendedExpertIds } })
-      .select("name avatarUrl expertise skillTags availabilityStatus points badges")
+      .select("name avatarUrl expertise skillTags availabilityStatus points")
       .lean();
     const expertMap = new Map(experts.map((expert) => [String(expert._id), expert]));
     const suggestedExperts = recommendations
@@ -388,7 +600,7 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
       { path: "createdBy", select: "name avatarUrl" },
       {
         path: "matchedExperts",
-        select: "name avatarUrl expertise skillTags availabilityStatus points badges",
+        select: "name avatarUrl expertise skillTags availabilityStatus points",
       },
     ]);
 
@@ -408,10 +620,22 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
 // GET /:threadId/messages
 router.get("/:threadId/messages", requireAuth, async (req: AuthRequest, res, next) => {
   try {
+    await markThreadMessagesRead(req.params.threadId, String(req.userId));
     const messages = await Message.find({ thread: req.params.threadId })
       .sort({ createdAt: 1 })
+      .select("-readBy")
       .populate("sender", "name avatarUrl");
     res.json({ messages });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /:threadId/read - mark incoming thread messages as read
+router.post("/:threadId/read", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const result = await markThreadMessagesRead(req.params.threadId, String(req.userId));
+    res.json(result);
   } catch (err) {
     next(err);
   }
@@ -427,6 +651,7 @@ router.post("/:threadId/messages", requireAuth, async (req: AuthRequest, res, ne
       userId: String(req.userId),
       body: parsed.body,
       type: parsed.type,
+      attachmentUrl: parsed.attachmentUrl,
       parentMessageId: parsed.parentMessageId,
     });
 
@@ -490,7 +715,82 @@ router.post("/:threadId/messages/:messageId/upvote", requireAuth, async (req: Au
   }
 });
 
+router.patch("/:threadId/messages/:messageId", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const { threadId, messageId } = req.params;
+    const parsed = updateMessageSchema.parse(req.body);
+
+    const message = await Message.findOne({ _id: messageId, thread: threadId });
+    if (!message) {
+      return res.status(404).json({ error: { message: "Message not found" } });
+    }
+
+    if (String(message.sender) !== String(req.userId)) {
+      return res.status(403).json({ error: { message: "You can only edit your own messages" } });
+    }
+
+    if (message.isFromAi || message.type === "SYSTEM_EVENT") {
+      return res.status(400).json({ error: { message: "This message cannot be edited" } });
+    }
+
+    if (message.type === "IMAGE" || message.type === "FILE") {
+      return res.status(400).json({ error: { message: "Attachment messages cannot be edited" } });
+    }
+
+    message.body = parsed.body;
+    message.editedAt = new Date();
+    await message.save();
+    await Thread.findByIdAndUpdate(threadId, { $set: { updatedAt: new Date() } });
+
+    const updated = await message.populate("sender", "name avatarUrl");
+    await broadcastToRoom(roomName("thread", threadId), "message_edited", {
+      threadId,
+      message: updated,
+    });
+
+    res.json({ message: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // PATCH /:threadId/solve — mark solved, capture knowledge (CRITICAL BEHAVIOR #5)
+router.patch("/:threadId/messages/:messageId/pin", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const { threadId, messageId } = req.params;
+
+    const thread = await Thread.findById(threadId).select("createdBy solutionMsgId");
+    if (!thread) return res.status(404).json({ error: { message: "Thread not found" } });
+
+    if (String(thread.createdBy) !== String(req.userId)) {
+      return res.status(403).json({ error: { message: "Only the thread author can pin the solution" } });
+    }
+
+    if (!thread.solutionMsgId || String(thread.solutionMsgId) !== String(messageId)) {
+      return res.status(409).json({ error: { message: "Only the marked solution can be pinned" } });
+    }
+
+    const message = await Message.findOneAndUpdate(
+      { _id: messageId, thread: threadId, sender: { $ne: req.userId }, isFromAi: false },
+      { $set: { isPinned: true } },
+      { new: true }
+    ).populate("sender", "name avatarUrl");
+
+    if (!message) {
+      return res.status(404).json({ error: { message: "Solution message not found" } });
+    }
+
+    await broadcastToRoom(roomName("thread", threadId), "message_pinned", {
+      threadId,
+      messageId,
+    });
+
+    res.json({ message });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.patch("/:threadId/solve", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const { threadId } = req.params;
@@ -526,26 +826,14 @@ router.patch("/:threadId/solve", requireAuth, async (req: AuthRequest, res, next
 
       // AI Beater badge: the thread was PENDING_EXPERT (AI couldn't resolve it)
       if (thread.status === "PENDING_EXPERT" || (thread.aiResponse && !thread.aiResponse.resolved)) {
-        const { User } = await import("../models/User");
-        const solver = await User.findById(solutionMsg.sender).select("badges");
-        if (solver && !solver.badges.includes("AI Beater")) {
-          await User.findByIdAndUpdate(solutionMsg.sender, {
-            $addToSet: { badges: "AI Beater" },
-          });
-        }
+        await awardRepeatableBadge(String(solutionMsg.sender), "AI Beater", threadId);
       }
 
       // Speed Demon badge: solved in under 5 minutes
       const createdAt = thread.createdAt as unknown as Date;
       const elapsed = Date.now() - new Date(createdAt).getTime();
       if (elapsed < 5 * 60 * 1000) {
-        const { User } = await import("../models/User");
-        const solver = await User.findById(solutionMsg.sender).select("badges");
-        if (solver && !solver.badges.includes("Speed Demon")) {
-          await User.findByIdAndUpdate(solutionMsg.sender, {
-            $addToSet: { badges: "Speed Demon" },
-          });
-        }
+        await awardRepeatableBadge(String(solutionMsg.sender), "Speed Demon", threadId);
       }
     }
 
@@ -600,6 +888,7 @@ router.post("/:threadId/session", requireAuth, async (req: AuthRequest, res, nex
       sender: req.userId,
       body: `Live session started! Join here: ${meetLink}`,
       type: "SYSTEM_EVENT",
+      readBy: [{ user: req.userId, readAt: new Date() }],
       isFromAi: false,
     });
 
@@ -610,6 +899,7 @@ router.post("/:threadId/session", requireAuth, async (req: AuthRequest, res, nex
       sender: req.userId,
       body: systemMsg.body,
       type: "SYSTEM_EVENT",
+      readBy: systemMsg.readBy,
       isFromAi: false,
       createdAt: systemMsg.createdAt,
     });
@@ -644,6 +934,12 @@ router.delete("/:threadId/messages/:messageId", requireAuth, async (req: AuthReq
     if (thread.solutionMsgId && String(thread.solutionMsgId) === String(message._id)) {
       return res.status(409).json({
         error: { message: "Cannot delete the message marked as the solution" },
+      });
+    }
+
+    if (message.isPinned) {
+      return res.status(409).json({
+        error: { message: "Cannot delete the pinned initial message" },
       });
     }
 

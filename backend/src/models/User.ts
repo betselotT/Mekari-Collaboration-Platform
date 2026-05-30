@@ -45,6 +45,10 @@ export type PushToken = {
 export interface IUser extends Document {
   name: string;
   email: string;
+  emailVerified: boolean;
+  emailVerifiedAt?: Date;
+  emailVerificationOtpHash?: string;
+  emailVerificationOtpExpiresAt?: Date;
   passwordHash?: string;
   googleId?: string;
   githubId?: string;
@@ -64,7 +68,6 @@ export interface IUser extends Document {
   notificationPreferences: NotificationPreferences;
   pushTokens: PushToken[];
   points: number;
-  badges: string[];
   role: "user" | "admin" | "learner" | "expert" | "mod";
   createdAt: Date;
   updatedAt: Date;
@@ -142,6 +145,10 @@ const UserSchema = new Schema<IUser>(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, index: true },
+    emailVerified: { type: Boolean, default: false },
+    emailVerifiedAt: { type: Date },
+    emailVerificationOtpHash: { type: String },
+    emailVerificationOtpExpiresAt: { type: Date },
     passwordHash: { type: String },
     googleId: { type: String, index: true },
     githubId: { type: String, index: true },
@@ -171,7 +178,6 @@ const UserSchema = new Schema<IUser>(
     },
     pushTokens: { type: [PushTokenSchema], default: [] },
     points: { type: Number, default: 0 },
-    badges: { type: [String], default: [] },
     role: {
       type: String,
       enum: ["user", "admin", "learner", "expert", "mod"],

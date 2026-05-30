@@ -8,6 +8,9 @@ import { Avatar } from "../../../components/ui/Avatar";
 import { Badge } from "../../../components/ui/Badge";
 import { Star, Zap } from "lucide-react";
 import { apiClient } from "../../../lib/api";
+import { useLanguage } from "../../../lib/i18n";
+
+type LeaderboardTab = "experts" | "learners";
 
 type LeaderboardUser = {
   _id: string;
@@ -16,6 +19,7 @@ type LeaderboardUser = {
   avatarUrl?: string;
   points: number;
   badges: string[];
+  badgeCounts?: Record<string, number>;
   expertise: Array<{ subject: string; proficiency: string }>;
   skillTags: string[];
   role: string;
@@ -43,8 +47,10 @@ function expertiseLabel(user: LeaderboardUser) {
   return user.role === "expert" ? "Mentor" : "Learner";
 }
 export default function LeaderboardPage() {
+  const { t } = useLanguage();
   const [learners, setLearners] = useState<LeaderboardUser[]>([]);
   const [experts, setExperts] = useState<LeaderboardUser[]>([]);
+  const [activeTab, setActiveTab] = useState<LeaderboardTab>("experts");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -60,7 +66,7 @@ export default function LeaderboardPage() {
         setLearners(res.data.learners || []);
         setExperts(res.data.experts || []);
       } catch (err: any) {
-        setError(err.response?.data?.error?.message || "Failed to load leaderboards.");
+        setError(err.response?.data?.error?.message || t("Failed to load leaderboards."));
       } finally {
         setLoading(false);
       }
@@ -70,11 +76,10 @@ export default function LeaderboardPage() {
   }, []);
 
   return (
-    <DashboardLayout title="Leaderboard">
+    <DashboardLayout title={t("Leaderboard")}>
       <div className="mb-8">
-        <h2 className="mb-2 text-3xl font-bold text-neutral-900 dark:text-white">Leaderboards</h2>
         <p className="text-neutral-600 dark:text-neutral-400">
-          Learners and mentors are ranked separately so progress is fair and easy to scan.
+          {t("Learners and mentors are ranked separately so progress is fair and easy to scan.")}
         </p>
       </div>
 
@@ -89,12 +94,65 @@ export default function LeaderboardPage() {
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent" />
         </div>
       ) : (
-        <div className="space-y-8">
-          <LeaderboardSection title="Learner Leaderboard" description="Top learners by earned points." users={learners} />
-          <LeaderboardSection title="Expert Leaderboard" description="Top mentors by earned points." users={experts} />
+        <div className="space-y-6">
+          <div className="flex w-full max-w-md rounded bg-neutral-100 p-1 dark:bg-neutral-900">
+            <LeaderboardTabButton
+              active={activeTab === "experts"}
+              count={experts.length}
+              label={t("Experts")}
+              onClick={() => setActiveTab("experts")}
+            />
+            <LeaderboardTabButton
+              active={activeTab === "learners"}
+              count={learners.length}
+              label={t("Learners")}
+              onClick={() => setActiveTab("learners")}
+            />
+          </div>
+
+          {activeTab === "experts" ? (
+            <LeaderboardSection title={t("Expert Leaderboard")} description={t("Top mentors by earned points.")} users={experts} />
+          ) : (
+            <LeaderboardSection title={t("Learner Leaderboard")} description={t("Top learners by earned points.")} users={learners} />
+          )}
         </div>
       )}
     </DashboardLayout>
+  );
+}
+
+function LeaderboardTabButton({
+  active,
+  count,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  count: number;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex flex-1 items-center justify-center gap-2 rounded px-3 py-2 text-sm font-medium transition ${
+        active
+          ? "bg-white text-primary-700 shadow-sm dark:bg-neutral-800 dark:text-primary-300"
+          : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+      }`}
+    >
+      <span>{label}</span>
+      <span
+        className={`rounded px-1.5 py-0.5 text-xs ${
+          active
+            ? "bg-primary-50 text-primary-700 dark:bg-primary-950 dark:text-primary-300"
+            : "bg-neutral-200 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
+        }`}
+      >
+        {count}
+      </span>
+    </button>
   );
 }
 
@@ -107,6 +165,7 @@ function LeaderboardSection({
   description: string;
   users: LeaderboardUser[];
 }) {
+  const { t } = useLanguage();
   const topUsers = users.slice(0, 3);
   const tableUsers = users.slice(3);
 
@@ -120,9 +179,9 @@ function LeaderboardSection({
       {users.length === 0 ? (
         <Card>
           <div className="py-10 text-center">
-            <p className="font-semibold text-neutral-900 dark:text-white">No entries yet.</p>
+            <p className="font-semibold text-neutral-900 dark:text-white">{t("No entries yet.")}</p>
             <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-              Users will appear here once they earn points.
+              {t("Users will appear here once they earn points.")}
             </p>
           </div>
         </Card>
@@ -162,11 +221,11 @@ function LeaderboardSection({
               <table className="w-full">
                 <thead className="border-b border-neutral-200 dark:border-neutral-700">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-neutral-600 dark:text-neutral-400">Rank</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-neutral-600 dark:text-neutral-400">Contributor</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-neutral-600 dark:text-neutral-400">Profile</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-neutral-600 dark:text-neutral-400">Badges</th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-neutral-600 dark:text-neutral-400">Points</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-neutral-600 dark:text-neutral-400">{t("Rank")}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-neutral-600 dark:text-neutral-400">{t("Contributor")}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-neutral-600 dark:text-neutral-400">{t("Profile")}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-neutral-600 dark:text-neutral-400">{t("Badges")}</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-neutral-600 dark:text-neutral-400">{t("Points")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
@@ -187,7 +246,11 @@ function LeaderboardSection({
                         {user.badges?.length ? (
                           <div className="flex flex-wrap gap-2">
                             {user.badges.slice(0, 2).map((badge) => (
-                              <Badge key={badge} variant="primary">{badge}</Badge>
+                              <Badge key={badge} variant="primary">
+                                {(user.badgeCounts?.[badge] || 1) > 1
+                                  ? `${badge} x${user.badgeCounts?.[badge]}`
+                                  : badge}
+                              </Badge>
                             ))}
                           </div>
                         ) : (
@@ -208,7 +271,7 @@ function LeaderboardSection({
             </div>
             <div className="flex items-center justify-between border-t border-neutral-200 px-6 py-4 dark:border-neutral-700">
               <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                Showing {users.length} contributor{users.length === 1 ? "" : "s"}
+                {t("Showing")} {users.length} {t(users.length === 1 ? "contributor" : "contributors")}
               </p>
             </div>
           </Card>

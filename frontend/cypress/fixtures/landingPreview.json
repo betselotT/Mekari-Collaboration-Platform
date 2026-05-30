@@ -1,0 +1,28 @@
+{
+  "preview": {
+    "threadTitle": "MongoDB aggregation is slow on dashboard analytics",
+    "subject": "Databases",
+    "tags": ["mongodb", "aggregation", "performance"],
+    "helpers": [
+      {
+        "name": "Edom Mulugeta",
+        "expertise": "Databases",
+        "availabilityStatus": "online",
+        "points": 480
+      },
+      {
+        "name": "Betselot Tesfa",
+        "expertise": "Software Engineering",
+        "availabilityStatus": "busy",
+        "points": 350
+      }
+    ],
+    "hasLiveSession": true,
+    "connectionPreferences": ["voice_call", "whiteboard"],
+    "stats": {
+      "activeMatchRequests": 12,
+      "approvedExperts": 8,
+      "solutionPoints": 2140
+    }
+  }
+}

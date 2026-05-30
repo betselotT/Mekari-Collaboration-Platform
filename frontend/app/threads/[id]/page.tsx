@@ -6,9 +6,11 @@ import { useParams } from "next/navigation";
 import { ArrowLeft, ArrowUp, LogIn, MessageCircle, Reply } from "lucide-react";
 import { apiClient } from "../../../lib/api";
 import { ThemeToggle } from "../../../components/theme/ThemeToggle";
+import { LanguageToggle } from "../../../components/i18n/LanguageToggle";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Avatar } from "../../../components/ui/Avatar";
+import { useLanguage } from "../../../lib/i18n";
 
 interface Sender {
   _id: string;
@@ -49,6 +51,7 @@ function messageId(message: PublicMessage): string {
 }
 
 export default function PublicThreadDetailPage() {
+  const { t } = useLanguage();
   const params = useParams<{ id: string }>();
   const threadId = params?.id || "";
   const [thread, setThread] = useState<PublicThread | null>(null);
@@ -60,18 +63,53 @@ export default function PublicThreadDetailPage() {
   useEffect(() => {
     if (!threadId) return;
 
-    Promise.all([
-      apiClient.get<{ thread: PublicThread }>(`/api/threads/public/${threadId}`),
-      apiClient.get<{ messages: PublicMessage[] }>(`/api/threads/public/${threadId}/messages`),
-    ])
-      .then(([threadRes, messagesRes]) => {
+    let mounted = true;
+
+    async function loadPublicThread() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const threadRes = await apiClient.get<{ thread: PublicThread }>(
+          `/api/threads/public/${threadId}`
+        );
+        if (!mounted) return;
+
         setThread(threadRes.data.thread);
-        setMessages(messagesRes.data.messages || []);
-      })
-      .catch((err) =>
-        setError(err?.response?.data?.error?.message || "Failed to load this thread")
-      )
-      .finally(() => setLoading(false));
+
+        try {
+          const messagesRes = await apiClient.get<{ messages: PublicMessage[] }>(
+            `/api/threads/public/${threadId}/messages`
+          );
+          if (mounted) setMessages(messagesRes.data.messages || []);
+        } catch (messageErr: any) {
+          if (mounted) {
+            setMessages([]);
+            setError(
+              messageErr?.response?.data?.error?.message ||
+                t("Thread loaded, but replies could not be loaded.")
+            );
+          }
+        }
+      } catch (err: any) {
+        if (!mounted) return;
+        setThread(null);
+        setMessages([]);
+        setError(
+          err?.response?.status === 404
+            ? t("Thread not found.")
+            : err?.response?.data?.error?.message || t("Failed to load this thread.")
+        );
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    loadPublicThread();
+
+    return () => {
+      mounted = false;
+    };
   }, [threadId]);
 
   return (
@@ -80,14 +118,15 @@ export default function PublicThreadDetailPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <Link href="/threads" className="inline-flex items-center gap-2 text-sm font-medium">
             <ArrowLeft className="h-4 w-4" />
-            Public threads
+            {t("Public threads")}
           </Link>
           <div className="flex items-center gap-3">
             <ThemeToggle />
+            <LanguageToggle />
             <Link href="/login">
               <Button variant="outline" size="sm">
                 <LogIn className="mr-2 h-4 w-4" />
-                Sign in to join
+                {t("Sign in to join")}
               </Button>
             </Link>
           </div>
@@ -103,18 +142,18 @@ export default function PublicThreadDetailPage() {
 
         {loading ? (
           <div className="rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
-            Loading thread...
+            {t("Loading thread...")}
           </div>
         ) : !thread ? (
           <div className="rounded-lg border border-neutral-200 bg-white p-6 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
-            Thread not found.
+            {error || t("This thread could not be loaded.")}
           </div>
         ) : (
           <div className="space-y-4">
             <article className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <Badge variant="info">{thread.subject}</Badge>
-                <Badge variant="default">{thread.status}</Badge>
+                <Badge variant="default">{t(thread.status)}</Badge>
                 {(thread.tags || []).map((tag) => (
                   <Badge key={tag} variant="default">
                     {tag}
@@ -128,20 +167,20 @@ export default function PublicThreadDetailPage() {
                 </p>
               )}
               <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-neutral-500 dark:text-neutral-400">
-                <span>By {thread.createdBy?.name || "Unknown"}</span>
+                <span>{t("By")} {thread.createdBy?.name || t("threads.unknownAuthor")}</span>
                 <span>{new Date(thread.createdAt).toLocaleString()}</span>
                 <span className="inline-flex items-center gap-1">
                   <MessageCircle className="h-3.5 w-3.5" />
-                  {thread.repliesCount || 0} replies
+                  {thread.repliesCount || 0} {t("threads.replyLabel")}
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <ArrowUp className="h-3.5 w-3.5" />
-                  {thread.upvoteCount || 0} upvotes
+                  {thread.upvoteCount || 0} {t("upvotes")}
                 </span>
               </div>
               <div className="mt-5">
                 <Link href="/login">
-                  <Button variant="primary" size="sm">Join discussion</Button>
+                  <Button variant="primary" size="sm">{t("Join discussion")}</Button>
                 </Link>
               </div>
             </article>
@@ -150,17 +189,17 @@ export default function PublicThreadDetailPage() {
               <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   <MessageCircle className="h-4 w-4 text-primary-500" />
-                  Replies
+                  {t("Replies")}
                 </div>
                 <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                  {messages.length} messages
+                  {messages.length} {t("messages")}
                 </span>
               </div>
 
               <div className="space-y-0">
                 {messages.length === 0 ? (
                   <div className="p-5 text-sm text-neutral-600 dark:text-neutral-400">
-                    No replies yet.
+                    {t("No replies yet.")}
                   </div>
                 ) : (
                   messages.map((message) => {
@@ -193,10 +232,10 @@ export default function PublicThreadDetailPage() {
                           <div className="mb-3 rounded-lg border border-primary-100 bg-primary-50/70 px-3 py-2 dark:border-primary-900/40 dark:bg-primary-950/20">
                             <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-primary-700 dark:text-primary-300">
                               <Reply className="h-3.5 w-3.5" />
-                              Replying to {parent ? senderName(parent.sender) : "another message"}
+                              {t("Replying to")} {parent ? senderName(parent.sender) : t("another message")}
                             </div>
                             <p className="line-clamp-2 text-xs text-neutral-600 dark:text-neutral-400">
-                              {parent?.body || "Original message is not available in this view."}
+                              {parent?.body || t("Original message is not available in this view.")}
                             </p>
                           </div>
                         )}
@@ -206,7 +245,7 @@ export default function PublicThreadDetailPage() {
                         </p>
                         <div className="mt-3 inline-flex items-center gap-1 text-xs text-neutral-500">
                           <ArrowUp className="h-3.5 w-3.5" />
-                          {message.upvotes?.length || 0} upvotes
+                          {message.upvotes?.length || 0} {t("upvotes")}
                         </div>
                       </article>
                     );

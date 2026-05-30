@@ -1,0 +1,28 @@
+{
+  "threads": [
+    {
+      "_id": "thread-public-1",
+      "title": "How do I index MongoDB messages for fast search?",
+      "subject": "Databases",
+      "tags": ["mongodb", "indexing", "search"],
+      "status": "OPEN",
+      "repliesCount": 4,
+      "upvoteCount": 13,
+      "updatedAt": "2026-05-22T08:15:00.000Z",
+      "createdAt": "2026-05-21T08:15:00.000Z",
+      "createdBy": { "name": "Gelila Nebiyu" }
+    },
+    {
+      "_id": "thread-public-2",
+      "title": "Best way to start a shared whiteboard session?",
+      "subject": "Collaboration Tools",
+      "tags": ["whiteboard", "realtime"],
+      "status": "SOLVED",
+      "repliesCount": 7,
+      "upvoteCount": 21,
+      "updatedAt": "2026-05-23T10:30:00.000Z",
+      "createdAt": "2026-05-22T10:30:00.000Z",
+      "createdBy": { "name": "Meklit Habtamu" }
+    }
+  ]
+}

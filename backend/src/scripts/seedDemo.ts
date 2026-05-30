@@ -5,6 +5,9 @@ import { User } from "../models/User";
 import { Thread } from "../models/Thread";
 import { Message } from "../models/Message";
 import { MatchRequest } from "../models/MatchRequest";
+import { BadgeEvent } from "../models/BadgeEvent";
+import { CertificateEvent } from "../models/CertificateEvent";
+import { syncClassDiagramCollections } from "../config/classDiagramCollections";
 
 dotenv.config();
 
@@ -12,12 +15,15 @@ async function run() {
   const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/mekari";
   await mongoose.connect(MONGO_URI);
   console.log("Connected to MongoDB");
+  await syncClassDiagramCollections();
 
   await Promise.all([
     User.deleteMany({}),
     Thread.deleteMany({}),
     Message.deleteMany({}),
     MatchRequest.deleteMany({}),
+    BadgeEvent.deleteMany({}),
+    CertificateEvent.deleteMany({}),
   ]);
   console.log("Cleared existing data");
 
@@ -37,7 +43,6 @@ async function run() {
       ],
       availabilityStatus: "online",
       points: 420,
-      badges: ["Top Helper", "Backend Guru"],
     },
     {
       name: "Edom Mulugeta",
@@ -52,7 +57,6 @@ async function run() {
       ],
       availabilityStatus: "busy",
       points: 310,
-      badges: ["UI Whisperer"],
     },
     {
       name: "Mechanical Mentor",
@@ -67,7 +71,6 @@ async function run() {
       ],
       availabilityStatus: "online",
       points: 260,
-      badges: ["Cross-Discipline Helper"],
     },
     {
       name: "Electrical Guide",
@@ -82,7 +85,6 @@ async function run() {
       ],
       availabilityStatus: "offline",
       points: 190,
-      badges: ["Power Systems"],
     },
     {
       name: "Database Mentor",
@@ -97,7 +99,6 @@ async function run() {
       ],
       availabilityStatus: "online",
       points: 380,
-      badges: ["Query Optimizer"],
     },
     {
       name: "DevOps Helper",
@@ -112,7 +113,6 @@ async function run() {
       ],
       availabilityStatus: "busy",
       points: 340,
-      badges: ["Pipeline Builder"],
     },
     {
       name: "DSA Coach",
@@ -127,7 +127,6 @@ async function run() {
       ],
       availabilityStatus: "online",
       points: 410,
-      badges: ["Algorithm Ace"],
     },
     {
       name: "System Design Mentor",
@@ -142,7 +141,6 @@ async function run() {
       ],
       availabilityStatus: "online",
       points: 460,
-      badges: ["Architect"],
     },
     {
       name: "Web Security Guide",
@@ -157,12 +155,24 @@ async function run() {
       ],
       availabilityStatus: "offline",
       points: 290,
-      badges: ["Security First"],
     },
   ]);
 
   const [betselot, edom, mech, ee, dbMentor, devops, dsa, sysDesign, security] =
     users;
+
+  await BadgeEvent.insertMany([
+    { userId: betselot._id, badge: "Top Helper", refType: "user" },
+    { userId: betselot._id, badge: "Backend Guru", refType: "user" },
+    { userId: edom._id, badge: "UI Whisperer", refType: "user" },
+    { userId: mech._id, badge: "Cross-Discipline Helper", refType: "user" },
+    { userId: ee._id, badge: "Power Systems", refType: "user" },
+    { userId: dbMentor._id, badge: "Query Optimizer", refType: "user" },
+    { userId: devops._id, badge: "Pipeline Builder", refType: "user" },
+    { userId: dsa._id, badge: "Algorithm Ace", refType: "user" },
+    { userId: sysDesign._id, badge: "Architect", refType: "user" },
+    { userId: security._id, badge: "Security First", refType: "user" },
+  ]);
 
   const threads = await Thread.insertMany([
     {

@@ -7,12 +7,16 @@ import {
   deleteDmMessage,
   dmMessageSchema,
   endDmSession,
+  endDmSessionSchema,
   findOrCreateDmConversation,
   getActiveDmSession,
   getConversationForUser,
   listDmConversations,
   listDmMessages,
+  markDmMessagesRead,
   startDmSession,
+  updateDmMessage,
+  updateDmMessageSchema,
 } from "../services/dmMessages";
 
 const router = Router();
@@ -91,9 +95,27 @@ router.post(
         userId: String(req.userId),
         body: parsed.body,
         type: parsed.type,
+        attachmentUrl: parsed.attachmentUrl,
         parentMessageId: parsed.parentMessageId,
       });
       res.status(201).json({ message });
+    } catch (err) {
+      const status = statusFromError(err);
+      if (status !== 500) {
+        return res.status(status).json({ error: { message: (err as Error).message } });
+      }
+      next(err);
+    }
+  }
+);
+
+router.post(
+  "/conversations/:conversationId/read",
+  requireAuth,
+  async (req: AuthRequest, res, next) => {
+    try {
+      const result = await markDmMessagesRead(req.params.conversationId, String(req.userId));
+      res.json(result);
     } catch (err) {
       const status = statusFromError(err);
       if (status !== 500) {
@@ -143,7 +165,8 @@ router.post(
   requireAuth,
   async (req: AuthRequest, res, next) => {
     try {
-      const result = await endDmSession(req.params.conversationId, String(req.userId));
+      const parsed = endDmSessionSchema.parse(req.body || {});
+      const result = await endDmSession(req.params.conversationId, String(req.userId), parsed);
       res.json(result);
     } catch (err) {
       const status = statusFromError(err);
@@ -166,6 +189,29 @@ router.delete(
         String(req.userId)
       );
       res.json({ deleted: true, ...deleted });
+    } catch (err) {
+      const status = statusFromError(err);
+      if (status !== 500) {
+        return res.status(status).json({ error: { message: (err as Error).message } });
+      }
+      next(err);
+    }
+  }
+);
+
+router.patch(
+  "/conversations/:conversationId/messages/:messageId",
+  requireAuth,
+  async (req: AuthRequest, res, next) => {
+    try {
+      const parsed = updateDmMessageSchema.parse(req.body);
+      const updated = await updateDmMessage(
+        req.params.conversationId,
+        req.params.messageId,
+        String(req.userId),
+        parsed.body
+      );
+      res.json(updated);
     } catch (err) {
       const status = statusFromError(err);
       if (status !== 500) {

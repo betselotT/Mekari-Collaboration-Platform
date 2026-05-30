@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, LogOut, MessageCircle, Search } from "lucide-react";
+import { Bell, LogOut, Menu, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "../theme/ThemeToggle";
+import { LanguageToggle } from "../i18n/LanguageToggle";
 import { useAuth } from "../../lib/useAuth";
 import { apiClient, clearAuthToken } from "../../lib/api";
 import { ensureSocket } from "../../lib/useSocket";
+import { useLanguage } from "../../lib/i18n";
 
 type NotificationItem = {
   _id?: string;
@@ -20,23 +22,24 @@ type NotificationItem = {
 
 interface HeaderProps {
   title?: string;
-  searchPlaceholder?: string;
+  onMenuClick?: () => void;
 }
 
-export function Header({ title = "Dashboard", searchPlaceholder = "Search..." }: HeaderProps) {
+export function Header({ title = "Dashboard", onMenuClick }: HeaderProps) {
   const { user } = useAuth(false);
+  const { t } = useLanguage();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const displayName = user?.name || "Mekari User";
   const displayRole =
     user?.role === "expert"
-      ? "Mentor"
+      ? t("role.mentor")
       : user?.role === "learner"
-        ? "Learner"
+        ? t("role.learner")
         : user?.role
           ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
-          : "Member";
+          : t("role.member");
   const initials = displayName
     .split(" ")
     .filter(Boolean)
@@ -126,30 +129,32 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search..." }:
   }
 
   return (
-    <header className="fixed right-0 top-0 z-30 flex h-16 w-[calc(100%-240px)] items-center justify-between border-b border-neutral-200 bg-white px-8 dark:border-neutral-700 dark:bg-neutral-900">
-      {/* Left side - Title and Search */}
-      <div className="flex items-center gap-4">
-        <h1 className="text-lg font-bold text-neutral-900 dark:text-white">{title}</h1>
-        <div className="relative hidden md:flex">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-          <input
-            type="text"
-            placeholder={searchPlaceholder}
-            className="input pl-10"
-            style={{ width: "300px" }}
-          />
-        </div>
+    <header className="fixed left-0 right-0 top-0 z-30 flex h-16 min-w-0 items-center justify-between gap-2 border-b border-neutral-200 bg-white px-3 dark:border-neutral-700 dark:bg-neutral-900 sm:gap-3 sm:px-6 lg:left-60 lg:px-8">
+      {/* Left side - Mobile menu */}
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
+        <button
+          type="button"
+          onClick={onMenuClick}
+          className="rounded-lg p-2 text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800 lg:hidden"
+          aria-label={t("header.openNavigation")}
+          title={t("header.openNavigation")}
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <h1 className="min-w-0 truncate text-sm font-bold text-neutral-900 dark:text-white sm:text-lg">
+          {t(title)}
+        </h1>
       </div>
 
       {/* Right side - Actions and Profile */}
-      <div className="flex items-center gap-4">
+      <div className="flex shrink-0 items-center gap-0.5 sm:gap-2 lg:gap-4">
         <div ref={panelRef} className="relative">
           <button
             type="button"
             className="relative rounded-lg p-2 text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
             onClick={() => setOpen((value) => !value)}
-            aria-label="Notifications"
-            title="Notifications"
+            aria-label={t("header.notifications")}
+            title={t("header.notifications")}
           >
             <Bell className="h-5 w-5" />
             {unreadCount > 0 && (
@@ -159,21 +164,21 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search..." }:
             )}
           </button>
           {open && (
-            <div className="absolute right-0 mt-3 w-96 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
-              <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
-                <h2 className="text-sm font-bold text-neutral-900 dark:text-white">Notifications</h2>
+            <div className="fixed left-4 right-4 top-16 mt-2 max-h-[calc(100vh-5rem)] overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-3 sm:w-96 sm:max-w-sm">
+              <div className="flex min-w-0 items-center justify-between gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
+                <h2 className="min-w-0 truncate text-sm font-bold text-neutral-900 dark:text-white">{t("header.notifications")}</h2>
                 <button
                   type="button"
                   onClick={markAllRead}
-                  className="text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400"
+                  className="shrink-0 text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400"
                 >
-                  Mark all read
+                  {t("header.markAllRead")}
                 </button>
               </div>
-              <div className="max-h-96 overflow-y-auto">
+              <div className="max-h-[calc(100vh-9rem)] overflow-y-auto sm:max-h-96">
                 {notifications.length === 0 ? (
                   <div className="px-4 py-6 text-sm text-neutral-500 dark:text-neutral-400">
-                    No notifications yet.
+                    {t("header.noNotifications")}
                   </div>
                 ) : (
                   notifications.map((notification) => (
@@ -185,17 +190,17 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search..." }:
                         notification.read ? "" : "bg-primary-50/70 dark:bg-primary-950/20"
                       }`}
                     >
-                      <div className="flex gap-3">
+                      <div className="flex min-w-0 gap-3">
                         <span
-                          className={`mt-1 h-2 w-2 rounded-full ${
+                          className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
                             notification.read ? "bg-neutral-300" : "bg-primary-600"
                           }`}
                         />
                         <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-medium text-neutral-900 dark:text-white">
+                          <span className="block break-words text-sm font-medium text-neutral-900 dark:text-white">
                             {notification.message}
                           </span>
-                          <span className="mt-1 block text-xs text-neutral-500 dark:text-neutral-400">
+                          <span className="mt-1 block break-words text-xs text-neutral-500 dark:text-neutral-400">
                             {new Date(notification.createdAt).toLocaleString()}
                           </span>
                         </span>
@@ -212,25 +217,31 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search..." }:
           href="/dashboard/messages"
           className="relative p-2 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors dark:text-neutral-400 dark:hover:bg-neutral-800"
           aria-label="Messages"
-          title="Messages"
+          title={t("header.messages")}
         >
           <MessageCircle className="h-5 w-5" />
         </Link>
 
         <ThemeToggle />
+        <LanguageToggle />
 
         <button
           type="button"
           onClick={handleLogout}
-          title="Sign out"
-          aria-label="Sign out"
+          title={t("header.signOut")}
+          aria-label={t("header.signOut")}
           className="p-2 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors dark:text-neutral-400 dark:hover:bg-neutral-800"
         >
           <LogOut className="h-5 w-5" />
         </button>
 
-        <div className="ml-2 flex items-center gap-3 border-l border-neutral-200 pl-4 dark:border-neutral-700">
-          <div className="text-right">
+        <Link
+          href="/dashboard/profile"
+          className="ml-0 flex items-center gap-2 rounded-lg border-l border-neutral-200 pl-1 transition-colors hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:border-neutral-700 dark:hover:bg-neutral-800 sm:ml-2 sm:gap-3 sm:pl-4"
+          aria-label={t("header.openProfile")}
+          title={t("header.openProfile")}
+        >
+          <div className="hidden text-right sm:block">
             <p className="text-sm font-medium text-neutral-900 dark:text-white">{displayName}</p>
             <p className="text-xs text-neutral-600 dark:text-neutral-400">{displayRole}</p>
           </div>
@@ -238,14 +249,14 @@ export function Header({ title = "Dashboard", searchPlaceholder = "Search..." }:
             <img
               src={user.avatarUrl}
               alt={displayName}
-              className="h-10 w-10 rounded-full object-cover"
+              className="h-8 w-8 rounded-full object-cover sm:h-10 sm:w-10"
             />
           ) : (
-            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-pink-400 to-red-500 flex items-center justify-center text-white font-bold">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-pink-400 to-red-500 text-sm font-bold text-white sm:h-10 sm:w-10 sm:text-base">
               {initials}
             </div>
           )}
-        </div>
+        </Link>
       </div>
     </header>
   );

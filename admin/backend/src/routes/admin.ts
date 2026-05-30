@@ -14,9 +14,9 @@ const verificationStatusSchema = z.enum(["pending", "approved", "rejected"]);
 const reportStatusSchema = z.enum(["pending", "resolved", "struck", "dismissed"]);
 
 const reviewVerificationSchema = z.object({
-  status: z.enum(["approved", "rejected"]),
+  status: z.enum(["pending", "approved", "rejected"]),
   reviewNote: z.string().max(500).optional(),
-}).refine((value) => value.status === "approved" || Boolean(value.reviewNote?.trim()), {
+}).refine((value) => value.status !== "rejected" || Boolean(value.reviewNote?.trim()), {
   message: "Rejection reason is required",
   path: ["reviewNote"],
 });
@@ -222,6 +222,70 @@ router.get("/mentor-verifications", async (req, res, next) => {
   }
 });
 
+router.get("/users", async (req, res, next) => {
+  try {
+    const role = z.enum(["mentor", "learner"]).parse(req.query.role);
+    const { page, limit, skip } = parsePagination(req.query);
+    const filter =
+      role === "mentor"
+        ? { role: "expert" }
+        : { role: { $in: ["learner", "user"] } };
+
+    const [users, total] = await Promise.all([
+      User.find(filter)
+        .select("name email role bio primaryTechnicalField roleOrStatus yearsOfExperience devicesUsed availabilityStatus expertise skillTags expertVerification.status expertVerification.reviewNote points createdAt")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      User.countDocuments(filter),
+    ]);
+
+    res.json({ users, pagination: pagination(page, limit, total) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/users/:userId", async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.userId)
+      .select("name email role bio primaryTechnicalField roleOrStatus yearsOfExperience devicesUsed collaborationGoals availabilityStatus expertise skillTags expertVerification.status expertVerification.reviewNote expertVerification.submittedAt expertVerification.reviewedAt points createdAt updatedAt reviews")
+      .populate("reviews.by", "name email role")
+      .lean();
+
+    if (!user) {
+      res.status(404).json({ error: { message: "User not found" } });
+      return;
+    }
+
+    const userRecord = user as typeof user & {
+      reviews?: Array<{ stars?: number }>;
+    };
+    const reviews = Array.isArray(userRecord.reviews) ? userRecord.reviews : [];
+    const expertReviewCount = reviews.length;
+    const expertRatingAverage =
+      expertReviewCount === 0
+        ? undefined
+        : Number(
+            (
+              reviews.reduce((sum: number, review) => sum + Number(review.stars || 0), 0) /
+              expertReviewCount
+            ).toFixed(1)
+          );
+
+    res.json({
+      user: {
+        ...user,
+        expertReviewCount,
+        expertRatingAverage,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/mentor-verifications/:userId/document", async (req, res, next) => {
   try {
     const user = await User.findOne({ _id: req.params.userId, role: "expert" })
@@ -288,7 +352,9 @@ router.patch("/mentor-verifications/:userId", async (req, res, next) => {
       message:
         parsed.status === "approved"
           ? "Your mentor verification document was approved."
-          : `Your mentor verification document was rejected${parsed.reviewNote ? `: ${parsed.reviewNote}` : "."}`,
+          : parsed.status === "pending"
+            ? "Your mentor approval was moved back to pending review."
+            : `Your mentor verification document was rejected${parsed.reviewNote ? `: ${parsed.reviewNote}` : "."}`,
       link: "/dashboard/profile",
       read: false,
     });

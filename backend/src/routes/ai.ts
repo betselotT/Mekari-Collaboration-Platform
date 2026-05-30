@@ -47,6 +47,7 @@ router.post("/chat", requireAuth, async (req: AuthRequest, res, next) => {
       thread: parsed.threadId,
       sender: req.userId, // could be a dedicated AI user in a fuller implementation
       body: result.text,
+      readBy: [{ user: req.userId, readAt: new Date() }],
       isFromAi: true,
     });
 

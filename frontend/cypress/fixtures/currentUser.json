@@ -1,0 +1,25 @@
+{
+  "user": {
+    "_id": "user-learner-1",
+    "name": "Rafia Kedir",
+    "email": "rafia@example.com",
+    "role": "learner",
+    "points": 140,
+    "badges": ["First Blood"],
+    "badgeCounts": { "First Blood": 1 },
+    "availabilityStatus": "online",
+    "primaryTechnicalField": "Software Engineering",
+    "roleOrStatus": "Student",
+    "yearsOfExperience": "1-3 years",
+    "devicesUsed": ["Desktop/Laptop", "Smartphone"],
+    "profileSetupCompleted": true,
+    "bio": "Frontend learner focused on collaboration tools.",
+    "skillTags": ["React", "MongoDB"],
+    "expertise": [{ "subject": "Web Development", "proficiency": "intermediate" }],
+    "notificationPreferences": {
+      "chat": { "internal": true, "push": false },
+      "documentStatus": { "internal": true, "push": false },
+      "moderation": { "internal": true, "push": false }
+    }
+  }
+}

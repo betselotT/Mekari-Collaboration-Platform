@@ -1,6 +1,6 @@
+import "./config/env";
 import http from "http";
 import path from "path";
-import dotenv from "dotenv";
 import { Server } from "socket.io";
 import mongoose from "mongoose";
 import { createClient } from "redis";
@@ -8,17 +8,17 @@ import { createApp } from "./app";
 import { setIo } from "./sockets/ioInstance";
 import { registerChatHandlers } from "./sockets/chat";
 import { initRealtime, startPresenceExpiryLoop } from "./services/realtime";
-
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
+import { syncClassDiagramCollections } from "./config/classDiagramCollections";
+import { maskMongoUri, resolveMongoUri } from "./config/database";
+import { FRONTEND_ORIGINS as DEFAULT_FRONTEND_ORIGINS } from "./config/origins";
 
 const PORT = process.env.PORT || 4000;
-const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/mekari";
+const MONGO_URI = resolveMongoUri();
 const REDIS_URL = process.env.REDIS_URL;
 const FRONTEND_ORIGINS = [
   process.env.FRONTEND_ORIGIN,
   ...(process.env.FRONTEND_ORIGINS || "").split(","),
-  "http://localhost:3000",
-  "http://127.0.0.1:3000",
+  ...DEFAULT_FRONTEND_ORIGINS,
 ]
   .map((origin) => origin?.trim())
   .filter(Boolean) as string[];
@@ -35,8 +35,10 @@ async function connectRedisWithTimeout(redisClient: ReturnType<typeof createClie
 
 async function bootstrap() {
   try {
+    console.log(`Connecting backend to MongoDB: ${maskMongoUri(MONGO_URI)}`);
     await mongoose.connect(MONGO_URI);
     console.log("Connected to MongoDB");
+    await syncClassDiagramCollections();
 
     let redisClient: ReturnType<typeof createClient> | null = null;
     if (REDIS_URL) {

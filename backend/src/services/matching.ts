@@ -368,7 +368,8 @@ export async function recommendExperts(params: {
 
   const baseFilter = {
     ...(requesterId ? { _id: { $ne: requesterId } } : {}),
-    role: { $in: ["expert", "admin"] },
+    role: "expert",
+    "expertVerification.status": "approved",
   };
 
   const candidates = await User.find({
@@ -381,7 +382,7 @@ export async function recommendExperts(params: {
         ],
       },
     ],
-  }).select("name avatarUrl expertise skillTags availabilityStatus points badges primaryTechnicalField bio");
+  }).select("name avatarUrl expertise skillTags availabilityStatus points primaryTechnicalField bio");
 
   const scored = candidates
     .filter((c) => allowedByAvailabilityPreference(c.availabilityStatus, availabilityPreference))

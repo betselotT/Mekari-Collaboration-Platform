@@ -12,6 +12,7 @@ export interface AuthUser {
   role: string;
   points: number;
   badges: string[];
+  badgeCounts?: Record<string, number>;
   availabilityStatus: string;
 }
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
+import { useLanguage } from "../../lib/i18n";
 // Props for configuring the dashboard layout structure and header content
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -13,20 +14,22 @@ interface DashboardLayoutProps {
 export function DashboardLayout({
   children,
   title = "Dashboard",
-  searchPlaceholder = "Search...",
 }: DashboardLayoutProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { t } = useLanguage();
+
   return (
-    <div className="flex h-screen bg-neutral-50 dark:bg-neutral-950">
+    <div className="min-h-dvh bg-neutral-50 dark:bg-neutral-950">
       {/* Sidebar */}
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Content */}
-      <main className="flex flex-col flex-1 ml-60">
+      <main className="flex min-h-dvh min-w-0 flex-col lg:ml-60">
         {/* Header */}
-        <Header title={title} searchPlaceholder={searchPlaceholder} />
+        <Header title={title === "Dashboard" ? t("header.dashboard") : title} onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Page Content */}
-        <div className="flex-1 overflow-y-auto pt-20 pb-8 px-8">
+        <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-6 pt-20 sm:px-6 sm:pb-8 lg:px-8">
           {children}
         </div>
       </main>

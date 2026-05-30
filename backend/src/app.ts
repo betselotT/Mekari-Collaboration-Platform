@@ -1,3 +1,4 @@
+import "./config/env";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -18,8 +19,11 @@ import { reportRouter } from "./routes/reports";
 import { adminRouter } from "./routes/admin";
 import { intelligenceRouter } from "./routes/intelligence";
 import { dmRouter } from "./routes/dms";
+import { securityRouter } from "./routes/security";
+import { whiteboardRouter } from "./routes/whiteboards";
 import swaggerUi from "swagger-ui-express";
 import { createOpenApiSpec } from "./swagger";
+import { FRONTEND_ORIGINS } from "./config/origins";
 
 export const createApp = () => {
   const app = express();
@@ -30,8 +34,7 @@ export const createApp = () => {
     [
       process.env.FRONTEND_ORIGIN,
       ...(process.env.FRONTEND_ORIGINS || "").split(","),
-      "http://localhost:3000",
-      "http://127.0.0.1:3000",
+      ...FRONTEND_ORIGINS,
     ]
       .map((origin) => origin?.trim())
       .filter(Boolean)
@@ -51,8 +54,8 @@ export const createApp = () => {
   );
   app.use(helmet());
   app.use(morgan("dev"));
-  app.use(json({ limit: "1mb" }));
-  app.use(urlencoded({ extended: true }));
+  app.use(json({ limit: "8mb" }));
+  app.use(urlencoded({ extended: true, limit: "8mb" }));
 
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -66,6 +69,7 @@ export const createApp = () => {
 
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(createOpenApiSpec()));
 
+  app.use("/api/security", securityRouter);
   app.use("/api/auth", authRouter);
   app.use("/api/users", userRouter);
   app.use("/api/threads", threadRouter);
@@ -79,6 +83,7 @@ export const createApp = () => {
   app.use("/api/reports", reportRouter);
   app.use("/api/admin", adminRouter);
   app.use("/api/intelligence", intelligenceRouter);
+  app.use("/api/whiteboards", whiteboardRouter);
 
   app.use(errorHandler);
 
