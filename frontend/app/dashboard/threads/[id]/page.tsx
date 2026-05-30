@@ -92,6 +92,8 @@ interface Expert {
 interface SimilarProblem {
   docId: string;
   threadId: string;
+  source?: "knowledge" | "thread";
+  canOpenThread?: boolean;
   title: string;
   tags: string[];
   solution: string;
@@ -1437,10 +1439,13 @@ export default function ThreadDetailPage() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {similarProblems.map((problem) => (
-                        <a
+                      {similarProblems.map((problem) => {
+                        const canOpen = problem.canOpenThread !== false;
+                        const CardTag = canOpen ? "a" : "div";
+                        return (
+                        <CardTag
                           key={`${problem.docId}-${problem.threadId}`}
-                          href={`/dashboard/threads/${problem.threadId}`}
+                          {...(canOpen ? { href: `/dashboard/threads/${problem.threadId}` } : {})}
                           className="block rounded-lg border border-emerald-200 bg-white p-3 hover:border-emerald-300 hover:bg-emerald-50 dark:border-emerald-900/50 dark:bg-neutral-900 dark:hover:bg-emerald-950/30"
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -1462,6 +1467,11 @@ export default function ThreadDetailPage() {
                             </p>
                           )}
                           <div className="mt-2 flex flex-wrap gap-1">
+                            {problem.source === "knowledge" && (
+                              <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+                                Knowledge
+                              </span>
+                            )}
                             {problem.tags.slice(0, 4).map((tag) => (
                               <span
                                 key={tag}
@@ -1471,8 +1481,9 @@ export default function ThreadDetailPage() {
                               </span>
                             ))}
                           </div>
-                        </a>
-                      ))}
+                        </CardTag>
+                      );
+                      })}
                     </div>
                   )}
                 </div>

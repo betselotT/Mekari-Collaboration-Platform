@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { Message } from "../models/Message";
 import { askGemini } from "../services/gemini";
+import { decideAiEscalation } from "../services/aiEscalation";
 
 const router = Router();
 
@@ -23,6 +24,12 @@ router.post("/chat", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const parsed = chatSchema.parse(req.body);
     const result = await askGemini(parsed.prompt, parsed.messages || []);
+    const escalation = await decideAiEscalation({
+      requesterId: req.userId,
+      prompt: parsed.prompt,
+      responseText: result.text,
+      messages: parsed.messages || [],
+    });
 
     if (!parsed.threadId) {
       return res.status(200).json({
@@ -32,6 +39,7 @@ router.post("/chat", requireAuth, async (req: AuthRequest, res, next) => {
           createdAt: new Date().toISOString(),
         },
         model: result.model,
+        escalation,
       });
     }
 
@@ -51,6 +59,7 @@ router.post("/chat", requireAuth, async (req: AuthRequest, res, next) => {
         isFromAi: aiMessage.isFromAi,
       },
       model: result.model,
+      escalation,
     });
   } catch (err) {
     next(err);

@@ -363,15 +363,7 @@ export async function recommendExperts(params: {
   if (/agentic|llm|ai automation|tool call|workflow automation/i.test(combinedText)) {
     contentSignals.push("Agentic AI Engineer", "agentic ai", "llm agents", "ai automation");
   }
-  const rawTerms = [
-    subject,
-    title,
-    ...tags,
-    ...contentSignals,
-    ...extractContentSignals(combinedText),
-  ]
-    .map((t) => t.trim())
-    .filter(Boolean);
+  const rawTerms = [subject, ...tags, ...contentSignals].map((t) => t.trim()).filter(Boolean);
   const queryTerms = buildTermSet(rawTerms);
 
   const baseFilter = {
