@@ -2,9 +2,13 @@
 
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { LanguageToggle } from "@/components/i18n/LanguageToggle";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { useLanguage } from "@/lib/i18n";
 
 export default function LoginPage() {
+  const { t } = useLanguage();
+
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-neutral-950">
       {/* Navigation */}
@@ -16,24 +20,27 @@ export default function LoginPage() {
             </div>
             <span className="text-xl font-bold text-neutral-900 dark:text-white">Mekari</span>
           </Link>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <LanguageToggle />
+          </div>
         </div>
       </nav>
 
       {/* Login Form */}
       <div className="flex flex-1 items-center justify-center px-6 py-12">
         <div className="w-full max-w-lg rounded-2xl border border-neutral-200 bg-white p-8 dark:border-neutral-700 dark:bg-neutral-800">
-          <h1 className="mb-2 text-2xl font-bold text-neutral-900 dark:text-white">Welcome Back</h1>
+          <h1 className="mb-2 text-2xl font-bold text-neutral-900 dark:text-white">{t("auth.welcomeBack")}</h1>
           <p className="mb-8 text-neutral-600 dark:text-neutral-400">
-            Access your technical community
+            {t("auth.accessCommunity")}
           </p>
 
           <LoginForm />
 
           <p className="mt-6 text-center text-sm text-neutral-600 dark:text-neutral-400">
-            Don't have an account?{" "}
+            {t("auth.noAccount")}{" "}
             <Link href="/register" className="font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400">
-              Sign up
+              {t("auth.signUp")}
             </Link>
           </p>
         </div>

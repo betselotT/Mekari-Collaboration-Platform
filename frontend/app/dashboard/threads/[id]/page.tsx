@@ -10,6 +10,7 @@ import { Badge } from "../../../../components/ui/Badge";
 import { apiClient } from "../../../../lib/api";
 import { useAuth } from "../../../../lib/useAuth";
 import { ensureSocket } from "../../../../lib/useSocket";
+import { useLanguage } from "../../../../lib/i18n";
 import {
   Send,
   Bot,
@@ -185,12 +186,14 @@ function renderHighlightedCode(code: string) {
 }
 
 function MessageContent({ message }: { message: ChatMessage }) {
+  const { t } = useLanguage();
+
   if (message.type === "CODE") {
     return (
       <div className="max-w-full overflow-hidden rounded-lg border border-neutral-700 bg-neutral-950 text-left">
         <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-1.5">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-            Code snippet
+            {t("Code snippet")}
           </span>
           <Code2 className="h-3.5 w-3.5 text-neutral-500" />
         </div>
@@ -226,7 +229,7 @@ function MessageContent({ message }: { message: ChatMessage }) {
         <FileText className="h-5 w-5 shrink-0" />
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold">{attachmentLabel(message)}</span>
-          <span className="block text-xs opacity-70">Open or download attachment</span>
+          <span className="block text-xs opacity-70">{t("Open or download attachment")}</span>
         </span>
       </a>
     );
@@ -236,6 +239,7 @@ function MessageContent({ message }: { message: ChatMessage }) {
 }
 
 export default function ThreadDetailPage() {
+  const { t } = useLanguage();
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const threadId = params?.id ?? "";
@@ -311,7 +315,7 @@ export default function ThreadDetailPage() {
             setMessages([]);
             setLoadError(
               messageErr?.response?.data?.error?.message ||
-                "Thread loaded, but messages could not be loaded."
+                t("Thread loaded, but messages could not be loaded.")
             );
           }
         }
@@ -324,8 +328,8 @@ export default function ThreadDetailPage() {
         const status = err?.response?.status;
         setLoadError(
           status === 404
-            ? "Thread not found."
-            : err?.response?.data?.error?.message || "Failed to load this thread."
+            ? t("Thread not found.")
+            : err?.response?.data?.error?.message || t("Failed to load this thread.")
         );
       } finally {
         if (mounted) setLoading(false);
@@ -350,7 +354,7 @@ export default function ThreadDetailPage() {
       setThread((prev) => (prev ? { ...prev, similarProblems: res.data.problems } : prev));
       setSimilarPanel(true);
     } catch (err: any) {
-      setSimilarError(err?.response?.data?.error?.message || "Failed to find similar problems");
+      setSimilarError(err?.response?.data?.error?.message || t("Failed to find similar problems"));
     } finally {
       setSimilarLoading(false);
     }
@@ -658,7 +662,7 @@ export default function ThreadDetailPage() {
         });
       } catch (err) {
         console.error(err);
-        setActionError("Failed to send message.");
+        setActionError(t("Failed to send message."));
       } finally {
         setSending(false);
       }
@@ -674,7 +678,7 @@ export default function ThreadDetailPage() {
       });
       setThread(res.data.thread);
     } catch (err: any) {
-      setSolveError(err?.response?.data?.error?.message || "Failed to mark solved");
+      setSolveError(err?.response?.data?.error?.message || t("Failed to mark solved"));
     }
   }
 
@@ -699,7 +703,7 @@ export default function ThreadDetailPage() {
       setThread(res.data.thread);
       setIsEditingTags(false);
     } catch (err: any) {
-      setTagError(err?.response?.data?.error?.message || "Failed to update tags");
+      setTagError(err?.response?.data?.error?.message || t("Failed to update tags"));
     } finally {
       setSavingTags(false);
     }
@@ -740,7 +744,7 @@ export default function ThreadDetailPage() {
       setEditingMessage(null);
       setEditDraft("");
     } catch (err: any) {
-      setActionError(err?.response?.data?.error?.message || "Failed to edit message");
+      setActionError(err?.response?.data?.error?.message || t("Failed to edit message"));
     } finally {
       setSavingEditId(null);
     }
@@ -759,7 +763,7 @@ export default function ThreadDetailPage() {
         prev.map((msg) => (getMessageId(msg) === msgId ? { ...msg, ...res.data.message } : msg))
       );
     } catch (err: any) {
-      setActionError(err?.response?.data?.error?.message || "Failed to update upvote");
+      setActionError(err?.response?.data?.error?.message || t("Failed to update upvote"));
     } finally {
       setUpvotingMessageId(null);
     }
@@ -777,7 +781,7 @@ export default function ThreadDetailPage() {
         prev.map((msg) => (getMessageId(msg) === msgId ? { ...msg, ...res.data.message, isPinned: true } : msg))
       );
     } catch (err: any) {
-      setActionError(err?.response?.data?.error?.message || "Failed to pin solution");
+      setActionError(err?.response?.data?.error?.message || t("Failed to pin solution"));
     } finally {
       setPinningMessageId(null);
     }
@@ -794,7 +798,7 @@ export default function ThreadDetailPage() {
       setMessages((prev) => prev.filter((msg) => getMessageId(msg) !== msgId));
       setDeleteTarget(null);
     } catch (err: any) {
-      setDeleteError(err?.response?.data?.error?.message || "Failed to delete message");
+      setDeleteError(err?.response?.data?.error?.message || t("Failed to delete message"));
     } finally {
       setDeletingMessageId(null);
     }
@@ -811,7 +815,7 @@ export default function ThreadDetailPage() {
       );
       router.push(`/dashboard/messages?conversation=${res.data.conversation._id}`);
     } catch (err: any) {
-      setActionError(err?.response?.data?.error?.message || "Failed to start direct message");
+      setActionError(err?.response?.data?.error?.message || t("Failed to start direct message"));
     } finally {
       setDmLoadingId(null);
     }
@@ -819,15 +823,15 @@ export default function ThreadDetailPage() {
 
   if (authLoading || loading) {
     return (
-      <DashboardLayout title="Loading..." searchPlaceholder="Search...">
-        <div className="flex h-64 items-center justify-center text-neutral-500">Loading thread…</div>
+      <DashboardLayout title={t("Loading...")} searchPlaceholder={t("Search...")}>
+        <div className="flex h-64 items-center justify-center text-neutral-500">{t("Loading thread...")}</div>
       </DashboardLayout>
     );
   }
 
   if (!thread) {
     return (
-      <DashboardLayout title="Thread unavailable" searchPlaceholder="Search...">
+      <DashboardLayout title={t("Thread unavailable")} searchPlaceholder={t("Search...")}>
         <div className="flex h-64 items-center justify-center text-center text-neutral-500">
           {loadError || "This thread could not be loaded."}
         </div>
@@ -867,14 +871,14 @@ export default function ThreadDetailPage() {
   }
 
   return (
-    <DashboardLayout title={thread.title} searchPlaceholder="Search threads...">
+    <DashboardLayout title={thread.title} searchPlaceholder={t("Search threads...")}>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
-        title="Delete Message"
-        description="This message will be removed from the thread."
+        title={t("Delete Message")}
+        description={t("This message will be removed from the thread.")}
         tone="danger"
-        confirmLabel="Delete"
-        cancelLabel="Keep"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Keep")}
         isLoading={Boolean(deletingMessageId)}
         icon={<Trash2 className="h-5 w-5" />}
         onCancel={() => {
@@ -894,7 +898,7 @@ export default function ThreadDetailPage() {
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <Badge variant="info">{thread.subject.toUpperCase()}</Badge>
           <Badge variant={statusVariant}>
-            {thread.status === "SOLVED" ? "Solved" : thread.status.replace("_", " ")}
+            {t(thread.status === "SOLVED" ? "threads.solved" : thread.status.replace("_", " "))}
           </Badge>
           {thread.tags.map((tag) => (
             <Badge key={tag} variant="default" className="text-xs">
@@ -907,14 +911,14 @@ export default function ThreadDetailPage() {
               onClick={startTagEdit}
               className="min-h-[30px] rounded border border-neutral-300 px-2 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
             >
-              Edit tags
+              {t("Edit tags")}
             </button>
           )}
         </div>
         {isEditingTags && (
           <div className="mb-3 rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
             <label className="mb-2 block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-              Tags
+              {t("Tags")}
             </label>
             <input
               value={tagDraft}
@@ -930,10 +934,10 @@ export default function ThreadDetailPage() {
                 onClick={() => setIsEditingTags(false)}
                 disabled={savingTags}
               >
-                Cancel
+                {t("threads.cancel")}
               </Button>
               <Button variant="primary" size="sm" onClick={saveTags} isLoading={savingTags}>
-                Save tags
+                {t("Save tags")}
               </Button>
             </div>
           </div>
@@ -964,7 +968,7 @@ export default function ThreadDetailPage() {
                         onClick={() => scrollToPinnedMessage(pinnedSolutionMessage)}
                         className="rounded-md border border-purple-200 bg-white px-2.5 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-200 dark:hover:bg-purple-900/50"
                       >
-                        Pinned solution
+                        {t("Pinned solution")}
                       </button>
                     )}
                   </div>
@@ -978,7 +982,7 @@ export default function ThreadDetailPage() {
             {chatMessages.map((msg) => {
               const msgId = getMessageId(msg);
               const isPinnedMessage = pinnedMessageIds.has(msgId);
-              const pinnedLabel = msgId === thread.solutionMsgId ? "Pinned solution" : "Pinned initial message";
+              const pinnedLabel = msgId === thread.solutionMsgId ? t("Pinned solution") : t("Pinned initial message");
               const isMe = user && (typeof msg.sender === "object"
                 ? msg.sender._id === user._id
                 : msg.sender === user._id);
@@ -1035,7 +1039,7 @@ export default function ThreadDetailPage() {
                       {isSolutionMessage && (
                         <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
                           <CheckCircle className="h-3 w-3" />
-                          Marked as answer
+                          {t("Marked as answer")}
                         </span>
                       )}
                     </div>
@@ -1052,11 +1056,11 @@ export default function ThreadDetailPage() {
     {msg.parentMessageId && (
   <div className="mb-2 rounded-lg border-l-4 border-primary-500 bg-neutral-100 px-3 py-2 dark:bg-neutral-900/60">
     <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-primary-500">
-      Replying to
+      {t("Replying to")}
     </p>
 
     <p className="line-clamp-2 text-xs text-neutral-600 dark:text-neutral-400">
-      {getParentMessage(msg.parentMessageId)?.body ?? "Original message"}
+      {getParentMessage(msg.parentMessageId)?.body ?? t("Original message")}
     </p>
   </div>
 )}
@@ -1078,7 +1082,7 @@ export default function ThreadDetailPage() {
             disabled={savingEditId === msgId}
             className="rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
           >
-            Cancel
+            {t("threads.cancel")}
           </button>
           <button
             type="button"
@@ -1086,7 +1090,7 @@ export default function ThreadDetailPage() {
             disabled={!editDraft.trim() || savingEditId === msgId}
             className="rounded-md bg-primary-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {savingEditId === msgId ? "Saving..." : "Save"}
+            {savingEditId === msgId ? t("Saving...") : t("Save")}
           </button>
         </div>
       </div>
@@ -1094,7 +1098,7 @@ export default function ThreadDetailPage() {
       <MessageContent message={msg} />
     )}
     {msg.editedAt && !isEditingThisMessage && (
-      <div className="mt-1 text-[11px] font-medium opacity-70">edited</div>
+      <div className="mt-1 text-[11px] font-medium opacity-70">{t("edited")}</div>
     )}
     {isPinnedMessage && (
       <div className="mt-3 flex items-center gap-1.5 rounded-md border border-purple-200 bg-purple-50 px-2 py-1.5 text-xs font-semibold text-purple-800 dark:border-purple-500/30 dark:bg-purple-950/60 dark:text-purple-200">
@@ -1107,7 +1111,7 @@ export default function ThreadDetailPage() {
   {isSolutionMessage && (
     <div className={`mt-1 flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 ${isMe ? "justify-end" : "justify-start"}`}>
       <CheckCircle className="h-3.5 w-3.5" />
-      This message was marked as the answer
+      {t("This message was marked as the answer")}
     </div>
   )}
 
@@ -1141,7 +1145,7 @@ export default function ThreadDetailPage() {
             ? "text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
             : "text-neutral-500 hover:text-green-400"
         }`}
-        title={isMe ? "You cannot upvote your own message" : "Upvote message"}
+        title={isMe ? t("You cannot upvote your own message") : t("Upvote message")}
       >
         <ArrowUp className="h-3.5 w-3.5" />
         {upvotingMessageId === msgId ? "..." : msg.upvotes?.length || 0}
@@ -1155,7 +1159,7 @@ export default function ThreadDetailPage() {
           title="Edit message"
         >
           <PenLine className="h-3 w-3" />
-          Edit
+          {t("Edit")}
         </button>
       )}
    
@@ -1165,11 +1169,11 @@ export default function ThreadDetailPage() {
           onClick={() => setDeleteTarget(msg)}
           disabled={deletingMessageId === msgId}
           className="text-xs text-neutral-500 hover:text-red-500 hover:underline"
-          title="Delete message"
+          title={t("Delete message")}
         >
           <span className="inline-flex items-center gap-1">
             <Trash2 className="h-3 w-3" />
-            {deletingMessageId === msgId ? "Deleting..." : "Delete"}
+            {deletingMessageId === msgId ? t("Deleting...") : t("Delete")}
           </span>
         </button>
       )}
@@ -1183,7 +1187,7 @@ export default function ThreadDetailPage() {
                         className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
                       >
                         <CheckCircle className="h-3.5 w-3.5" />
-                        Mark as solution
+                        {t("Mark as solution")}
                       </button>
                     )}
                     {isAuthor && isSolutionMessage && !isMe && !isPinnedMessage && (
@@ -1193,7 +1197,7 @@ export default function ThreadDetailPage() {
                         className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-700 disabled:cursor-wait disabled:opacity-60 dark:text-purple-300 dark:hover:text-purple-200"
                       >
                         <Pin className="h-3.5 w-3.5" />
-                        {pinningMessageId === msgId ? "Pinning..." : "Pin answer"}
+                        {pinningMessageId === msgId ? t("Pinning...") : t("Pin answer")}
                       </button>
                     )}
                   </div>
@@ -1231,7 +1235,7 @@ export default function ThreadDetailPage() {
                 <div className="flex items-start justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm dark:border-primary-900/50 dark:bg-primary-950/30">
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-primary-700 dark:text-primary-300">
-                      Replying to {senderName(replyTo.sender)}
+                      {t("Replying to")} {senderName(replyTo.sender)}
                     </p>
                     <p className="truncate text-xs text-neutral-600 dark:text-neutral-400">
                       {replyTo.body}
@@ -1349,12 +1353,12 @@ export default function ThreadDetailPage() {
                     className="min-w-0 flex-1 resize-none rounded-lg border border-neutral-300 bg-white px-4 py-2.5 font-sans text-sm outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100 dark:placeholder-neutral-500"
                     placeholder={
                       composerMode === "CODE"
-                        ? "Paste a code snippet..."
+                        ? t("Paste a code snippet...")
                         : attachment
-                        ? "Add an optional caption..."
+                        ? t("Add an optional caption...")
                         : replyTo
-                        ? "Write a reply..."
-                        : "Type your message..."
+                        ? t("Write a reply...")
+                        : t("Type your message...")
                     }
                     value={input}
                     onChange={(e) => handleInputChange(e.target.value)}
@@ -1373,7 +1377,7 @@ export default function ThreadDetailPage() {
                     onClick={sendMessage}
                     disabled={(!input.trim() && !attachment) || sending}
                     isLoading={sending}
-                    title="Send message"
+                    title={t("Send message")}
                   >
                     <Send className="h-4 w-4" />
                   </Button>
@@ -1396,7 +1400,7 @@ export default function ThreadDetailPage() {
                 <div className="flex items-center gap-2">
                   <BookOpen className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   <span className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
-                    Similar Problems
+                    {t("Similar Problems")}
                   </span>
                   <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200">
                     {similarLoading ? "..." : similarProblems.length}
@@ -1413,22 +1417,22 @@ export default function ThreadDetailPage() {
                 <div className="border-t border-emerald-200/60 px-4 pb-4 pt-3 dark:border-emerald-900/40">
                   {similarLoading && !hasSimilarProblems ? (
                     <p className="text-sm text-emerald-800 dark:text-emerald-200">
-                      Finding related solved threads...
+                      {t("Finding related solved threads...")}
                     </p>
                   ) : similarError ? (
                     <div className="space-y-3">
                       <p className="text-sm text-rose-700 dark:text-rose-300">{similarError}</p>
                       <Button variant="secondary" size="sm" onClick={loadSimilarProblems}>
-                        Try again
+                        {t("Try again")}
                       </Button>
                     </div>
                   ) : !hasSimilarProblems ? (
                     <div className="space-y-3">
                       <p className="text-sm text-emerald-800 dark:text-emerald-200">
-                        No similar solved problems found yet.
+                        {t("No similar solved problems found yet.")}
                       </p>
                       <Button variant="secondary" size="sm" onClick={loadSimilarProblems}>
-                        Search again
+                        {t("Search again")}
                       </Button>
                     </div>
                   ) : (
@@ -1486,10 +1490,10 @@ export default function ThreadDetailPage() {
                 <div className="flex items-center gap-2">
                   <Zap className="h-4 w-4 text-primary-600 dark:text-primary-400" />
                   <span className="text-sm font-semibold text-primary-800 dark:text-primary-200">
-                    AI Analysis
+                    {t("AI Analysis")}
                   </span>
                   <span className="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900 dark:text-primary-300">
-                    {Math.round((thread.aiResponse!.confidence || 0) * 100)}% confident
+                    {Math.round((thread.aiResponse!.confidence || 0) * 100)}% {t("confident")}
                   </span>
                 </div>
                 {aiPanel ? (
@@ -1508,7 +1512,7 @@ export default function ThreadDetailPage() {
                   {thread.aiResponse!.steps.length > 0 && (
                     <div className="mb-3">
                       <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                        Steps
+                        {t("Steps")}
                       </p>
                       <ol className="list-decimal list-inside space-y-1">
                         {thread.aiResponse!.steps.map((step, i) => (
@@ -1523,7 +1527,7 @@ export default function ThreadDetailPage() {
                   {thread.aiResponse!.suggestedSolution && (
                     <div>
                       <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                        Suggested Solution
+                        {t("Suggested Solution")}
                       </p>
                       <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">
                         {thread.aiResponse!.suggestedSolution}
@@ -1545,7 +1549,7 @@ export default function ThreadDetailPage() {
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-amber-600" />
                   <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">
-                    Matched Experts
+                    {t("Matched Experts")}
                   </span>
                   <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
                     {thread.matchedExperts.length}
@@ -1587,7 +1591,7 @@ export default function ThreadDetailPage() {
                           </Link>
                           {score !== undefined && (
                             <p className="text-xs text-neutral-500">
-                              Match score: {score.toFixed(0)}
+                              {t("Match score")}: {score.toFixed(0)}
                             </p>
                           )}
                           {reasons.slice(0, 2).map((r, ri) => (
@@ -1603,7 +1607,7 @@ export default function ThreadDetailPage() {
                           className="inline-flex min-h-[34px] shrink-0 items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-2.5 py-1.5 text-xs font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-wait disabled:opacity-60 dark:border-primary-900/50 dark:bg-primary-950/30 dark:text-primary-200 dark:hover:bg-primary-950/50"
                         >
                           <MessageSquare className="h-3.5 w-3.5" />
-                          {dmLoadingId === id ? "Opening" : "DM"}
+                          {dmLoadingId === id ? t("Opening...") : "DM"}
                         </button>
                       </div>
                     );
@@ -1618,10 +1622,10 @@ export default function ThreadDetailPage() {
             <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-4 text-center dark:border-neutral-700 dark:bg-neutral-800">
               <Zap className="mx-auto mb-2 h-5 w-5 animate-pulse text-primary-500" />
               <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                AI is analyzing your question…
+                {t("AI is analyzing your question...")}
               </p>
               <p className="mt-1 text-xs text-neutral-400">
-                Results will appear here automatically.
+                {t("Results will appear here automatically.")}
               </p>
             </div>
           )}

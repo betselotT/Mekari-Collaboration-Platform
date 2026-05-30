@@ -7,6 +7,7 @@ import { DashboardLayout } from "../../../components/layout";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { apiClient } from "../../../lib/api";
+import { useLanguage } from "../../../lib/i18n";
 
 type ChatMessage = {
   role: "user" | "model";
@@ -168,7 +169,12 @@ function renderMessageText(text: string) {
 }
 
 export default function AIAssistantPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([starterMessage]);
+  const { t } = useLanguage();
+  const localizedStarterMessage = useMemo<ChatMessage>(
+    () => ({ ...starterMessage, text: t(starterMessage.text), timestamp: t("Just now") }),
+    [t]
+  );
+  const [messages, setMessages] = useState<ChatMessage[]>([localizedStarterMessage]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -242,7 +248,7 @@ export default function AIAssistantPage() {
       const axiosError = err as AxiosError<{ error?: { message?: string } }>;
       const message =
         axiosError.response?.data?.error?.message ||
-        "Mekari AI could not respond right now. Check the backend Gemini API key and try again.";
+        t("Mekari AI could not respond right now. Check the backend Gemini API key and try again.");
       setError(message);
       setMessages((current) => current.filter((message) => message !== userMessage));
       setInput(prompt);
@@ -257,14 +263,14 @@ export default function AIAssistantPage() {
   }
 
   function startNewChat() {
-    setMessages([starterMessage]);
+    setMessages([localizedStarterMessage]);
     setInput("");
     setError(null);
     window.localStorage.removeItem(CHAT_STORAGE_KEY);
   }
 
   return (
-    <DashboardLayout title="Mekari AI" searchPlaceholder="Search engineering topics...">
+    <DashboardLayout title={t("Mekari AI")} searchPlaceholder={t("Search engineering topics...")}>
       <div className="mx-auto flex min-h-[calc(100dvh-8rem)] max-w-5xl flex-col">
         <div className="mb-6 flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
           <span>MEKARI</span>
@@ -275,17 +281,16 @@ export default function AIAssistantPage() {
         <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h2 className="text-2xl font-bold text-neutral-900 dark:text-white sm:text-3xl">
-              Engineering concept assistant
+              {t("Engineering concept assistant")}
             </h2>
             <p className="mt-2 max-w-2xl text-sm text-neutral-600 dark:text-neutral-400">
-              Get focused help with engineering theory, implementation decisions, calculations,
-              debugging, architecture, and technical tradeoffs.
+              {t("Get focused help with engineering theory, implementation decisions, calculations, debugging, architecture, and technical tradeoffs.")}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" variant="outline" size="sm" onClick={startNewChat} disabled={isSending}>
               <Plus className="mr-2 h-4 w-4" />
-              Start new chat
+              {t("Start new chat")}
             </Button>
             {/* <div className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
               <Zap className="h-4 w-4 text-primary-600 dark:text-primary-400" />
@@ -326,7 +331,7 @@ export default function AIAssistantPage() {
               {isSending && (
                 <div className="flex justify-start">
                   <div className="rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
-                    Thinking through the engineering context...
+                    {t("Thinking through the engineering context...")}
                   </div>
                 </div>
               )}
@@ -346,7 +351,7 @@ export default function AIAssistantPage() {
                 type="text"
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                placeholder="Ask an engineering question..."
+                placeholder={t("Ask an engineering question...")}
                 className="input m-0 min-w-0 flex-1 border-0 p-0"
                 disabled={isSending}
               />
@@ -358,7 +363,7 @@ export default function AIAssistantPage() {
 
           <aside className="space-y-4 lg:max-h-[calc(100dvh-13rem)] lg:overflow-y-auto">
             <h3 className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-              Quick prompts
+              {t("Quick prompts")}
             </h3>
             {quickPrompts.map((suggestion) => {
               const Icon = suggestion.icon;
@@ -375,7 +380,7 @@ export default function AIAssistantPage() {
                     </div>
                     <div>
                       <h4 className="text-sm font-semibold text-neutral-900 dark:text-white">
-                        {suggestion.title}
+                        {t(suggestion.title)}
                       </h4>
                       <p className="mt-1 text-xs leading-5 text-neutral-600 dark:text-neutral-400">
                         {suggestion.prompt}

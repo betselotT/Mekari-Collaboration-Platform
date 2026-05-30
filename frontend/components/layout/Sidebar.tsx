@@ -16,28 +16,29 @@ import {
   Zap,
   X,
 } from "lucide-react";
+import { TranslationKey, useLanguage } from "../../lib/i18n";
 
 export interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
-  label: string;
+  labelKey: TranslationKey;
   href: string;
 }
 
 const mainMenu: NavItem[] = [
-  { icon: MessageSquare, label: "Threads", href: "/dashboard/threads" },
-  { icon: Zap, label: "Match with Expert", href: "/dashboard/match" },
-  { icon: Users, label: "Experts", href: "/dashboard/experts" },
-  { icon: BarChart3, label: "Leaderboard", href: "/dashboard/leaderboard" },
-  { icon: User, label: "Profile", href: "/dashboard/profile" },
-  { icon: Bot, label: "AI Assistant", href: "/dashboard/ai-assistant" },
-  { icon: ShieldAlert, label: "Report User", href: "/dashboard/reports" },
+  { icon: MessageSquare, labelKey: "nav.threads", href: "/dashboard/threads" },
+  { icon: Zap, labelKey: "nav.match", href: "/dashboard/match" },
+  { icon: Users, labelKey: "nav.experts", href: "/dashboard/experts" },
+  { icon: BarChart3, labelKey: "nav.leaderboard", href: "/dashboard/leaderboard" },
+  { icon: User, labelKey: "nav.profile", href: "/dashboard/profile" },
+  { icon: Bot, labelKey: "nav.aiAssistant", href: "/dashboard/ai-assistant" },
+  { icon: ShieldAlert, labelKey: "nav.reportUser", href: "/dashboard/reports" },
 ];
 
 const subjectsMenu: NavItem[] = [
-  { icon: Code2, label: "Software Engineering", href: "/dashboard/subjects/software-engineering" },
-  { icon: Cpu, label: "Electrical Engineering", href: "/dashboard/subjects/electrical-engineering" },
-  { icon: Cog, label: "Mechanical Engineering", href: "/dashboard/subjects/mechanical-engineering" },
-  { icon: Wrench, label: "Electromechanical Engineering", href: "/dashboard/subjects/electromechanical-engineering" },
+  { icon: Code2, labelKey: "nav.softwareEngineering", href: "/dashboard/subjects/software-engineering" },
+  { icon: Cpu, labelKey: "nav.electricalEngineering", href: "/dashboard/subjects/electrical-engineering" },
+  { icon: Cog, labelKey: "nav.mechanicalEngineering", href: "/dashboard/subjects/mechanical-engineering" },
+  { icon: Wrench, labelKey: "nav.electromechanicalEngineering", href: "/dashboard/subjects/electromechanical-engineering" },
 ];
 
 interface SidebarProps {
@@ -47,6 +48,7 @@ interface SidebarProps {
 
 function SidebarContent({ onNavigate, showClose }: { onNavigate?: () => void; showClose?: boolean }) {
   const pathname = usePathname();
+  const { t } = useLanguage();
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
@@ -71,8 +73,8 @@ function SidebarContent({ onNavigate, showClose }: { onNavigate?: () => void; sh
             type="button"
             onClick={onNavigate}
             className="rounded-lg p-2 text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
-            aria-label="Close navigation"
-            title="Close navigation"
+            aria-label={t("header.closeNavigation")}
+            title={t("header.closeNavigation")}
           >
             <X className="h-5 w-5" />
           </button>
@@ -82,7 +84,7 @@ function SidebarContent({ onNavigate, showClose }: { onNavigate?: () => void; sh
       {/* Main Menu */}
       <nav className="mb-8 flex flex-col gap-1">
         <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-          Main Menu
+          {t("nav.mainMenu")}
         </div>
         {mainMenu.map((item) => {
           const Icon = item.icon;
@@ -99,7 +101,7 @@ function SidebarContent({ onNavigate, showClose }: { onNavigate?: () => void; sh
               }`}
             >
               <Icon className="h-5 w-5 shrink-0" />
-              <span>{item.label}</span>
+              <span>{t(item.labelKey)}</span>
             </Link>
           );
         })}
@@ -108,7 +110,7 @@ function SidebarContent({ onNavigate, showClose }: { onNavigate?: () => void; sh
       {/* Subjects Menu */}
       <nav className="mb-8 flex flex-col gap-1">
         <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-          Subjects
+          {t("nav.subjects")}
         </div>
         {subjectsMenu.map((item) => {
           const Icon = item.icon;
@@ -125,7 +127,7 @@ function SidebarContent({ onNavigate, showClose }: { onNavigate?: () => void; sh
               }`}
             >
               <Icon className="h-5 w-5 shrink-0" />
-              <span>{item.label}</span>
+              <span>{t(item.labelKey)}</span>
             </Link>
           );
         })}

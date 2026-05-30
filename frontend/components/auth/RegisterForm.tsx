@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 import { apiClient } from "../../lib/api";
 import { GoogleAuthButton } from "./GoogleAuthButton";
 import { GithubAuthButton } from "./GithubAuthButton";
+import { useLanguage } from "../../lib/i18n";
 
 type AccountType = "learner" | "mentor";
 
@@ -39,23 +40,23 @@ function normalizeFullName(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
-function fullNameError(value: string) {
+function fullNameError(value: string, t: ReturnType<typeof useLanguage>["t"]) {
   const normalized = normalizeFullName(value);
-  if (normalized.length < 2) return "Full name must be at least 2 characters.";
-  if (normalized.length > 50) return "Full name must be 50 characters or fewer.";
+  if (normalized.length < 2) return t("auth.nameTooShort");
+  if (normalized.length > 50) return t("auth.nameTooLong");
   if (!/^[A-Za-z]+(?: [A-Za-z]+)*$/.test(normalized)) {
-    return "Full name must contain letters and spaces only.";
+    return t("auth.nameLettersOnly");
   }
   return "";
 }
 
-function passwordErrors(value: string) {
+function passwordErrors(value: string, t: ReturnType<typeof useLanguage>["t"]) {
   const errors: string[] = [];
-  if (value.length < 8) errors.push("Password must be at least 8 characters.");
-  if (!/[A-Z]/.test(value)) errors.push("Password must include at least 1 uppercase letter.");
-  if (!/[a-z]/.test(value)) errors.push("Password must include at least 1 lowercase letter.");
-  if (!/[0-9]/.test(value)) errors.push("Password must include at least 1 number.");
-  if (!/[^A-Za-z0-9]/.test(value)) errors.push("Password must include at least 1 special character.");
+  if (value.length < 8) errors.push(t("auth.passwordLength"));
+  if (!/[A-Z]/.test(value)) errors.push(t("auth.passwordUpper"));
+  if (!/[a-z]/.test(value)) errors.push(t("auth.passwordLower"));
+  if (!/[0-9]/.test(value)) errors.push(t("auth.passwordNumber"));
+  if (!/[^A-Za-z0-9]/.test(value)) errors.push(t("auth.passwordSpecial"));
   return errors;
 }
 
@@ -68,6 +69,7 @@ const passwordRules = [
 ];
 
 export function RegisterForm() {
+  const { t } = useLanguage();
   const [accountType, setAccountType] = useState<AccountType>("learner");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -85,8 +87,8 @@ export function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const normalizedName = normalizeFullName(name);
-  const nameError = name ? fullNameError(name) : "";
-  const currentPasswordErrors = password ? passwordErrors(password) : [];
+  const nameError = name ? fullNameError(name, t) : "";
+  const currentPasswordErrors = password ? passwordErrors(password, t) : [];
 
   function toggleDevice(device: string) {
     setDevicesUsed((current) =>
@@ -103,7 +105,7 @@ export function RegisterForm() {
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setError("Verification document must be 5MB or smaller.");
+      setError(t("auth.documentTooLarge"));
       e.target.value = "";
       return;
     }
@@ -118,14 +120,14 @@ export function RegisterForm() {
       });
       setError(null);
     };
-    reader.onerror = () => setError("Could not read the selected document.");
+    reader.onerror = () => setError(t("auth.documentReadError"));
     reader.readAsDataURL(file);
   }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    const nextNameError = fullNameError(name);
-    const nextPasswordErrors = passwordErrors(password);
+    const nextNameError = fullNameError(name, t);
+    const nextPasswordErrors = passwordErrors(password, t);
     if (nextNameError) {
       setError(nextNameError);
       return;
@@ -163,7 +165,7 @@ export function RegisterForm() {
       });
       window.location.href = `/verify-email?email=${encodeURIComponent(email)}`;
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || "Failed to sign up");
+      setError(err.response?.data?.error?.message || t("auth.registerFailed"));
     } finally {
       setLoading(false);
     }
@@ -171,7 +173,7 @@ export function RegisterForm() {
 
   async function onGoogleSignIn(credential: string) {
     if (accountType === "mentor") {
-      setError("Use the mentor registration form so you can upload a verification document.");
+      setError(t("auth.mentorGoogleBlocked"));
       return;
     }
     setLoading(true);
@@ -185,7 +187,7 @@ export function RegisterForm() {
       localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || "Google sign-up failed");
+      setError(err.response?.data?.error?.message || t("auth.googleSignupFailed"));
     } finally {
       setLoading(false);
     }
@@ -211,13 +213,13 @@ export function RegisterForm() {
                 : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
             }`}
           >
-            {type === "mentor" ? "Sign up as mentor" : "Sign up as learner"}
+            {type === "mentor" ? t("auth.mentorSignup") : t("auth.learnerSignup")}
           </button>
         ))}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Full name">
+        <Field label={t("auth.fullName")}>
           <input
             className={inputClass}
             value={name}
@@ -226,14 +228,14 @@ export function RegisterForm() {
             required
           />
           <p className={`text-xs ${nameError ? "text-red-600 dark:text-red-300" : "text-neutral-500 dark:text-neutral-400"}`}>
-            2-50 chars, letters and spaces only.
+            {t("auth.nameHelp")}
           </p>
           {nameError && <p className="text-xs text-red-600 dark:text-red-300">{nameError}</p>}
         </Field>
-        <Field label="Email">
+        <Field label={t("auth.email")}>
           <input type="email" className={inputClass} value={email} onChange={(e) => setEmail(e.target.value)} required />
         </Field>
-        <Field label="Password">
+        <Field label={t("auth.password")}>
           <input type="password" className={inputClass} value={password} onChange={(e) => setPassword(e.target.value)} required />
           <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs">
             {passwordRules.map((rule) => {
@@ -250,17 +252,17 @@ export function RegisterForm() {
             })}
           </div>
         </Field>
-        <Field label="Primary technical field">
+        <Field label={t("auth.primaryField")}>
           <select className={inputClass} value={primaryTechnicalField} onChange={(e) => setPrimaryTechnicalField(e.target.value)}>
             {technicalFields.map((field) => <option key={field}>{field}</option>)}
           </select>
         </Field>
-        <Field label="Current role or status">
+        <Field label={t("auth.currentRole")}>
           <select className={inputClass} value={roleOrStatus} onChange={(e) => setRoleOrStatus(e.target.value)}>
             {roleOptions.map((role) => <option key={role}>{role}</option>)}
           </select>
         </Field>
-        <Field label="Years of experience">
+        <Field label={t("auth.experience")}>
           <select className={inputClass} value={yearsOfExperience} onChange={(e) => setYearsOfExperience(e.target.value)}>
             {experienceOptions.map((years) => <option key={years}>{years}</option>)}
           </select>
@@ -268,7 +270,7 @@ export function RegisterForm() {
       </div>
 
       <div className="space-y-2">
-        <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">Devices used</span>
+        <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">{t("auth.devicesUsed")}</span>
         <div className="flex flex-wrap gap-2">
           {deviceOptions.map((device) => (
             <label key={device} className="flex items-center gap-2 rounded border border-neutral-300 px-3 py-2 text-xs dark:border-neutral-700">
@@ -279,42 +281,42 @@ export function RegisterForm() {
         </div>
       </div>
 
-      <Field label="How do you want to use Mekari?">
+      <Field label={t("auth.goals")}>
         <textarea
           className={`${inputClass} min-h-20 resize-y`}
           value={collaborationGoals}
           onChange={(e) => setCollaborationGoals(e.target.value)}
-          placeholder="Quick questions, in-depth troubleshooting, mentorship..."
+          placeholder={t("auth.goalsPlaceholder")}
         />
       </Field>
 
       {accountType === "mentor" && (
         <div className="space-y-3 rounded border border-neutral-200 p-4 dark:border-neutral-700">
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Expertise area">
+            <Field label={t("auth.expertiseArea")}>
               <select className={inputClass} value={expertiseSubject} onChange={(e) => setExpertiseSubject(e.target.value)}>
                 {technicalFields.map((field) => <option key={field}>{field}</option>)}
               </select>
             </Field>
-            <Field label="Expertise level">
+            <Field label={t("auth.expertiseLevel")}>
               <select className={inputClass} value={expertiseLevel} onChange={(e) => setExpertiseLevel(e.target.value as typeof expertiseLevel)}>
                 <option value="intermediate">Intermediate</option>
                 <option value="advanced">Advanced</option>
                 <option value="expert">Expert</option>
               </select>
             </Field>
-            <Field label="Availability">
+            <Field label={t("auth.availability")}>
               <select className={inputClass} value={availabilityStatus} onChange={(e) => setAvailabilityStatus(e.target.value as typeof availabilityStatus)}>
                 <option value="online">Online</option>
                 <option value="busy">Busy</option>
                 <option value="offline">Offline</option>
               </select>
             </Field>
-            <Field label="Skill tags">
-              <input className={inputClass} value={skillTags} onChange={(e) => setSkillTags(e.target.value)} placeholder="React, MongoDB, auth" />
+            <Field label={t("auth.skillTags")}>
+              <input className={inputClass} value={skillTags} onChange={(e) => setSkillTags(e.target.value)} placeholder={t("auth.skillTagsPlaceholder")} />
             </Field>
           </div>
-          <Field label="Verification document">
+          <Field label={t("auth.verificationDocument")}>
             <input
               type="file"
               accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
@@ -325,7 +327,7 @@ export function RegisterForm() {
           </Field>
           {verificationDocument && (
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              Ready for admin review: {verificationDocument.fileName}
+              {t("auth.readyForReview", { fileName: verificationDocument.fileName })}
             </p>
           )}
         </div>
@@ -336,7 +338,7 @@ export function RegisterForm() {
         disabled={loading}
         className="mt-2 w-full rounded bg-primary-500 px-3 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-60"
       >
-        {loading ? "Creating account..." : accountType === "mentor" ? "Create mentor account" : "Create learner account"}
+        {loading ? t("auth.creatingAccount") : accountType === "mentor" ? t("auth.createMentor") : t("auth.createLearner")}
       </button>
       <div className="grid grid-cols-2 gap-2 pt-2">
         <GoogleAuthButton onCredential={onGoogleSignIn} onError={setError} />
@@ -344,7 +346,7 @@ export function RegisterForm() {
           <GithubAuthButton accountType={accountType} mode="register" />
         ) : (
           <p className="flex min-h-10 items-center text-xs text-neutral-500 dark:text-neutral-400">
-            GitHub mentor sign-up is unavailable because mentor verification requires a document upload.
+            {t("auth.githubMentorUnavailable")}
           </p>
         )}
       </div>

@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { ThemeToggle } from "../components/theme/ThemeToggle";
+import { LanguageToggle } from "../components/i18n/LanguageToggle";
 import { GoogleAuthButton } from "../components/auth/GoogleAuthButton";
 import { GithubAuthButton } from "../components/auth/GithubAuthButton";
 import { Button } from "../components/ui/Button";
 import { apiClient } from "../lib/api";
+import { useLanguage } from "../lib/i18n";
 import {
   Zap,
   Users,
@@ -39,6 +41,7 @@ type LandingPreview = {
 };
 
 export default function LandingPage() {
+  const { t } = useLanguage();
   const [authError, setAuthError] = useState<string | null>(null);
   const [landingEmail, setLandingEmail] = useState("");
   const [landingPassword, setLandingPassword] = useState("");
@@ -77,7 +80,7 @@ export default function LandingPage() {
       localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
     } catch (err: any) {
-      setAuthError(getAuthErrorMessage(err, "Failed to sign in"));
+      setAuthError(getAuthErrorMessage(err, t("auth.loginFailed")));
     } finally {
       setLandingLoading(false);
     }
@@ -95,7 +98,7 @@ export default function LandingPage() {
       setAuthError(
         err.response?.data?.message ||
           err.response?.data?.error?.message ||
-          "Google sign-in failed"
+          t("auth.googleLoginFailed")
       );
     }
   }
@@ -137,21 +140,22 @@ export default function LandingPage() {
 
           <div className="hidden items-center gap-8 md:flex">
             <a href="#solutions" className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">
-              Solutions
+              {t("landing.solutions")}
             </a>
             <a href="#community" className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">
-              Community
+              {t("landing.community")}
             </a>
             <a href="#pricing" className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">
-              Pricing
+              {t("landing.pricing")}
             </a>
           </div>
 
           <div className="flex items-center gap-4">
             <ThemeToggle />
+            <LanguageToggle />
             <Link href="/login">
               <Button variant="secondary" size="sm">
-                Sign In
+                {t("auth.signIn")}
               </Button>
             </Link>
           </div>
@@ -162,22 +166,22 @@ export default function LandingPage() {
       <section className="pt-32 pb-20 px-6">
         <div className="mx-auto max-w-4xl text-center">
           <h1 className="mb-6 text-5xl font-bold leading-tight text-neutral-900 dark:text-white">
-            Ask.<br />
-            Collaborate.<br />
-            <span className="text-primary-600">Grow.</span>
+            {t("landing.ask")}<br />
+            {t("landing.collaborate")}<br />
+            <span className="text-primary-600">{t("landing.grow")}</span>
           </h1>
           <p className="mb-8 text-lg text-neutral-600 dark:text-neutral-300">
-            Real-time technical collaboration with peer mentorship and expert support. Elevate your development workflow with the power of community.
+            {t("landing.heroCopy")}
           </p>
           <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
             <Link href="/register">
               <Button variant="primary" size="lg">
-                Get Started Free
+                {t("landing.getStarted")}
               </Button>
             </Link>
             <Link href="/threads">
               <Button variant="secondary" size="lg">
-                Browse Threads
+                {t("landing.browseThreads")}
               </Button>
             </Link>
           </div>
@@ -329,9 +333,9 @@ export default function LandingPage() {
       {/* CTA Section */}
       <section className="border-t border-neutral-200 px-6 py-20 dark:border-neutral-700">
         <div className="mx-auto max-w-3xl text-center">
-          <h2 className="mb-6 text-3xl font-bold text-neutral-900 dark:text-white">Welcome Back</h2>
+          <h2 className="mb-6 text-3xl font-bold text-neutral-900 dark:text-white">{t("auth.welcomeBack")}</h2>
           <p className="mb-8 text-neutral-600 dark:text-neutral-400">
-            Access your technical community
+            {t("auth.accessCommunity")}
           </p>
 
           <form
@@ -364,7 +368,7 @@ export default function LandingPage() {
               className="mb-4 w-full"
               disabled={landingLoading}
             >
-              {landingLoading ? "Signing in..." : "Sign in"}
+              {landingLoading ? t("auth.signingIn") : t("auth.signIn")}
             </Button>
 
             <div className="relative mb-6 flex items-center gap-4">
