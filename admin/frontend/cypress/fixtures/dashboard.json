@@ -1,0 +1,130 @@
+{
+  "summary": {
+    "pendingMentors": 1,
+    "pendingReports": 2,
+    "approvedMentors": 3,
+    "totalUsers": 7
+  },
+  "verifications": [
+    {
+      "_id": "mentor-1",
+      "name": "Edom Mulugeta",
+      "email": "edom@example.com",
+      "bio": "Database and backend mentor.",
+      "primaryTechnicalField": "Databases",
+      "roleOrStatus": "Student",
+      "yearsOfExperience": "4-7 years",
+      "devicesUsed": ["Desktop/Laptop"],
+      "collaborationGoals": "Help learners debug data models.",
+      "availabilityStatus": "online",
+      "expertise": [{ "subject": "Databases", "proficiency": "expert" }],
+      "skillTags": ["MongoDB", "Indexing"],
+      "points": 320,
+      "createdAt": "2026-05-20T09:00:00.000Z",
+      "expertVerification": {
+        "status": "pending",
+        "submittedAt": "2026-05-21T09:00:00.000Z",
+        "document": {
+          "fileName": "student-id.pdf",
+          "fileType": "application/pdf",
+          "fileSize": 204800,
+          "dataUrl": "data:application/pdf;base64,JVBERi0xLjQ="
+        }
+      }
+    }
+  ],
+  "mentors": [
+    {
+      "_id": "mentor-1",
+      "name": "Edom Mulugeta",
+      "email": "edom@example.com",
+      "role": "expert",
+      "primaryTechnicalField": "Databases",
+      "roleOrStatus": "Student",
+      "yearsOfExperience": "4-7 years",
+      "expertise": [{ "subject": "Databases", "proficiency": "expert" }],
+      "skillTags": ["MongoDB", "Indexing"],
+      "points": 320,
+      "createdAt": "2026-05-20T09:00:00.000Z",
+      "availabilityStatus": "online",
+      "expertVerification": { "status": "pending" }
+    }
+  ],
+  "learners": [
+    {
+      "_id": "learner-1",
+      "name": "Rafia Kedir",
+      "email": "rafia@example.com",
+      "role": "learner",
+      "primaryTechnicalField": "Software Engineering",
+      "roleOrStatus": "Student",
+      "yearsOfExperience": "1-3 years",
+      "expertise": [],
+      "skillTags": ["React"],
+      "points": 140,
+      "createdAt": "2026-05-22T09:00:00.000Z",
+      "availabilityStatus": "offline"
+    }
+  ],
+  "reports": [
+    {
+      "_id": "report-1",
+      "reporterId": {
+        "_id": "learner-1",
+        "name": "Rafia Kedir",
+        "email": "rafia@example.com",
+        "role": "learner"
+      },
+      "targetType": "thread",
+      "targetId": "thread-1",
+      "target": { "title": "Spam answer", "subject": "Web Security" },
+      "reason": "Promotional spam in thread",
+      "status": "pending",
+      "createdAt": "2026-05-26T09:00:00.000Z"
+    }
+  ],
+  "reportedUsers": [
+    {
+      "userId": "user-spam-1",
+      "reportCount": 3,
+      "pendingCount": 1,
+      "strikeCount": 2,
+      "dismissedCount": 0,
+      "latestReportAt": "2026-05-26T09:00:00.000Z",
+      "user": {
+        "name": "Reported User",
+        "email": "reported@example.com",
+        "role": "learner",
+        "primaryTechnicalField": "Other"
+      }
+    }
+  ],
+  "logs": [
+    {
+      "id": "log-1",
+      "date": "2026-05-27T09:00:00.000Z",
+      "actionType": "mentor_verification",
+      "action": "Mentor verification submitted",
+      "actor": "Edom Mulugeta",
+      "actorEmail": "edom@example.com",
+      "targetType": "user",
+      "target": "Edom Mulugeta",
+      "status": "pending"
+    }
+  ],
+  "notifications": [
+    {
+      "_id": "notification-1",
+      "type": "mentor_verification",
+      "message": "New mentor verification request from Edom Mulugeta",
+      "read": false,
+      "createdAt": "2026-05-27T09:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1,
+    "totalPages": 1
+  }
+}

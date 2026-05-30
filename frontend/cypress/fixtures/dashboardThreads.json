@@ -1,0 +1,28 @@
+{
+  "threads": [
+    {
+      "_id": "thread-dashboard-1",
+      "title": "Socket.io messages arrive twice after reconnect",
+      "subject": "Software Engineering",
+      "preview": "I reconnect after network loss and duplicate listeners appear.",
+      "tags": ["socket.io", "realtime", "debugging"],
+      "status": "OPEN",
+      "messageCount": 5,
+      "updatedAt": "2026-05-24T12:00:00.000Z",
+      "createdAt": "2026-05-24T09:00:00.000Z",
+      "createdBy": { "name": "Rafia Kedir" }
+    },
+    {
+      "_id": "thread-dashboard-2",
+      "title": "Gemini tag suggestions for database questions",
+      "subject": "AI Assistance",
+      "preview": "I want AI-generated tags to stay relevant.",
+      "tags": ["gemini", "tags"],
+      "status": "AI_RESOLVED",
+      "messageCount": 2,
+      "updatedAt": "2026-05-25T12:00:00.000Z",
+      "createdAt": "2026-05-25T09:00:00.000Z",
+      "createdBy": { "name": "Rafia Kedir" }
+    }
+  ]
+}
