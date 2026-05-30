@@ -206,9 +206,6 @@ function renderMessageText(text: string) {
 }
 
 export default function AIAssistantPage() {
-<<<<<<< Updated upstream
-  const [messages, setMessages] = useState<ChatMessage[]>([starterMessage]);
-=======
   const { t } = useLanguage();
   const router = useRouter();
   const localizedStarterMessage = useMemo<ChatMessage>(
@@ -216,7 +213,6 @@ export default function AIAssistantPage() {
     [t]
   );
   const [messages, setMessages] = useState<ChatMessage[]>([localizedStarterMessage]);
->>>>>>> Stashed changes
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
