@@ -2,7 +2,8 @@
 
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { AxiosError } from "axios";
-import { AlertCircle, CheckCircle, Cpu, DraftingCompass, Plus, Send, Zap } from "lucide-react";
+import { AlertCircle, CheckCircle, Cpu, DraftingCompass, MessageSquare, Plus, Send, UserRoundCheck, Zap } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { DashboardLayout } from "../../../components/layout";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -12,6 +13,7 @@ type ChatMessage = {
   role: "user" | "model";
   text: string;
   timestamp: string;
+  escalation?: AiEscalation;
 };
 
 type AiChatResponse = {
@@ -21,6 +23,28 @@ type AiChatResponse = {
     isFromAi: boolean;
   };
   model?: string;
+  escalation?: AiEscalation;
+};
+
+type EscalationExpert = {
+  _id: string;
+  name: string;
+  avatarUrl?: string;
+  expertise: Array<{ subject: string; proficiency: string }>;
+  skillTags: string[];
+  availabilityStatus: "online" | "busy" | "offline" | "in_session";
+  points: number;
+  score: number;
+  reasons: string[];
+};
+
+type AiEscalation = {
+  shouldEscalate: boolean;
+  reason: string;
+  urgency: "immediate" | "soon";
+  subject: string;
+  tags: string[];
+  experts: EscalationExpert[];
 };
 
 const starterMessage: ChatMessage = {
@@ -71,6 +95,19 @@ function isSavedChat(value: unknown): value is ChatMessage[] {
         typeof (message as ChatMessage).timestamp === "string",
     )
   );
+}
+
+function expertTitle(expert: EscalationExpert) {
+  const top = expert.expertise[0];
+  if (!top) return "Verified expert";
+  const level = top.proficiency === "expert" ? "Expert" : top.proficiency;
+  return `${level} in ${top.subject}`;
+}
+
+function statusLabel(status: EscalationExpert["availabilityStatus"]) {
+  if (status === "online") return "Online";
+  if (status === "busy" || status === "in_session") return "Busy";
+  return "Offline";
 }
 
 function renderInlineMarkdown(text: string): ReactNode[] {
@@ -168,7 +205,17 @@ function renderMessageText(text: string) {
 }
 
 export default function AIAssistantPage() {
+<<<<<<< Updated upstream
   const [messages, setMessages] = useState<ChatMessage[]>([starterMessage]);
+=======
+  const { t } = useLanguage();
+  const router = useRouter();
+  const localizedStarterMessage = useMemo<ChatMessage>(
+    () => ({ ...starterMessage, text: t(starterMessage.text), timestamp: t("Just now") }),
+    [t]
+  );
+  const [messages, setMessages] = useState<ChatMessage[]>([localizedStarterMessage]);
+>>>>>>> Stashed changes
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -236,6 +283,7 @@ export default function AIAssistantPage() {
           role: "model",
           text: res.data.message.body,
           timestamp: formatTime(new Date(res.data.message.createdAt)),
+          escalation: res.data.escalation,
         },
       ]);
     } catch (err) {
@@ -261,6 +309,24 @@ export default function AIAssistantPage() {
     setInput("");
     setError(null);
     window.localStorage.removeItem(CHAT_STORAGE_KEY);
+  }
+
+  async function contactExpert(expert: EscalationExpert) {
+    if (expert.availabilityStatus !== "online") {
+      router.push(`/dashboard/profile/${expert._id}`);
+      return;
+    }
+
+    try {
+      const res = await apiClient.post<{ conversation: { _id: string } }>(
+        "/api/dms/conversations",
+        { expertId: expert._id },
+      );
+      router.push(`/dashboard/messages?conversation=${res.data.conversation._id}`);
+    } catch (err) {
+      const axiosError = err as AxiosError<{ error?: { message?: string } }>;
+      setError(axiosError.response?.data?.error?.message || "Failed to start direct message.");
+    }
   }
 
   return (
@@ -310,6 +376,53 @@ export default function AIAssistantPage() {
                     }`}
                   >
                     <div className="space-y-1">{renderMessageText(message.text)}</div>
+                    {message.role === "model" && message.escalation?.shouldEscalate && (
+                      <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-neutral-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-neutral-100">
+                        <div className="flex items-start gap-2">
+                          <UserRoundCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-amber-900 dark:text-amber-100">
+                              {t("Escalation recommended")}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-200">
+                              {message.escalation.reason}
+                            </p>
+                          </div>
+                        </div>
+                        {message.escalation.experts.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            {message.escalation.experts.map((expert) => (
+                              <div
+                                key={expert._id}
+                                className="rounded-lg border border-amber-200/70 bg-white p-2 dark:border-amber-900/60 dark:bg-neutral-900"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold text-neutral-900 dark:text-white">
+                                      {expert.name}
+                                    </p>
+                                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                                      {expertTitle(expert)} · {statusLabel(expert.availabilityStatus)}
+                                    </p>
+                                    <p className="mt-1 line-clamp-2 text-xs text-neutral-600 dark:text-neutral-300">
+                                      {expert.reasons.slice(0, 2).join(" · ")}
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => void contactExpert(expert)}
+                                    className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg bg-primary-600 px-2.5 text-xs font-semibold text-white hover:bg-primary-700"
+                                  >
+                                    <MessageSquare className="mr-1 h-3.5 w-3.5" />
+                                    {expert.availabilityStatus === "online" ? "DM" : t("View")}
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <p
                       className={`mt-2 text-xs ${
                         message.role === "user"
