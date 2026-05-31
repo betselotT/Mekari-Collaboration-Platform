@@ -74,6 +74,15 @@ export interface AnalyzeResponse {
   new_status: string;
 }
 
+export interface ChatEscalationResponse {
+  should_escalate: boolean;
+  reason: string;
+  urgency: "immediate" | "soon";
+  subject: string;
+  tags: string[];
+  experts: ExpertMatch[];
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
@@ -127,6 +136,28 @@ export async function matchExperts(params: {
 }): Promise<ExpertMatch[]> {
   const res = await post<{ experts: ExpertMatch[] }>("/experts", params);
   return res.experts;
+}
+
+export async function decideChatEscalation(params: {
+  prompt: string;
+  response_text: string;
+  messages?: Array<{ role: string; text: string }>;
+  requester_id?: string;
+  limit?: number;
+}): Promise<ChatEscalationResponse> {
+  try {
+    return await post<ChatEscalationResponse>("/chat-escalation", params);
+  } catch (err) {
+    console.warn("[intelligence] Chat escalation service unavailable; returning AI answer without expert routing", err);
+    return {
+      should_escalate: false,
+      reason: "Intelligence escalation service unavailable",
+      urgency: "soon",
+      subject: "Software Engineering",
+      tags: [],
+      experts: [],
+    };
+  }
 }
 
 export async function recordFeedback(params: {

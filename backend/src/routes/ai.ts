@@ -2,8 +2,9 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { Message } from "../models/Message";
+import { User } from "../models/User";
+import * as intelligence from "../intelligence/client";
 import { askGemini } from "../services/gemini";
-import { decideAiEscalation } from "../services/aiEscalation";
 
 const router = Router();
 
@@ -24,12 +25,43 @@ router.post("/chat", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const parsed = chatSchema.parse(req.body);
     const result = await askGemini(parsed.prompt, parsed.messages || []);
-    const escalation = await decideAiEscalation({
-      requesterId: req.userId,
+    const escalationDecision = await intelligence.decideChatEscalation({
       prompt: parsed.prompt,
-      responseText: result.text,
+      response_text: result.text,
       messages: parsed.messages || [],
+      requester_id: req.userId,
+      limit: 3,
     });
+    const experts = await User.find({
+      _id: { $in: escalationDecision.experts.map((expert) => expert.expert_id) },
+    })
+      .select("name avatarUrl expertise skillTags availabilityStatus points")
+      .lean();
+    const expertById = new Map(experts.map((expert) => [String(expert._id), expert]));
+    const escalation = {
+      shouldEscalate: escalationDecision.should_escalate,
+      reason: escalationDecision.reason,
+      urgency: escalationDecision.urgency,
+      subject: escalationDecision.subject,
+      tags: escalationDecision.tags,
+      experts: escalationDecision.experts
+        .map((match) => {
+          const expert = expertById.get(match.expert_id);
+          if (!expert) return null;
+          return {
+            _id: String(expert._id),
+            name: expert.name,
+            avatarUrl: expert.avatarUrl,
+            expertise: expert.expertise || [],
+            skillTags: expert.skillTags || [],
+            availabilityStatus: expert.availabilityStatus,
+            points: expert.points || 0,
+            score: match.score,
+            reasons: match.reasons,
+          };
+        })
+        .filter(Boolean),
+    };
 
     if (!parsed.threadId) {
       return res.status(200).json({

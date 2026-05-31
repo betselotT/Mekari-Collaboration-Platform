@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 from config import settings
 from models import (
+    ChatEscalationRequest,
+    ChatEscalationResponse,
     Complexity,
     EscalationDecision,
     EscalationMode,
+    ExpertMatch,
     Intent,
     QuestionContext,
     Urgency,
 )
+from expert_matcher import find_experts
+from tag_recommendation import recommend_tags
 
 _HUMAN_REVIEW_INTENTS = {Intent.security, Intent.architecture}
 _EXPERT_FRIENDLY_INTENTS = {Intent.debugging, Intent.performance}
@@ -169,4 +175,130 @@ def decide_escalation(
         reason=_reason(context, confidence, ai_resolved, risk),
         urgency=_urgency_label(context, risk),
         decision_confidence=round(max(risk, 1.0 - confidence), 3),
+    )
+
+
+_MATERIAL_ESCALATION_PATTERNS: list[tuple[re.Pattern[str], str, list[str], Literal["immediate", "soon"]]] = [
+    (
+        re.compile(
+            r"\b(hacked|breach(?:ed)?|compromised|credential(?:s)?|password(?:s)?|leak(?:ed)?|"
+            r"sql injection|sqli|data leak|attacker|exploit|vulnerability|incident response)\b",
+            re.I,
+        ),
+        "Security incident or credential exposure risk needs human expert review",
+        ["security", "incident-response", "sql-injection", "credentials"],
+        "immediate",
+    ),
+    (
+        re.compile(r"\b(production down|outage|data loss|corrupt(?:ed|ion)|rollback|hotfix|sev[ -]?[0-2])\b", re.I),
+        "Production or data-loss risk needs expert support",
+        ["incident-response", "production"],
+        "immediate",
+    ),
+    (
+        re.compile(r"\b(load-bearing|structural failure|high voltage|mains voltage|medical|legal|financial advice)\b", re.I),
+        "High-impact safety, legal, medical, or financial advice should be reviewed by a qualified human",
+        ["high-stakes"],
+        "soon",
+    ),
+]
+
+_UNCERTAINTY_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"\bi (?:can'?t|cannot|do not|don't) (?:safely |reliably )?(?:answer|determine|verify|access)\b", re.I),
+    re.compile(r"\bi (?:need|would need) (?:private|production|system|repository|database|environment) (?:context|access|details)\b", re.I),
+    re.compile(r"\bconsult (?:a|an) (?:human|expert|professional|qualified)\b", re.I),
+    re.compile(r"\bbeyond my (?:ability|scope|capabilities)\b", re.I),
+]
+
+_MATERIAL_CONTEXT_PATTERN = re.compile(
+    r"\b(production|prod|customer|user data|credentials?|passwords?|security|breach|hacked|"
+    r"incident|outage|data loss|private repo|confidential|payment|medical|legal|financial|"
+    r"high voltage|load-bearing|structural)\b",
+    re.I,
+)
+
+
+def _infer_chat_subject(text: str) -> str:
+    if re.search(r"\b(security|breach|hacked|sql injection|credential|password|vulnerability|exploit)\b", text, re.I):
+        return "Cybersecurity"
+    if re.search(r"\b(circuit|electrical|electronics|embedded|microcontroller|arduino|voltage|current)\b", text, re.I):
+        return "Electrical Engineering"
+    if re.search(r"\b(mechanical|thermodynamics|fluid|beam|cad|solidworks|autocad)\b", text, re.I):
+        return "Mechanical Engineering"
+    if re.search(r"\b(civil|structural|concrete|load-bearing|foundation)\b", text, re.I):
+        return "Civil Engineering"
+    if re.search(r"\b(algorithm|data structure|dsa|dynamic programming|graph|tree|complexity)\b", text, re.I):
+        return "Data Structures & Algorithms"
+    if re.search(r"\b(ai|llm|machine learning|rag|embedding|agentic|gemini|openai)\b", text, re.I):
+        return "Artificial Intelligence"
+    return "Software Engineering"
+
+
+def _chat_history_text(messages: list[dict]) -> str:
+    lines: list[str] = []
+    for message in messages[-6:]:
+        text = str(message.get("text", "")).strip()
+        if text:
+            lines.append(f"{message.get('role', 'user')}: {text}")
+    return "\n".join(lines)
+
+
+def _chat_signal(prompt: str, response_text: str) -> tuple[str, Literal["immediate", "soon"], list[str]] | None:
+    for pattern, reason, tags, urgency in _MATERIAL_ESCALATION_PATTERNS:
+        if pattern.search(prompt):
+            return reason, urgency, tags
+
+    has_material_context = bool(_MATERIAL_CONTEXT_PATTERN.search(prompt))
+    ai_is_uncertain = any(pattern.search(response_text) for pattern in _UNCERTAINTY_PATTERNS)
+    if has_material_context and ai_is_uncertain:
+        return (
+            "The assistant needs human judgment for a high-impact or private-context question",
+            "soon",
+            ["expert-help"],
+        )
+
+    return None
+
+
+async def decide_chatbot_escalation(req: ChatEscalationRequest) -> ChatEscalationResponse:
+    """Escalate chatbot answers only for material risk, not routine questions."""
+    context_text = "\n".join(
+        part for part in [_chat_history_text(req.messages), req.prompt, req.response_text] if part
+    )
+    subject = _infer_chat_subject(context_text)
+    signal = _chat_signal(req.prompt, req.response_text)
+
+    if signal is None:
+        return ChatEscalationResponse(
+            should_escalate=False,
+            reason="No material escalation trigger detected",
+            urgency="soon",
+            subject=subject,
+            tags=[],
+            experts=[],
+        )
+
+    reason, urgency, seed_tags = signal
+    generated_tags = await recommend_tags(
+        title=req.prompt[:120],
+        body=context_text,
+        subject=subject,
+        existing_tags=seed_tags,
+    )
+    tags = list(dict.fromkeys(seed_tags + generated_tags))
+    experts: list[ExpertMatch] = await find_experts(
+        subject=subject,
+        tags=tags,
+        requester_id=req.requester_id,
+        availability_preference="online_or_busy" if urgency == "immediate" else "any",
+        limit=req.limit,
+    )
+
+    return ChatEscalationResponse(
+        should_escalate=True,
+        reason=reason,
+        urgency=urgency,
+        subject=subject,
+        tags=tags,
+        experts=experts,
     )
