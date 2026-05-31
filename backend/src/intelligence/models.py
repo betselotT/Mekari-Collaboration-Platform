@@ -195,6 +195,23 @@ class ExpertRequest(BaseModel):
     limit: int = 5
 
 
+class ChatEscalationRequest(BaseModel):
+    prompt: str
+    response_text: str = ""
+    messages: list[dict[str, Any]] = Field(default_factory=list)
+    requester_id: Optional[str] = None
+    limit: int = 3
+
+
+class ChatEscalationResponse(BaseModel):
+    should_escalate: bool
+    reason: str
+    urgency: Literal["immediate", "soon"]
+    subject: str
+    tags: list[str]
+    experts: list[ExpertMatch] = Field(default_factory=list)
+
+
 class ScoreResponseRequest(BaseModel):
     response: AIResponse
     context: Optional[QuestionContext] = None

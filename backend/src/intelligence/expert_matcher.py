@@ -41,10 +41,14 @@ async def find_experts(
     availability_preference: str = "online_or_busy",
     limit: int = 5,
 ) -> list[ExpertMatch]:
-    # Query experts with at least one overlapping skill tag, or all experts if no tags
-    query: dict = {"role": {"$in": ["expert", "admin"]}}
-    if tags:
-        query["skillTags"] = {"$in": tags}
+    # Query verified experts/admins, then rank by topic and availability.
+    query: dict = {
+        "role": {"$in": ["expert", "admin"]},
+        "$or": [
+            {"role": "admin"},
+            {"expertVerification.status": "approved"},
+        ],
+    }
     if requester_id:
         query["_id"] = {"$ne": requester_id}
 
@@ -55,7 +59,7 @@ async def find_experts(
         factors = score_expert(expert, tags, availability_preference)
 
         # Skip completely unavailable experts unless forced
-        avail = expert.get("availability", "offline")
+        avail = expert.get("availabilityStatus") or expert.get("availability", "offline")
         if avail == "offline" and availability_preference != "any":
             continue
 

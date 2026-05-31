@@ -12,6 +12,8 @@ from models import (
     AIResponse,
     AnalyzeRequest,
     AnalyzeResponse,
+    ChatEscalationRequest,
+    ChatEscalationResponse,
     ExpertRequest,
     FeedbackEventPayload,
     QuestionContext,
@@ -24,6 +26,7 @@ from routing_engine import route_question
 from tag_recommendation import recommend_tags
 from similar_problem_retrieval import find_similar
 from expert_matcher import find_experts
+from escalation_decider import decide_chatbot_escalation
 from response_ranker import rank_ai_response, rank_messages
 from feedback_loop import record_feedback, get_system_health
 from knowledge_ranker import capture_knowledge
@@ -103,6 +106,11 @@ async def match_experts(req: ExpertRequest):
         limit=req.limit,
     )
     return {"experts": [e.model_dump() for e in experts]}
+
+
+@app.post("/chat-escalation", response_model=ChatEscalationResponse)
+async def chat_escalation(req: ChatEscalationRequest):
+    return await decide_chatbot_escalation(req)
 
 
 @app.post("/score-response")

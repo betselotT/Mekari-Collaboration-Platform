@@ -142,7 +142,7 @@ def score_expert(
 ) -> dict:
     """Return per-factor scores (0-1) for a single expert candidate."""
     expert_tags: list[str] = expert.get("skillTags") or []
-    availability: str = expert.get("availability") or "offline"
+    availability: str = expert.get("availabilityStatus") or expert.get("availability") or "offline"
 
     tag_overlap = jaccard(set(query_tags), set(expert_tags))
 
