@@ -370,6 +370,7 @@ export async function recommendExperts(params: {
     ...(requesterId ? { _id: { $ne: requesterId } } : {}),
     role: "expert",
     "expertVerification.status": "approved",
+    isBanned: { $ne: true },
   };
 
   const candidates = await User.find({

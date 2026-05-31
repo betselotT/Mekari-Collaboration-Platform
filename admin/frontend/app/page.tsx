@@ -66,6 +66,9 @@ type ReportUser = {
   expertise?: Array<{ subject: string; proficiency: string }>;
   skillTags?: string[];
   points?: number;
+  isBanned?: boolean;
+  bannedAt?: string;
+  banReason?: string;
   createdAt?: string;
 };
 
@@ -192,6 +195,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [banReview, setBanReview] = useState<{ reportId: string; userName: string } | null>(null);
+  const [banReason, setBanReason] = useState("");
   const [loadingUserId, setLoadingUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pushStatus, setPushStatus] = useState<string | null>(null);
@@ -336,7 +341,23 @@ export default function AdminDashboard() {
     }
   }
 
-  async function updateReport(reportId: string, status: "struck" | "dismissed") {
+  function getStrikeCount(targetId: string) {
+    return reportedUsers.find((item) => String(item.userId) === String(targetId))?.strikeCount || 0;
+  }
+
+  function requestReportStrike(report: ReportItem) {
+    if (report.targetType === "user" && getStrikeCount(report.targetId) >= 2 && !report.target?.isBanned) {
+      setBanReason("");
+      setBanReview({
+        reportId: report._id,
+        userName: report.target?.name || report.target?.email || "this user",
+      });
+      return;
+    }
+    void updateReport(report._id, "struck");
+  }
+
+  async function updateReport(reportId: string, status: "struck" | "dismissed", options?: { banReason?: string }) {
     setSavingId(reportId);
     setError(null);
     try {
@@ -344,9 +365,18 @@ export default function AdminDashboard() {
         method: "PATCH",
         body: JSON.stringify({
           status,
-          actionTaken: status === "struck" ? "Strike issued" : "Report dismissed",
+          actionTaken: status === "struck"
+            ? options?.banReason
+              ? `Third strike issued. User banned: ${options.banReason}`
+              : "Strike issued"
+            : "Report dismissed",
+          banReason: options?.banReason,
         }),
       });
+      if (options?.banReason) {
+        setBanReview(null);
+        setBanReason("");
+      }
       await loadDashboard();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update report");
@@ -444,6 +474,19 @@ export default function AdminDashboard() {
         {pushStatus && <div className="panel success-message">{pushStatus}</div>}
         {selectedUser && (
           <UserProfileModal user={selectedUser} onClose={() => setSelectedUser(null)} />
+        )}
+        {banReview && (
+          <BanReasonModal
+            userName={banReview.userName}
+            reason={banReason}
+            saving={savingId === banReview.reportId}
+            onReasonChange={setBanReason}
+            onClose={() => {
+              setBanReview(null);
+              setBanReason("");
+            }}
+            onConfirm={() => void updateReport(banReview.reportId, "struck", { banReason: banReason.trim() })}
+          />
         )}
 
         <div className="admin-layout">
@@ -702,9 +745,11 @@ export default function AdminDashboard() {
                   <button
                     className="button danger"
                     disabled={savingId === report._id}
-                    onClick={() => updateReport(report._id, "struck")}
+                    onClick={() => requestReportStrike(report)}
                   >
-                    Strike
+                    {report.targetType === "user" && getStrikeCount(report.targetId) >= 2 && !report.target?.isBanned
+                      ? "Strike and ban"
+                      : "Strike"}
                   </button>
                   <button
                     className="button secondary"
@@ -742,6 +787,7 @@ export default function AdminDashboard() {
                     <th>Pending</th>
                     <th>Strikes</th>
                     <th>Dismissed</th>
+                    <th>Account</th>
                     <th>Latest Report</th>
                   </tr>
                 </thead>
@@ -758,12 +804,18 @@ export default function AdminDashboard() {
                       <td>{item.pendingCount}</td>
                       <td>{item.strikeCount}</td>
                       <td>{item.dismissedCount}</td>
+                      <td>
+                        <span className={`status ${item.user?.isBanned ? "rejected" : "approved"}`}>
+                          {item.user?.isBanned ? "banned" : "active"}
+                        </span>
+                        {item.user?.banReason ? <div className="muted">{item.user.banReason}</div> : null}
+                      </td>
                       <td>{formatDate(item.latestReportAt)}</td>
                     </tr>
                   ))}
                   {reportedUsers.length === 0 && (
                     <tr>
-                      <td colSpan={7}>No reported users yet.</td>
+                      <td colSpan={8}>No reported users yet.</td>
                     </tr>
                   )}
                 </tbody>
@@ -975,6 +1027,53 @@ function MentorStatusControl({
   );
 }
 
+function BanReasonModal({
+  userName,
+  reason,
+  saving,
+  onReasonChange,
+  onClose,
+  onConfirm,
+}: {
+  userName: string;
+  reason: string;
+  saving: boolean;
+  onReasonChange: (reason: string) => void;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" onClick={(event) => {
+      if (event.target === event.currentTarget && !saving) onClose();
+    }}>
+      <section className="modal-card ban-reason-modal" role="dialog" aria-modal="true" aria-labelledby="ban-reason-title">
+        <div>
+          <h2 id="ban-reason-title">Ban {userName}</h2>
+          <p>This is the third strike. The user will be blocked from signing in immediately.</p>
+        </div>
+        <label>
+          <strong>Ban reason</strong>
+          <textarea
+            className="input"
+            rows={4}
+            maxLength={500}
+            placeholder="Explain why this user is being banned."
+            value={reason}
+            onChange={(event) => onReasonChange(event.target.value)}
+            autoFocus
+          />
+        </label>
+        <div className="actions">
+          <button className="button secondary" disabled={saving} onClick={onClose}>Cancel</button>
+          <button className="button danger" disabled={saving || !reason.trim()} onClick={onConfirm}>
+            {saving ? "Banning..." : "Ban user"}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function UserProfileModal({ user, onClose }: { user: AdminUser; onClose: () => void }) {
   const expertise = Array.isArray(user.expertise)
     ? user.expertise.map((item) => `${item.subject} (${item.proficiency})`)
@@ -1008,6 +1107,8 @@ function UserProfileModal({ user, onClose }: { user: AdminUser; onClose: () => v
             <span>Points: {user.points || 0}</span>
             <span>Joined: {formatDate(user.createdAt)}</span>
             <span>Updated: {formatDate(user.updatedAt)}</span>
+            <span>Account: {user.isBanned ? "banned" : "active"}</span>
+            {user.banReason ? <span>Ban reason: {user.banReason}</span> : null}
             <span>
               Verification:{" "}
               <span className={`status ${user.expertVerification?.status || "not_required"}`}>

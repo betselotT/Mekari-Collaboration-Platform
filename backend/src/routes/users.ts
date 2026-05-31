@@ -290,6 +290,7 @@ router.get("/experts", requireAuth, async (_req: AuthRequest, res, next) => {
     const experts = await User.find({
       role: "expert",
       "expertVerification.status": "approved",
+      isBanned: { $ne: true },
     })
       .select("name avatarUrl bio expertise skillTags availabilityStatus points role expertVerification")
       .sort({ points: -1 })
@@ -334,6 +335,7 @@ router.get("/directory", requireAuth, async (req: AuthRequest, res, next) => {
     const filter: Record<string, unknown> = {
       role: role === "mentor" ? "expert" : { $in: ["learner", "user"] },
       _id: { $ne: req.userId },
+      isBanned: { $ne: true },
     };
 
     if (q) {
@@ -377,7 +379,7 @@ router.post("/:expertId/reviews", requireAuth, async (req: AuthRequest, res, nex
       return res.status(400).json({ error: { message: "Experts cannot review themselves." } });
     }
 
-    const expert = await User.findOne({ _id: req.params.expertId, role: "expert" }).select("_id");
+    const expert = await User.findOne({ _id: req.params.expertId, role: "expert", isBanned: { $ne: true } }).select("_id");
 
     if (!expert) {
       return res.status(404).json({ error: { message: "Expert not found." } });
@@ -398,7 +400,7 @@ router.post("/:expertId/reviews", requireAuth, async (req: AuthRequest, res, nex
 
 router.get("/:expertId/reviews", requireAuth, async (req: AuthRequest, res, next) => {
   try {
-    const expert = await User.findOne({ _id: req.params.expertId, role: "expert" })
+    const expert = await User.findOne({ _id: req.params.expertId, role: "expert", isBanned: { $ne: true } })
       .select("_id")
       .lean();
 

@@ -202,6 +202,7 @@ router.get("/subjects/:slug/experts", requireAuth, async (req: AuthRequest, res,
     const experts = await User.find({
       role: "expert",
       availabilityStatus: "online",
+      isBanned: { $ne: true },
       "expertise.subject": regex,
     })
       .select("name avatarUrl bio expertise skillTags availabilityStatus points role")
@@ -571,7 +572,7 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
       isFromAi: false,
     });
 
-    const experts = await User.find({ _id: { $in: recommendedExpertIds } })
+    const experts = await User.find({ _id: { $in: recommendedExpertIds }, isBanned: { $ne: true } })
       .select("name avatarUrl expertise skillTags availabilityStatus points")
       .lean();
     const expertMap = new Map(experts.map((expert) => [String(expert._id), expert]));

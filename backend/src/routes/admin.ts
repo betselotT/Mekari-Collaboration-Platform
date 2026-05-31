@@ -26,6 +26,7 @@ function requireAdmin(req: AuthRequest, res: Response, next: NextFunction) {
 const updateReportSchema = z.object({
   status: z.enum(["pending", "resolved", "struck", "dismissed"]),
   actionTaken: z.string().max(500).optional(),
+  banReason: z.string().trim().min(1).max(500).optional(),
 });
 
 const reviewVerificationSchema = z.object({
@@ -48,6 +49,27 @@ router.get("/reports", requireAuth, requireMod, async (_req, res, next) => {
 router.patch("/reports/:id", requireAuth, requireMod, async (req: AuthRequest, res, next) => {
   try {
     const parsed = updateReportSchema.parse(req.body);
+    const existingReport = await Report.findById(req.params.id);
+    if (!existingReport) return res.status(404).json({ error: { message: "Report not found" } });
+
+    let strikeCount: number | undefined;
+    let shouldBan = false;
+    let targetUser = null;
+    if (parsed.status === "struck" && existingReport.targetType === "user") {
+      const priorStrikes = await Report.countDocuments({
+        _id: { $ne: existingReport._id },
+        targetType: "user",
+        targetId: existingReport.targetId,
+        status: { $in: ["struck", "resolved"] },
+      });
+      strikeCount = priorStrikes + 1;
+      targetUser = await User.findById(existingReport.targetId);
+      shouldBan = strikeCount >= 3 && !targetUser?.isBanned;
+      if (shouldBan && !parsed.banReason) {
+        return res.status(400).json({ error: { message: "Ban reason is required when issuing the third strike." } });
+      }
+    }
+
     const update: { status: string; actionTaken?: string } = { status: parsed.status };
     if (parsed.actionTaken !== undefined) update.actionTaken = parsed.actionTaken;
 
@@ -59,22 +81,34 @@ router.patch("/reports/:id", requireAuth, requireMod, async (req: AuthRequest, r
     if (!report) return res.status(404).json({ error: { message: "Report not found" } });
 
     if (parsed.status === "struck" && report.targetType === "user") {
-      const strikeCount = await Report.countDocuments({
-        targetType: "user",
-        targetId: report.targetId,
-        status: "struck",
-      });
-      await createNotification({
-        userId: String(report.targetId),
-        category: "moderation",
-        type: "account_strike",
-        title: "Account strike",
-        message: `Your account has been struck for a community violation. Total strikes: ${strikeCount}.`,
-        link: "/dashboard/profile",
-      });
+      if (shouldBan && targetUser) {
+        const reason = parsed.banReason as string;
+        targetUser.isBanned = true;
+        targetUser.bannedAt = new Date();
+        targetUser.banReason = reason;
+        targetUser.availabilityStatus = "offline";
+        await targetUser.save();
+        await createNotification({
+          userId: String(report.targetId),
+          category: "moderation",
+          type: "account_banned",
+          title: "Account banned",
+          message: `Your account has been banned: ${reason}`,
+          link: "/login",
+        });
+      } else {
+        await createNotification({
+          userId: String(report.targetId),
+          category: "moderation",
+          type: "account_strike",
+          title: "Account strike",
+          message: `Your account has been struck for a community violation. Total strikes: ${strikeCount}.`,
+          link: "/dashboard/profile",
+        });
+      }
     }
 
-    res.json({ report });
+    res.json({ report, strikeCount, banned: shouldBan || Boolean(targetUser?.isBanned), banReason: targetUser?.banReason });
   } catch (err) {
     next(err);
   }

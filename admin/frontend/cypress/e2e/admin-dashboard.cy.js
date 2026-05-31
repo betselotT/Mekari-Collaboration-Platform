@@ -58,6 +58,31 @@ describe("Admin moderation dashboard", () => {
     cy.contains("Reported User").should("be.visible");
   });
 
+  it("requires a reason before banning a user on the third strike", () => {
+    cy.intercept("PATCH", "/api/admin/reports/report-ban-1", {
+      statusCode: 200,
+      body: { banned: true, strikeCount: 3, banReason: "Repeated harassment after warnings" },
+    }).as("banUser");
+
+    cy.visit("/");
+    cy.wait("@adminReports");
+    cy.contains("button", "Reports").click();
+    cy.contains("article", "Repeated harassment in private messages").within(() => {
+      cy.contains("button", "Strike and ban").click();
+    });
+
+    cy.contains("This is the third strike. The user will be blocked from signing in immediately.").should("be.visible");
+    cy.contains("button", "Ban user").should("be.disabled");
+    cy.get('textarea[placeholder="Explain why this user is being banned."]')
+      .type("Repeated harassment after warnings");
+    cy.contains("button", "Ban user").click();
+
+    cy.wait("@banUser").its("request.body").should("deep.include", {
+      status: "struck",
+      banReason: "Repeated harassment after warnings",
+    });
+  });
+
   it("shows action logs for auditability", () => {
     cy.visit("/");
     cy.wait("@actionLogs");

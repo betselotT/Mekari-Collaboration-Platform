@@ -73,6 +73,7 @@ async function findPreviewExperts(subject?: string, tags: string[] = []) {
   return User.find({
     role: "expert",
     "expertVerification.status": "approved",
+    isBanned: { $ne: true },
     ...topicFilter,
   })
     .select("name expertise availabilityStatus points")
@@ -126,6 +127,7 @@ router.get("/public/landing-preview", async (_req, res, next) => {
       User.countDocuments({
         role: "expert",
         "expertVerification.status": "approved",
+        isBanned: { $ne: true },
       }),
     ]);
 

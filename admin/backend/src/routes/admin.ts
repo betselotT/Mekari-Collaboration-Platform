@@ -24,6 +24,7 @@ const reviewVerificationSchema = z.object({
 const reviewReportSchema = z.object({
   status: z.enum(["struck", "dismissed", "pending"]),
   actionTaken: z.string().max(500).optional(),
+  banReason: z.string().trim().min(1).max(500).optional(),
 });
 
 const pushTokenSchema = z.object({
@@ -233,7 +234,7 @@ router.get("/users", async (req, res, next) => {
 
     const [users, total] = await Promise.all([
       User.find(filter)
-        .select("name email role bio primaryTechnicalField roleOrStatus yearsOfExperience devicesUsed availabilityStatus expertise skillTags expertVerification.status expertVerification.reviewNote points createdAt")
+        .select("name email role bio primaryTechnicalField roleOrStatus yearsOfExperience devicesUsed availabilityStatus expertise skillTags expertVerification.status expertVerification.reviewNote points isBanned bannedAt banReason createdAt")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -250,7 +251,7 @@ router.get("/users", async (req, res, next) => {
 router.get("/users/:userId", async (req, res, next) => {
   try {
     const user = await User.findById(req.params.userId)
-      .select("name email role bio primaryTechnicalField roleOrStatus yearsOfExperience devicesUsed collaborationGoals availabilityStatus expertise skillTags expertVerification.status expertVerification.reviewNote expertVerification.submittedAt expertVerification.reviewedAt points createdAt updatedAt reviews")
+      .select("name email role bio primaryTechnicalField roleOrStatus yearsOfExperience devicesUsed collaborationGoals availabilityStatus expertise skillTags expertVerification.status expertVerification.reviewNote expertVerification.submittedAt expertVerification.reviewedAt points isBanned bannedAt banReason createdAt updatedAt reviews")
       .populate("reviews.by", "name email role")
       .lean();
 
@@ -407,6 +408,9 @@ router.get("/reported-users", async (_req, res, next) => {
             roleOrStatus: "$user.roleOrStatus",
             yearsOfExperience: "$user.yearsOfExperience",
             points: "$user.points",
+            isBanned: "$user.isBanned",
+            bannedAt: "$user.bannedAt",
+            banReason: "$user.banReason",
           },
         },
       },
@@ -441,7 +445,7 @@ router.get("/reports", async (req, res, next) => {
 
     const [users, threads, messages] = await Promise.all([
       User.find({ _id: { $in: targetIds.user } })
-        .select("name email role primaryTechnicalField roleOrStatus yearsOfExperience devicesUsed bio expertise skillTags points createdAt")
+        .select("name email role primaryTechnicalField roleOrStatus yearsOfExperience devicesUsed bio expertise skillTags points isBanned bannedAt banReason createdAt")
         .lean(),
       Thread.find({ _id: { $in: targetIds.thread } }).select("title subject status").lean(),
       Message.find({ _id: { $in: targetIds.message } }).select("body type").lean(),
@@ -472,6 +476,31 @@ router.get("/reports", async (req, res, next) => {
 router.patch("/reports/:reportId", async (req, res, next) => {
   try {
     const parsed = reviewReportSchema.parse(req.body);
+    const existingReport = await Report.findById(req.params.reportId);
+    if (!existingReport) {
+      res.status(404).json({ error: { message: "Report not found" } });
+      return;
+    }
+
+    let strikeCount: number | undefined;
+    let shouldBan = false;
+    let targetUser = null;
+    if (parsed.status === "struck" && existingReport.targetType === "user") {
+      const priorStrikes = await Report.countDocuments({
+        _id: { $ne: existingReport._id },
+        targetType: "user",
+        targetId: existingReport.targetId,
+        status: { $in: ["struck", "resolved"] },
+      });
+      strikeCount = priorStrikes + 1;
+      targetUser = await User.findById(existingReport.targetId);
+      shouldBan = strikeCount >= 3 && !targetUser?.isBanned;
+      if (shouldBan && !parsed.banReason) {
+        res.status(400).json({ error: { message: "Ban reason is required when issuing the third strike." } });
+        return;
+      }
+    }
+
     const update: { status: string; actionTaken?: string } = { status: parsed.status };
     if (parsed.actionTaken !== undefined) update.actionTaken = parsed.actionTaken;
 
@@ -480,11 +509,6 @@ router.patch("/reports/:reportId", async (req, res, next) => {
       { $set: update },
       { new: true }
     );
-
-    if (!report) {
-      res.status(404).json({ error: { message: "Report not found" } });
-      return;
-    }
 
     await AuditLog.create({
       actorName: "Admin",
@@ -498,21 +522,41 @@ router.patch("/reports/:reportId", async (req, res, next) => {
     });
 
     if (parsed.status === "struck" && report.targetType === "user") {
-      const strikeCount = await Report.countDocuments({
-        targetType: "user",
-        targetId: report.targetId,
-        status: "struck",
-      });
-      await Notification.create({
-        userId: report.targetId,
-        type: "account_strike",
-        message: `Your account has been struck for a community violation. Total strikes: ${strikeCount}.`,
-        link: "/dashboard/profile",
-        read: false,
-      });
+      if (shouldBan && targetUser) {
+        const reason = parsed.banReason as string;
+        targetUser.isBanned = true;
+        targetUser.bannedAt = new Date();
+        targetUser.banReason = reason;
+        targetUser.availabilityStatus = "offline";
+        await targetUser.save();
+        await AuditLog.create({
+          actorName: "Admin",
+          actionType: "user_banned",
+          action: `${targetUser.name} was banned after ${strikeCount} strikes: ${reason}`,
+          targetType: "user",
+          targetId: targetUser.id,
+          status: "banned",
+          metadata: { banReason: reason, strikeCount, reportId: report.id },
+        });
+        await Notification.create({
+          userId: report.targetId,
+          type: "account_banned",
+          message: `Your account has been banned: ${reason}`,
+          link: "/login",
+          read: false,
+        });
+      } else {
+        await Notification.create({
+          userId: report.targetId,
+          type: "account_strike",
+          message: `Your account has been struck for a community violation. Total strikes: ${strikeCount}.`,
+          link: "/dashboard/profile",
+          read: false,
+        });
+      }
     }
 
-    res.json({ report });
+    res.json({ report, strikeCount, banned: shouldBan || Boolean(targetUser?.isBanned), banReason: targetUser?.banReason });
   } catch (err) {
     next(err);
   }
