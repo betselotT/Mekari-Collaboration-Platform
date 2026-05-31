@@ -54,15 +54,17 @@ async function getTypingUserName(userId: string) {
   return name;
 }
 
-function authenticateSocket(socket: Socket) {
+async function authenticateSocket(socket: Socket) {
   const token = socket.handshake.auth?.token as string | undefined;
   if (!token) return null;
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as SocketAuth;
     if (!decoded.sub) return null;
+    const user = await User.findById(decoded.sub).select("role isBanned").lean();
+    if (!user || user.isBanned) return null;
     socket.data.userId = decoded.sub;
-    socket.data.userRole = decoded.role;
+    socket.data.userRole = user.role;
     socket.join(roomName("user", decoded.sub));
     rememberSocketUser(socket.id, decoded.sub);
     return decoded.sub;
@@ -75,8 +77,8 @@ export function registerChatHandlers(
   io: Server,
   _redis?: RedisClientType<any, any, any> | null
 ) {
-  io.on("connection", (socket: Socket) => {
-    const connectedUserId = authenticateSocket(socket);
+  io.on("connection", async (socket: Socket) => {
+    const connectedUserId = await authenticateSocket(socket);
     if (connectedUserId) {
       markUserPresence(socket.id, connectedUserId, "online").catch((err) =>
         console.error("[socket presence online]", err)

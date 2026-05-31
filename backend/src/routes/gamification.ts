@@ -27,7 +27,7 @@ router.get("/leaderboard", requireAuth, async (req: AuthRequest, res, next) => {
     const role = req.query.role === "expert" || req.query.role === "learner"
       ? req.query.role
       : undefined;
-    const filter = role ? { role } : {};
+    const filter = role ? { role, isBanned: { $ne: true } } : { isBanned: { $ne: true } };
     const users = await User.find(filter)
       .select("name avatarUrl points expertise skillTags role createdAt")
       .sort({ points: -1 })
@@ -41,11 +41,11 @@ router.get("/leaderboard", requireAuth, async (req: AuthRequest, res, next) => {
 router.get("/leaderboards", requireAuth, async (_req: AuthRequest, res, next) => {
   try {
     const [learners, experts] = await Promise.all([
-      User.find({ role: "learner" })
+      User.find({ role: "learner", isBanned: { $ne: true } })
         .select("name avatarUrl points expertise skillTags role createdAt")
         .sort({ points: -1 })
         .limit(20),
-      User.find({ role: "expert" })
+      User.find({ role: "expert", isBanned: { $ne: true } })
         .select("name avatarUrl points expertise skillTags role createdAt")
         .sort({ points: -1 })
         .limit(20),

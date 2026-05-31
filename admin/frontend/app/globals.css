@@ -193,6 +193,34 @@ textarea {
   gap: 16px;
 }
 
+.ban-reason-modal {
+  display: grid;
+  gap: 18px;
+  max-width: 520px;
+  width: min(520px, calc(100vw - 32px));
+}
+
+.ban-reason-modal h2,
+.ban-reason-modal p {
+  margin: 0;
+}
+
+.ban-reason-modal p {
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.ban-reason-modal label {
+  display: grid;
+  gap: 8px;
+}
+
+.ban-reason-modal textarea {
+  min-height: 112px;
+  resize: vertical;
+  width: 100%;
+}
+
 .nested-panel {
   box-shadow: none;
   margin-top: 4px;

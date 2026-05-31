@@ -69,6 +69,9 @@ export interface IUser extends Document {
   pushTokens: PushToken[];
   points: number;
   role: "user" | "admin" | "learner" | "expert" | "mod";
+  isBanned: boolean;
+  bannedAt?: Date;
+  banReason?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -178,6 +181,9 @@ const UserSchema = new Schema<IUser>(
     },
     pushTokens: { type: [PushTokenSchema], default: [] },
     points: { type: Number, default: 0 },
+    isBanned: { type: Boolean, default: false, index: true },
+    bannedAt: { type: Date },
+    banReason: { type: String, trim: true, maxlength: 500 },
     role: {
       type: String,
       enum: ["user", "admin", "learner", "expert", "mod"],

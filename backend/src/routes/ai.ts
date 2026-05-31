@@ -34,6 +34,7 @@ router.post("/chat", requireAuth, async (req: AuthRequest, res, next) => {
     });
     const experts = await User.find({
       _id: { $in: escalationDecision.experts.map((expert) => expert.expert_id) },
+      isBanned: { $ne: true },
     })
       .select("name avatarUrl expertise skillTags availabilityStatus points")
       .lean();

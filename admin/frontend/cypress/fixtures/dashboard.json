@@ -81,6 +81,26 @@
       "reason": "Promotional spam in thread",
       "status": "pending",
       "createdAt": "2026-05-26T09:00:00.000Z"
+    },
+    {
+      "_id": "report-ban-1",
+      "reporterId": {
+        "_id": "learner-1",
+        "name": "Rafia Kedir",
+        "email": "rafia@example.com",
+        "role": "learner"
+      },
+      "targetType": "user",
+      "targetId": "user-spam-1",
+      "target": {
+        "_id": "user-spam-1",
+        "name": "Reported User",
+        "email": "reported@example.com",
+        "role": "learner"
+      },
+      "reason": "Repeated harassment in private messages",
+      "status": "pending",
+      "createdAt": "2026-05-27T09:00:00.000Z"
     }
   ],
   "reportedUsers": [

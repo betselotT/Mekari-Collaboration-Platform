@@ -332,8 +332,19 @@ describe("Capstone functional acceptance tests", () => {
     });
   });
 
-  it.skip("FT-030 | FR-030, FR-031 | bans an abusive user, hides content, and creates an audit log after moderator review", () => {
-    // Pending product work: the current moderator route records a strike but has no ban action.
+  it("FT-030 | FR-030, FR-031 | blocks a banned user from signing in and returns the stored moderation reason", () => {
+    cy.intercept("POST", "/api/auth/login", {
+      statusCode: 403,
+      body: { error: { message: "Your account has been banned. Reason: Repeated harassment after warnings" } },
+    }).as("bannedLogin");
+
+    cy.visitVerified("/login");
+    cy.contains("Email").parent().find("input").type("banned@example.com");
+    cy.contains("Password").parent().find("input").type("StrongPass123!");
+    cy.contains("button", "Sign in").click();
+
+    cy.wait("@bannedLogin");
+    cy.contains("Your account has been banned. Reason: Repeated harassment after warnings").should("be.visible");
   });
 
   it.skip("FT-078 | FR-033 | triggers CAPTCHA after more than 15 messages per minute", () => {

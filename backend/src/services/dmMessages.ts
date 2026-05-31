@@ -70,7 +70,7 @@ export async function findOrCreateDmConversation(learnerId: string, expertId: st
     throw error;
   }
 
-  const expert = await User.findOne({ _id: expertId, role: "expert" });
+  const expert = await User.findOne({ _id: expertId, role: "expert", isBanned: { $ne: true } });
   if (!expert) {
     const error = new Error("Expert not found") as Error & { status?: number };
     error.status = 404;

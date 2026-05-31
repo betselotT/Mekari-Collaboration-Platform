@@ -201,7 +201,7 @@ export default function ReportsPage() {
                     : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
                 }`}
               >
-                {item === "mentor" ? t("Mentors") : t("Users")}
+                {item === "mentor" ? t("Mentors") : t("Learners")}
               </button>
             ))}
           </div>

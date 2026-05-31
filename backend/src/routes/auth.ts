@@ -8,6 +8,7 @@ import { IUser, User } from "../models/User";
 import { logAuditEvent } from "../services/auditLog";
 import { loginRateLimiter } from "../middleware/loginRateLimiter";
 import { sendVerificationOtpEmail } from "../services/email";
+import { bannedAccountMessage } from "../services/accountBan";
 import {
   deleteEmailOtpHash,
   getEmailOtpHash,
@@ -291,6 +292,10 @@ router.post("/login", loginRateLimiter, async (req, res, next) => {
       return res.status(401).json({ error: { message: "Invalid credentials" } });
     }
 
+    if (user.isBanned) {
+      return res.status(403).json({ error: { message: bannedAccountMessage(user.banReason) } });
+    }
+
     if (!user.emailVerified) {
       return res.status(403).json({
         error: {
@@ -451,6 +456,9 @@ router.post("/google", loginRateLimiter, async (req, res, next) => {
       });
       isNewUser = true;
     } else {
+      if (user.isBanned) {
+        return res.status(403).json({ error: { message: bannedAccountMessage(user.banReason) } });
+      }
       if (parsed.accountType && accountTypeForRole(user.role) !== parsed.accountType) {
         return res.status(403).json({
           error: {
@@ -631,6 +639,9 @@ router.get("/github/callback", async (req, res, next) => {
       });
       isNewUser = true;
     } else {
+      if (user.isBanned) {
+        return res.redirect(frontendUrl("/login", { error: bannedAccountMessage(user.banReason) }));
+      }
       if (state.accountType && accountTypeForRole(user.role) !== state.accountType) {
         return res.redirect(
           frontendUrl("/login", {

@@ -36,6 +36,21 @@ describe("Mekari authentication", () => {
     cy.window().its("localStorage.mekari_token").should("eq", "login-token");
   });
 
+  it("shows the stored ban reason when a banned user tries to sign in", () => {
+    cy.intercept("POST", "/api/auth/login", {
+      statusCode: 403,
+      body: { error: { message: "Your account has been banned. Reason: Repeated harassment after warnings" } },
+    }).as("bannedLogin");
+
+    cy.visitVerified("/login");
+    cy.contains("Email").parent().find("input").type("banned@example.com");
+    cy.contains("Password").parent().find("input").type("StrongPass123!");
+    cy.contains("button", "Sign in").click();
+
+    cy.wait("@bannedLogin");
+    cy.contains("Your account has been banned. Reason: Repeated harassment after warnings").should("be.visible");
+  });
+
   it("validates registration locally before calling the API", () => {
     cy.visitVerified("/register");
     cy.contains("span", /^Full name$/).parent("label").find("input").type("R1");

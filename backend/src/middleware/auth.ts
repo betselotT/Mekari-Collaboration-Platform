@@ -1,5 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import { User } from "../models/User";
+import { bannedAccountMessage } from "../services/accountBan";
 
 export type UserRole = "user" | "admin" | "learner" | "expert" | "mod";
 
@@ -8,7 +10,7 @@ export interface AuthRequest extends Request {
   userRole?: UserRole;
 }
 
-export function requireAuth(
+export async function requireAuth(
   req: AuthRequest,
   res: Response,
   next: NextFunction
@@ -19,15 +21,28 @@ export function requireAuth(
   }
 
   const token = authHeader.slice("Bearer ".length);
+  let decoded: { sub: string; role: UserRole };
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "dev-secret") as {
+    decoded = jwt.verify(token, process.env.JWT_SECRET || "dev-secret") as {
       sub: string;
       role: UserRole;
     };
-    req.userId = decoded.sub;
-    req.userRole = decoded.role;
-    next();
   } catch {
     return res.status(401).json({ error: { message: "Invalid token" } });
+  }
+
+  try {
+    const user = await User.findById(decoded.sub).select("role isBanned banReason").lean();
+    if (!user) {
+      return res.status(401).json({ error: { message: "Invalid token" } });
+    }
+    if (user.isBanned) {
+      return res.status(403).json({ error: { message: bannedAccountMessage(user.banReason) } });
+    }
+    req.userId = decoded.sub;
+    req.userRole = user.role;
+    next();
+  } catch (err) {
+    next(err);
   }
 }
