@@ -64,7 +64,7 @@ describe("Admin moderation dashboard", () => {
     cy.contains("button", "Action Log").click();
 
     cy.contains("Mentor verification submitted").should("be.visible");
-    cy.contains("mentor_verification").should("be.visible");
+    cy.contains("td", "mentor_verification").should("be.visible");
     cy.contains("Edom Mulugeta").should("be.visible");
   });
 });

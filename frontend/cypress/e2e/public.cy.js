@@ -6,7 +6,7 @@ describe("Public Mekari experience", () => {
   });
 
   it("renders the landing page with live collaboration preview data", () => {
-    cy.visit("/");
+    cy.visitVerified("/");
     cy.wait("@landingPreview");
 
     cy.contains("Mekari").should("be.visible");
@@ -14,8 +14,8 @@ describe("Public Mekari experience", () => {
     cy.contains("MongoDB aggregation is slow on dashboard analytics").should("be.visible");
     cy.contains("Edom Mulugeta - Databases").should("be.visible");
     cy.contains("12").should("be.visible");
-    cy.contains("Get Started Free").should("have.attr", "href", "/register");
-    cy.contains("Browse Threads").should("have.attr", "href", "/threads");
+    cy.contains("a", "Get Started").should("have.attr", "href", "/register");
+    cy.contains("a", "Browse Threads").should("have.attr", "href", "/threads");
   });
 
   it("lists and filters public discussion threads", () => {
@@ -23,7 +23,7 @@ describe("Public Mekari experience", () => {
       fixture: "publicThreads.json",
     }).as("publicThreads");
 
-    cy.visit("/threads");
+    cy.visitVerified("/threads");
     cy.wait("@publicThreads");
     cy.contains("How do I index MongoDB messages for fast search?").should("be.visible");
     cy.contains("Best way to start a shared whiteboard session?").should("be.visible");
@@ -40,7 +40,7 @@ describe("Public Mekari experience", () => {
       body: { threads: [] },
     }).as("publicThreads");
 
-    cy.visit("/threads");
+    cy.visitVerified("/threads");
     cy.wait("@publicThreads");
     cy.contains("No public threads yet.").should("be.visible");
     cy.contains("0 shown").should("be.visible");

@@ -165,6 +165,15 @@ function frontendUrl(path: string, params?: Record<string, string>) {
   return url.toString();
 }
 
+function githubCallbackUrl() {
+  if (process.env.GITHUB_CALLBACK_URL) {
+    return process.env.GITHUB_CALLBACK_URL;
+  }
+
+  const apiBaseUrl = process.env.PUBLIC_API_BASE_URL || "http://localhost:4000";
+  return `${apiBaseUrl.replace(/\/api\/?$/, "").replace(/\/$/, "")}/api/auth/github/callback`;
+}
+
 function roleForAccountType(accountType: z.infer<typeof accountTypeSchema>) {
   return accountType === "mentor" ? "expert" : "learner";
 }
@@ -506,9 +515,7 @@ router.get("/github/start", loginRateLimiter, (req, res, next) => {
       return res.redirect(frontendUrl("/login", { error: "GitHub OAuth is not configured." }));
     }
 
-    const callbackUrl =
-      process.env.GITHUB_CALLBACK_URL ||
-      `${process.env.PUBLIC_API_BASE_URL || "http://localhost:4000"}/api/auth/github/callback`;
+    const callbackUrl = githubCallbackUrl();
     const githubUrl = new URL("https://github.com/login/oauth/authorize");
     githubUrl.searchParams.set("client_id", clientId);
     githubUrl.searchParams.set("redirect_uri", callbackUrl);
@@ -538,9 +545,7 @@ router.get("/github/callback", async (req, res, next) => {
       return res.redirect(frontendUrl("/login", { error: "GitHub OAuth is not configured." }));
     }
 
-    const callbackUrl =
-      process.env.GITHUB_CALLBACK_URL ||
-      `${process.env.PUBLIC_API_BASE_URL || "http://localhost:4000"}/api/auth/github/callback`;
+    const callbackUrl = githubCallbackUrl();
     const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
       method: "POST",
       headers: {

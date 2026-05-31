@@ -13,8 +13,8 @@ describe("Admin authentication", () => {
     }).as("adminLogin");
 
     cy.visit("/login");
-    cy.contains("Username").parent().find("input").type("admin");
-    cy.contains("Password").parent().find("input").type("wrong-password");
+    cy.contains("span", /^Username$/).parent("label").find("input").type("admin");
+    cy.contains("span", /^Password$/).parent("label").find("input").type("wrong-password");
     cy.contains("button", "Open dashboard").click();
 
     cy.wait("@adminLogin").its("request.body").should("deep.eq", {
