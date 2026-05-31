@@ -26,38 +26,6 @@ const SUBJECT_OPTIONS = [
   "Electromechanical Engineering",
 ];
 
-const TECHNICAL_FIELD_OPTIONS = [
-  "Software Engineering",
-  "Computer Science",
-  "Information Systems",
-  "Data Science",
-  "Artificial Intelligence",
-  "Electrical Engineering",
-  "Mechanical Engineering",
-  "Electromechanical Engineering",
-  "Cybersecurity",
-  "DevOps",
-];
-
-const ROLE_OPTIONS = [
-  "Student",
-  "Junior Developer",
-  "Mid-level Developer",
-  "Senior Developer",
-  "Researcher",
-  "Instructor",
-  "Engineer",
-  "Hobbyist",
-];
-
-const EXPERIENCE_OPTIONS = [
-  "Less than 1 year",
-  "1-3 years",
-  "3-5 years",
-  "5-10 years",
-  "10+ years",
-];
-
 type MatchRequestResponse = {
   thread: { _id?: string; id?: string; title: string; subject: string };
   matchRequest: {
@@ -115,14 +83,6 @@ function MatchContent() {
     "online_only" | "online_or_busy" | "any"
   >("online_or_busy");
 
-  // Questionnaire subset (focused on matching)
-  const [roleOrStatus, setRoleOrStatus] = useState("");
-  const [yearsOfExperience, setYearsOfExperience] = useState("");
-  const [primaryTechnicalField, setPrimaryTechnicalField] = useState("");
-  const [connectionPreferences, setConnectionPreferences] = useState<
-    Array<"chat" | "voice_video" | "group_channel">
-  >(["chat"]);
-
   const [loading, setLoading] = useState(false);
   const [dmLoadingId, setDmLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -152,12 +112,6 @@ function MatchContent() {
         initialMessage,
         tags: parsedTags,
         availabilityPreference,
-        questionnaire: {
-          primaryTechnicalField: primaryTechnicalField || undefined,
-          roleOrStatus: roleOrStatus || undefined,
-          yearsOfExperience: yearsOfExperience || undefined,
-          connectionPreferences,
-        },
       });
       setResult(res.data);
     } catch (e: any) {
@@ -165,13 +119,6 @@ function MatchContent() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function toggleConnectionPreference(value: "chat" | "voice_video" | "group_channel") {
-    setConnectionPreferences((prev) => {
-      if (prev.includes(value)) return prev.filter((v) => v !== value);
-      return [...prev, value];
-    });
   }
 
   async function openDm(expertId: string) {
@@ -242,47 +189,7 @@ function MatchContent() {
               />
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <Input
-                label={t("Your technical field")}
-                placeholder="e.g., Software Engineering"
-                value={primaryTechnicalField}
-                onChange={(e) => setPrimaryTechnicalField(e.target.value)}
-                list="match-technical-field-options"
-              />
-              <datalist id="match-technical-field-options">
-                {TECHNICAL_FIELD_OPTIONS.map((option) => (
-                  <option key={option} value={option} />
-                ))}
-              </datalist>
-              <Input
-                label={t("Role/status")}
-                placeholder="e.g., Student"
-                value={roleOrStatus}
-                onChange={(e) => setRoleOrStatus(e.target.value)}
-                list="match-role-options"
-              />
-              <datalist id="match-role-options">
-                {ROLE_OPTIONS.map((option) => (
-                  <option key={option} value={option} />
-                ))}
-              </datalist>
-            </div>
-
-            <Input
-              label={t("auth.experience")}
-              placeholder="e.g., 1–3 years"
-              value={yearsOfExperience}
-              onChange={(e) => setYearsOfExperience(e.target.value)}
-              list="match-experience-options"
-            />
-            <datalist id="match-experience-options">
-              {EXPERIENCE_OPTIONS.map((option) => (
-                <option key={option} value={option} />
-              ))}
-            </datalist>
-
-            <div className="grid gap-4 md:grid-cols-2">
+            <div>
               <div>
                 <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
                   {t("Availability preference")}
@@ -300,33 +207,6 @@ function MatchContent() {
                 </select>
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                  {t("Preferred connection")}
-                </label>
-                <div className="flex flex-wrap gap-2 xl:flex-nowrap">
-                  {(
-                    [
-                      { id: "chat", label: t("Chat") },
-                      { id: "voice_video", label: t("Voice/Video") },
-                      { id: "group_channel", label: t("Group channel") },
-                    ] as const
-                  ).map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => toggleConnectionPreference(opt.id)}
-                      className={`min-w-max rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
-                        connectionPreferences.includes(opt.id)
-                          ? "border-primary-600 bg-primary-600 text-white"
-                          : "border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
             {error && (

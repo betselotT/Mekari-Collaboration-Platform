@@ -207,7 +207,12 @@ function renderMessageText(text: string) {
 
 export default function AIAssistantPage() {
   const { t } = useLanguage();
-  const [messages, setMessages] = useState<ChatMessage[]>([starterMessage]);
+  const router = useRouter();
+  const localizedStarterMessage = useMemo<ChatMessage>(
+    () => ({ ...starterMessage, text: t(starterMessage.text), timestamp: t("Just now") }),
+    [t],
+  );
+  const [messages, setMessages] = useState<ChatMessage[]>([localizedStarterMessage]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
