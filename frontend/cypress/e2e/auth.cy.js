@@ -5,7 +5,7 @@ describe("Mekari authentication", () => {
       body: { message: "Please verify your email before signing in" },
     }).as("loginRequest");
 
-    cy.visit("/login");
+    cy.visitVerified("/login");
     cy.contains("Email").parent().find("input").type("learner@example.com");
     cy.contains("Password").parent().find("input").type("WrongPass123!");
     cy.contains("button", "Sign in").click();
@@ -26,7 +26,7 @@ describe("Mekari authentication", () => {
       body: { token: "login-token" },
     }).as("loginRequest");
 
-    cy.visit("/login");
+    cy.visitVerified("/login");
     cy.contains("Email").parent().find("input").type("learner@example.com");
     cy.contains("Password").parent().find("input").type("StrongPass123!");
     cy.contains("button", "Sign in").click();
@@ -37,10 +37,10 @@ describe("Mekari authentication", () => {
   });
 
   it("validates registration locally before calling the API", () => {
-    cy.visit("/register");
-    cy.contains("Full name").parent().find("input").type("R1");
-    cy.contains("Email").parent().find("input").type("new@example.com");
-    cy.contains("Password").parent().find("input").type("weak");
+    cy.visitVerified("/register");
+    cy.contains("span", /^Full name$/).parent("label").find("input").type("R1");
+    cy.contains("span", /^Email$/).parent("label").find("input").type("new@example.com");
+    cy.contains("span", /^Password$/).parent("label").find("input").type("weak");
     cy.contains("button", "Create learner account").click();
 
     cy.contains("Full name must contain letters and spaces only.").should("be.visible");
@@ -52,10 +52,10 @@ describe("Mekari authentication", () => {
       body: { message: "Registered" },
     }).as("registerRequest");
 
-    cy.visit("/register");
-    cy.contains("Full name").parent().find("input").type("New Learner");
-    cy.contains("Email").parent().find("input").type("new@example.com");
-    cy.contains("Password").parent().find("input").type("StrongPass123!");
+    cy.visitVerified("/register");
+    cy.contains("span", /^Full name$/).parent("label").find("input").type("New Learner");
+    cy.contains("span", /^Email$/).parent("label").find("input").type("new@example.com");
+    cy.contains("span", /^Password$/).parent("label").find("input").type("StrongPass123!");
     cy.contains("How do you want to use Mekari?")
       .parent()
       .find("textarea")

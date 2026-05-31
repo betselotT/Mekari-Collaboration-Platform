@@ -13,9 +13,9 @@ describe("Authenticated learner dashboard", () => {
     cy.contains("Socket.io messages arrive twice after reconnect").should("be.visible");
     cy.contains("Gemini tag suggestions for database questions").should("be.visible");
 
-    cy.contains("button", "AI Resolved").click();
-    cy.contains("Gemini tag suggestions for database questions").should("be.visible");
-    cy.contains("Socket.io messages arrive twice after reconnect").should("not.exist");
+    cy.contains("button", "Open").click();
+    cy.contains("Socket.io messages arrive twice after reconnect").should("be.visible");
+    cy.contains("Gemini tag suggestions for database questions").should("not.exist");
   });
 
   it("creates a thread and sends suggested tags to the API", () => {
@@ -52,9 +52,9 @@ describe("Authenticated learner dashboard", () => {
     cy.visitAsUser("/dashboard/threads");
     cy.wait("@threads");
     cy.contains("button", "New Thread").click();
-    cy.contains("Title").parent().find("input").type("Need help debugging Socket.io reconnects");
-    cy.contains("Subject").parent().find("input").type("Software Engineering");
-    cy.contains("Your tags").parent().find("input").type("socket.io, reconnect, listeners");
+    cy.get('input[placeholder="Min 5 characters"]').type("Need help debugging Socket.io reconnects");
+    cy.get('input[placeholder="e.g., Software Engineering"]').type("Software Engineering");
+    cy.get('input[placeholder="e.g., mongodb, indexing, performance"]').type("socket.io, reconnect, listeners");
     cy.contains("Initial message")
       .parent()
       .find("textarea")

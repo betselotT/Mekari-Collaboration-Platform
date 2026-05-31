@@ -7,9 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "cypress:open": "cypress open",
-    "cypress:run": "cypress run",
-    "test:e2e": "cypress run"
+    "cypress:open": "node scripts/run-cypress.js open",
+    "cypress:visual": "node scripts/run-cypress.js open --e2e",
+    "cypress:run": "node scripts/run-cypress.js run",
+    "test:e2e": "node scripts/run-cypress.js run"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.51.0",

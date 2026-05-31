@@ -156,8 +156,20 @@ MONGO_URI=mongodb://localhost:27017/mekari
 JWT_SECRET=your_jwt_secret
 REDIS_URL=redis://localhost:6379
 FRONTEND_ORIGIN=http://localhost:3000
+PUBLIC_API_BASE_URL=http://localhost:4000
+GITHUB_CLIENT_ID=your_github_oauth_client_id
+GITHUB_CLIENT_SECRET=your_github_oauth_client_secret
+GITHUB_CALLBACK_URL=http://localhost:4000/api/auth/github/callback
 GEMINI_API_KEY=your_gemini_api_key
 ```
+
+For the deployed GitHub OAuth app, set the callback URL in GitHub to exactly:
+
+```text
+https://mekari-collaboration-platform.onrender.com/api/auth/github/callback
+```
+
+Set the same value as `GITHUB_CALLBACK_URL` on the deployed backend, and set `FRONTEND_ORIGIN` to your deployed Vercel URL, for example `https://mekari-collaboration-platform.vercel.app`.
 
 Common frontend variables include:
 

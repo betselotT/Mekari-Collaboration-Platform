@@ -6,9 +6,10 @@
     "dev": "next dev -p 3100",
     "build": "next build",
     "start": "next start -p 3100",
-    "cypress:open": "cypress open",
-    "cypress:run": "cypress run",
-    "test:e2e": "cypress run"
+    "cypress:open": "node scripts/run-cypress.js open",
+    "cypress:visual": "node scripts/run-cypress.js open --e2e",
+    "cypress:run": "node scripts/run-cypress.js run",
+    "test:e2e": "node scripts/run-cypress.js run"
   },
   "dependencies": {
     "next": "14.2.5",
