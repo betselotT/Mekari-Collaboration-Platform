@@ -61,7 +61,6 @@ function ThreadsContent() {
     { value: "all", label: t("threads.all") },
     { value: "OPEN", label: t("threads.open") },
     { value: "PENDING_EXPERT", label: t("threads.needsExpert") },
-    { value: "AI_RESOLVED", label: t("threads.aiResolved") },
     { value: "SOLVED", label: t("threads.solved") },
   ];
   const visibleThreads = useMemo(
