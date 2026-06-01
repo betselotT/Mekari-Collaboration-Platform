@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import Image from "next/image";
 
@@ -24,18 +26,26 @@ const statusStyles = {
 
 export const Avatar = React.forwardRef<HTMLDivElement, AvatarProps>(
   ({ className = "", src, alt = "Avatar", initials = "?", size = "md", status, ...props }, ref) => {
+    const [hasImageError, setHasImageError] = React.useState(false);
+
+    React.useEffect(() => {
+      setHasImageError(false);
+    }, [src]);
+
     return (
       <div
         ref={ref}
         className={`relative inline-flex items-center justify-center flex-shrink-0 rounded-full overflow-hidden ${sizeStyles[size]} bg-gradient-to-br from-primary-400 to-primary-600 text-white font-semibold ${className}`}
         {...props}
       >
-        {src ? (
+        {src && !hasImageError ? (
           <Image
             src={src}
             alt={alt}
             fill
+            unoptimized
             className="object-cover"
+            onError={() => setHasImageError(true)}
           />
         ) : (
           <span>{initials}</span>
