@@ -705,9 +705,10 @@ export default function ExpertsPage() {
       })()}
 
       {/* Modern, Clean Green-Free Statistics & Header section */}
-      <section className="relative mb-8 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white/80 p-6 shadow-sm backdrop-blur dark:border-white/10 dark:bg-neutral-900/75">
-        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-cyan-400/5 blur-3xl" />
-        <ContourField className="pointer-events-none absolute -right-24 -top-16 h-52 w-[350px] rotate-[-8deg] opacity-[0.14] dark:opacity-[0.24]" />
+      <section className="relative mb-8 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white/85 p-5 shadow-sm backdrop-blur dark:border-primary-800/60 dark:bg-neutral-900/90 sm:p-6">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary-50/80 via-white/30 to-cyan-50/70 dark:from-primary-950/55 dark:via-neutral-900/40 dark:to-cyan-950/35" />
+        <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-cyan-400/15 blur-3xl dark:bg-cyan-400/10" />
+        <ContourField className="pointer-events-none absolute -right-24 -top-20 h-[calc(100%+8rem)] w-[calc(100%+10rem)] min-w-[620px] rotate-[-8deg] opacity-[0.2] dark:opacity-[0.38]" />
         <div className="relative grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <h2 className="max-w-3xl text-2xl font-bold tracking-tight text-neutral-950 dark:text-white md:text-3xl">
@@ -718,7 +719,7 @@ export default function ExpertsPage() {
             </p>
           </div>
           
-          <div className="grid grid-cols-3 gap-3 sm:min-w-[360px]">
+          <div className="grid grid-cols-3 gap-2 sm:min-w-[360px] sm:gap-3">
             {[
               { label: "Experts", value: experts.length, Icon: Users, color: "text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950/20" },
               { label: "Online", value: availableExperts, Icon: CheckCircle2, color: "text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/20" },
@@ -733,13 +734,13 @@ export default function ExpertsPage() {
               return (
                 <div
                   key={stat.label}
-                  className="rounded-xl border border-white/70 bg-white/75 p-3.5 shadow-sm backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-850"
+                  className="rounded-xl border border-white/80 bg-white/80 p-3 shadow-sm backdrop-blur-sm dark:border-white/15 dark:bg-neutral-950/80 sm:p-3.5"
                 >
                   <div className={`mb-2 flex h-7 w-7 items-center justify-center rounded-lg ${stat.color}`}>
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="text-lg font-bold text-neutral-950 dark:text-white leading-none">{stat.value}</div>
-                  <div className="text-[10px] font-semibold text-neutral-400 dark:text-neutral-500 mt-1 uppercase tracking-wide">{stat.label}</div>
+                  <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-300">{stat.label}</div>
                 </div>
               );
             })}

@@ -235,7 +235,6 @@ export default function SubjectPage() {
             icon={MessageSquare}
             label="Active Threads"
             value={loading ? "..." : summary?.activeThreads ?? 0}
-            change={summary?.weeklyChange ?? 0}
             description={`${summary?.weeklyThreads ?? 0} new this week`}
           />
         </Link>
