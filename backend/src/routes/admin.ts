@@ -5,6 +5,7 @@ import { Report } from "../models/Report";
 import { Thread } from "../models/Thread";
 import { Message } from "../models/Message";
 import { User } from "../models/User";
+import { broadcastAdminDashboardUpdate } from "../services/adminRealtime";
 import { createNotification } from "../services/notifications";
 
 const router = Router();
@@ -108,6 +109,12 @@ router.patch("/reports/:id", requireAuth, requireMod, async (req: AuthRequest, r
       }
     }
 
+    await broadcastAdminDashboardUpdate({
+      type: "report_reviewed",
+      id: String(report._id),
+      message: `Report marked ${parsed.status}.`,
+    });
+
     res.json({ report, strikeCount, banned: shouldBan || Boolean(targetUser?.isBanned), banReason: targetUser?.banReason });
   } catch (err) {
     next(err);
@@ -193,6 +200,12 @@ router.patch("/expert-verifications/:userId", requireAuth, requireAdmin, async (
           ? "Your mentor verification document was approved."
           : `Your mentor verification document was rejected${parsed.reviewNote ? `: ${parsed.reviewNote}` : "."}`,
       link: "/dashboard/profile",
+    });
+
+    await broadcastAdminDashboardUpdate({
+      type: "mentor_verification_reviewed",
+      id: String(user._id),
+      message: `${user.name} mentor verification was ${parsed.status}.`,
     });
 
     res.json({ user });

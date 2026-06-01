@@ -5,6 +5,7 @@ import { requireAuth, AuthRequest } from "../middleware/auth";
 import { Report } from "../models/Report";
 import { User } from "../models/User";
 import { logAuditEvent } from "../services/auditLog";
+import { broadcastAdminDashboardUpdate } from "../services/adminRealtime";
 import { notifyAdmins } from "../services/notifications";
 
 const router = Router();
@@ -50,6 +51,11 @@ router.post("/", requireAuth, async (req: AuthRequest, res, next) => {
       title: "New report",
       message: `${reporter?.name || "A user"} reported a ${parsed.targetType}: ${parsed.reason.slice(0, 120)}`,
       link: "/admin/reports",
+    });
+    await broadcastAdminDashboardUpdate({
+      type: "report_created",
+      id: String(report._id),
+      message: `${reporter?.name || "A user"} submitted a new ${parsed.targetType} report.`,
     });
     res.status(201).json({ report });
   } catch (err) {

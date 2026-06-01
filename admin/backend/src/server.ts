@@ -2,9 +2,11 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import helmet from "helmet";
+import http from "http";
 import mongoose from "mongoose";
 import morgan from "morgan";
 import path from "path";
+import { Server } from "socket.io";
 import { connectDb } from "./db";
 import { requireAdminSession } from "./auth";
 import { adminRouter } from "./routes/admin";
@@ -12,11 +14,16 @@ import { authRouter } from "./routes/auth";
 import { requireAdminKey } from "./middleware/adminAuth";
 import { errorHandler } from "./middleware/errorHandler";
 import { ADMIN_FRONTEND_ORIGINS } from "./config/origins";
+import { initAdminRealtime } from "./realtime";
 
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 dotenv.config({ path: path.resolve(__dirname, "../../../backend/.env") });
 
 const port = Number(process.env.ADMIN_PORT || process.env.PORT || 4100);
+
+function isString(value: string | undefined): value is string {
+  return Boolean(value);
+}
 
 async function bootstrap() {
   const app = express();
@@ -27,7 +34,7 @@ async function bootstrap() {
       ...ADMIN_FRONTEND_ORIGINS,
     ]
       .map((origin) => origin?.trim())
-      .filter(Boolean)
+      .filter(isString)
   );
 
   app.use(helmet());
@@ -74,7 +81,16 @@ async function bootstrap() {
   app.use("/api/admin", requireAdminKey, adminRouter);
   app.use(errorHandler);
 
-  app.listen(port, () => {
+  const server = http.createServer(app);
+  const io = new Server(server, {
+    cors: {
+      origin: Array.from(allowedOrigins),
+      credentials: true,
+    },
+  });
+  initAdminRealtime(io);
+
+  server.listen(port, () => {
     console.log(`Admin backend listening on port ${port}`);
   });
 
