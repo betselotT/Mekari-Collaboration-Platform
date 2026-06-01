@@ -27,7 +27,7 @@ export function GoogleAuthButton({
   className = "",
 }: GoogleAuthButtonProps) {
   const { googleClientId, googleAllowedOrigins } = usePublicConfig();
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [scriptReady, setScriptReady] = useState(false);
   const [hasClientId, setHasClientId] = useState(false);
   const [canUseGoogle, setCanUseGoogle] = useState(true);
@@ -113,8 +113,9 @@ export function GoogleAuthButton({
       text: "continue_with",
       shape: "rectangular",
       width: String(buttonWidth),
+      locale: language,
     });
-  }, [scriptReady, canUseGoogle, googleClientId, buttonWidth, onCredential, onError]);
+  }, [scriptReady, canUseGoogle, googleClientId, buttonWidth, language, onCredential, onError]);
 
   useEffect(() => {
     const onGlobalError = (event: ErrorEvent) => {

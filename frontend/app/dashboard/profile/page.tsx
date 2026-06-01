@@ -142,7 +142,7 @@ export default function ProfilePage() {
       dot: "bg-amber-500",
     },
     in_session: {
-      label: "In session",
+      label: "In Session",
       Icon: Video,
       chip: "border-purple-200 bg-purple-50 text-purple-800 dark:border-purple-900 dark:bg-purple-950 dark:text-purple-200",
       dot: "bg-purple-500",
@@ -552,7 +552,7 @@ export default function ProfilePage() {
         <div className="flex gap-2">
           <Button type="button" variant={needsSetup ? "primary" : "secondary"} size="md" onClick={() => setShowSetup((value) => !value)}>
             <CheckCircle2 className="h-4 w-4 mr-2" />
-            Finish setting up
+            {t("Finish setting up")}
           </Button>
           {!isEditing && (
             <Button
@@ -570,7 +570,7 @@ export default function ProfilePage() {
               }}
             >
               <Edit className="h-4 w-4 mr-2" />
-              Edit Profile
+              {t("Edit Profile")}
             </Button>
           )}
         </div>
@@ -618,7 +618,7 @@ export default function ProfilePage() {
                   </label>
                   {verificationDocument && (
                     <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-                      Ready for admin review: {verificationDocument.fileName}
+                      {t("auth.readyForReview", { fileName: verificationDocument.fileName })}
                     </p>
                   )}
                   <Button
@@ -629,7 +629,7 @@ export default function ProfilePage() {
                     isLoading={resubmittingVerification}
                     disabled={!verificationDocument}
                   >
-                    Upload new document
+                    {t("Upload new document")}
                   </Button>
                 </form>
               )}
@@ -643,7 +643,7 @@ export default function ProfilePage() {
                     : "warning"
               }
             >
-              {verificationStatus || "pending"}
+              {t(verificationStatus || "pending")}
             </Badge>
           </div>
         </Card>
@@ -654,7 +654,7 @@ export default function ProfilePage() {
           <div className="mb-5">
           <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{t("Finish setting up")}</h3>
             <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-              Complete your learner or mentor profile so Mekari can personalize matching and verification.
+              {t("Complete your learner or mentor profile so Mekari can personalize matching and verification.")}
             </p>
           </div>
 
@@ -668,9 +668,9 @@ export default function ProfilePage() {
                   <Lock className="h-5 w-5" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-neutral-900 dark:text-white">Set a password</h4>
+                  <h4 className="font-semibold text-neutral-900 dark:text-white">{t("Set a password")}</h4>
                   <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-200">
-                    Add a password so you can sign in with your email as well as Google or GitHub.
+                    {t("Add a password so you can sign in with your email as well as Google or GitHub.")}
                   </p>
                 </div>
               </div>
@@ -687,7 +687,7 @@ export default function ProfilePage() {
                   />
                 </label>
                 <label className="space-y-1">
-                  <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Confirm password</span>
+                  <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("Confirm password")}</span>
                   <input
                     type="password"
                     className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-white"
@@ -699,10 +699,10 @@ export default function ProfilePage() {
                 </label>
               </div>
               <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-300">
-                Use at least 8 characters with uppercase, lowercase, number, and special character.
+                {t("Use at least 8 characters with uppercase, lowercase, number, and special character.")}
               </p>
               <Button type="submit" variant="primary" size="sm" className="mt-4" isLoading={settingPassword}>
-                Enable password sign-in
+                {t("Enable password sign-in")}
               </Button>
             </form>
           )}
@@ -720,7 +720,7 @@ export default function ProfilePage() {
                       : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
                   }`}
                 >
-                  {type === "mentor" ? "Set up as mentor" : "Set up as learner"}
+                  {t(type === "mentor" ? "Set up as mentor" : "Set up as learner")}
                 </button>
               ))}
             </div>
@@ -744,13 +744,13 @@ export default function ProfilePage() {
               <label className="space-y-1">
               <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.currentRole")}</span>
                 <select className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white" value={setupForm.roleOrStatus} onChange={(e) => setSetupForm({ ...setupForm, roleOrStatus: e.target.value })}>
-                  {roleOptions.map((role) => <option key={role}>{role}</option>)}
+                  {roleOptions.map((role) => <option key={role} value={role}>{t(role)}</option>)}
                 </select>
               </label>
               <label className="space-y-1">
               <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.experience")}</span>
                 <select className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white" value={setupForm.yearsOfExperience} onChange={(e) => setSetupForm({ ...setupForm, yearsOfExperience: e.target.value })}>
-                  {experienceOptions.map((years) => <option key={years}>{years}</option>)}
+                  {experienceOptions.map((years) => <option key={years} value={years}>{t(years)}</option>)}
                 </select>
               </label>
               <div>
@@ -759,7 +759,7 @@ export default function ProfilePage() {
                   {deviceOptions.map((device) => (
                     <label key={device} className="flex items-center gap-2 rounded border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800">
                       <input type="checkbox" checked={setupForm.devicesUsed.includes(device)} onChange={() => toggleSetupDevice(device)} />
-                      {device}
+                      {t(device)}
                     </label>
                   ))}
                 </div>
@@ -812,7 +812,7 @@ export default function ProfilePage() {
                 </div>
                 {verificationDocument && (
                   <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">
-                    Ready for admin review: {verificationDocument.fileName}
+                    {t("auth.readyForReview", { fileName: verificationDocument.fileName })}
                   </p>
                 )}
               </div>
@@ -820,11 +820,11 @@ export default function ProfilePage() {
 
             <div className="flex gap-2">
               <Button type="submit" variant="primary">
-                Save setup
+                {t("Save setup")}
               </Button>
               {!needsSetup && (
                 <Button type="button" variant="secondary" onClick={() => setShowSetup(false)}>
-                  Cancel
+                  {t("threads.cancel")}
                 </Button>
               )}
             </div>
@@ -841,7 +841,7 @@ export default function ProfilePage() {
               <form onSubmit={handleUpdateProfile} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-                    Full Name
+                    {t("Full Name")}
                   </label>
                   <Input
                     value={formData.name}
@@ -851,7 +851,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-                    Avatar URL
+                    {t("Avatar URL")}
                   </label>
                   <Input
                     value={formData.avatarUrl}
@@ -861,7 +861,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-                    Bio
+                    {t("Bio")}
                   </label>
                   <textarea
                     className="w-full rounded-lg border border-neutral-200 bg-white px-4 py-2 text-neutral-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
@@ -874,11 +874,11 @@ export default function ProfilePage() {
                 <div className="flex gap-2">
                   <Button type="submit" variant="primary">
                     <Save className="h-4 w-4 mr-2" />
-                    Save Changes
+                    {t("Save Changes")}
                   </Button>
                   <Button type="button" variant="secondary" onClick={handleCancelProfileEdit}>
                     <X className="h-4 w-4 mr-2" />
-                    Cancel
+                    {t("threads.cancel")}
                   </Button>
                 </div>
               </form>
@@ -893,14 +893,14 @@ export default function ProfilePage() {
                   >
                     <span className={`h-2 w-2 rounded-full ${currentAvailability.dot}`} />
                     <AvailabilityIcon className="h-4 w-4" />
-                    {currentAvailability.label}
+                    {t(currentAvailability.label)}
                   </div>
                 </div>
                 <p className="mb-4 text-neutral-600 dark:text-neutral-400">
                   {user.email}
                 </p>
                 <p className="mb-6 max-w-2xl text-neutral-600 dark:text-neutral-400">
-                  {user.bio || "No bio added yet."}
+                  {user.bio || t("No bio added yet.")}
                 </p>
                 
                 <div className="flex flex-wrap items-center gap-2">
@@ -930,7 +930,7 @@ export default function ProfilePage() {
           {/* Security & Preferences */}
           <div>
             <h3 className="mb-4 text-lg font-bold text-neutral-900 dark:text-white">
-              Security & Preferences
+              {t("Security & Preferences")}
             </h3>
             <div className="grid gap-4 md:grid-cols-2">
               <Card hoverable>
@@ -941,10 +941,10 @@ export default function ProfilePage() {
                     </div>
                     <div>
                       <h4 className="font-semibold text-neutral-900 dark:text-white">
-                        Two-Factor Auth
+                        {t("Two-Factor Auth")}
                       </h4>
                       <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                        {twoFactorEnabled ? "Enabled" : "Not enabled"}
+                        {t(twoFactorEnabled ? "Enabled" : "Not enabled")}
                       </p>
                     </div>
                   </div>
@@ -984,10 +984,10 @@ export default function ProfilePage() {
                     </div>
                     <div>
                       <h4 className="font-semibold text-neutral-900 dark:text-white">
-                        Language
+                        {t("Language")}
                       </h4>
                       <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                        English (US)
+                        {t("English (US)")}
                       </p>
                     </div>
                   </div>
@@ -1001,10 +1001,10 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <h4 className="font-semibold text-neutral-900 dark:text-white">
-                      Notifications
+                      {t("Notifications")}
                     </h4>
                     <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                      Choose which updates appear inside Mekari and which can also reach your browser.
+                      {t("Choose which updates appear inside Mekari and which can also reach your browser.")}
                     </p>
                   </div>
                 </div>
@@ -1023,7 +1023,7 @@ export default function ProfilePage() {
                         className="grid gap-3 border-b border-neutral-200 px-4 py-3 last:border-b-0 dark:border-neutral-700 sm:grid-cols-[1fr_auto_auto_auto]"
                       >
                         <span className="text-sm font-medium text-neutral-900 dark:text-white">
-                          {item.label}
+                        {t(item.label)}
                         </span>
                         {(["internal", "push", "email"] as const).map((channel) => (
                           <label
@@ -1039,7 +1039,7 @@ export default function ProfilePage() {
                               }
                               className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
                             />
-                            {channel === "internal" ? "In app" : channel === "push" ? "Push" : "Email"}
+                            {t(channel === "internal" ? "In app" : channel === "push" ? "Push" : "Email")}
                           </label>
                         ))}
                       </div>
@@ -1054,16 +1054,16 @@ export default function ProfilePage() {
           <div>
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
-                Expertise & Skills
+                {t("Expertise & Skills")}
               </h3>
               <Button type="button" variant="ghost" size="sm" onClick={() => setIsEditingSkills(!isEditingSkills)}>
-                {isEditingSkills ? "Done" : "Edit"}
+                {t(isEditingSkills ? "Done" : "Edit")}
               </Button>
             </div>
             <Card>
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-neutral-900 dark:text-white mb-2">
-                  Areas of Expertise
+                  {t("Areas of Expertise")}
                 </label>
                 <div className="flex flex-wrap gap-2 mb-3">
                   {user.expertise?.length > 0 ? (
@@ -1112,7 +1112,7 @@ export default function ProfilePage() {
               
               <div className="mb-2">
                 <label className="block text-sm font-semibold text-neutral-900 dark:text-white mb-2">
-                  Skills
+                  {t("Skills")}
                 </label>
                 <div className="flex flex-wrap gap-2 mb-3">
                   {user.skillTags?.length > 0 ? (
@@ -1160,12 +1160,12 @@ export default function ProfilePage() {
           {/* Availability */}
           <div>
             <h3 className="mb-4 text-lg font-bold text-neutral-900 dark:text-white">
-              Availability
+              {t("Availability")}
             </h3>
             <Card>
               <div className="space-y-4">
                 <label className="block text-sm font-semibold text-neutral-900 dark:text-white mb-2">
-                  Your Status
+                  {t("Your Status")}
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   {[
@@ -1187,11 +1187,11 @@ export default function ProfilePage() {
                             const res = await apiClient.put("/api/users/me", { availabilityStatus: status.value });
                             setUser(res.data.user);
                             setError("");
-                            setMessage("Availability updated.");
+                            setMessage(t("Availability updated."));
                           } catch (err) {
                             setFormData({ ...formData, availabilityStatus: previousStatus });
                             setMessage("");
-                            setError("Failed to update availability.");
+                            setError(t("Failed to update availability."));
                           }
                         }}
                         className={`flex items-center gap-2 rounded-lg border p-3 transition-all ${
@@ -1202,7 +1202,7 @@ export default function ProfilePage() {
                       >
                         <Icon className={`h-5 w-5 ${isSelected ? status.color : "text-neutral-400"}`} />
                         <span className={`text-sm font-medium ${isSelected ? "text-neutral-900 dark:text-white" : "text-neutral-600 dark:text-neutral-400"}`}>
-                          {status.label}
+                          {t(status.label)}
                         </span>
                       </button>
                     );
@@ -1221,10 +1221,10 @@ export default function ProfilePage() {
             <div className="mb-6 flex items-center justify-between">
               <h4 className="font-bold text-neutral-900 dark:text-white flex items-center gap-2">
                 <Trophy className="h-5 w-5 text-amber-500" />
-                Reputation & Awards
+                {t("Reputation & Awards")}
               </h4>
               <Badge variant="primary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-                Level {Math.floor((user.points || 0) / 100) + 1}
+                {t("Level {level}", { level: Math.floor((user.points || 0) / 100) + 1 })}
               </Badge>
             </div>
 
@@ -1245,7 +1245,7 @@ export default function ProfilePage() {
             {/* Badges Grid */}
             <div>
               <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                Earned Badges ({user.badges?.length || 0})
+                {t("Earned Badges ({count})", { count: user.badges?.length || 0 })}
               </p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-1">
                 {user.badges && user.badges.length > 0 ? (
@@ -1260,7 +1260,7 @@ export default function ProfilePage() {
 
                     const Icon = config.icon;
                     const badgeCount = user.badgeCounts?.[badgeName] || 1;
-                    const badgeLabel = badgeCount > 1 ? `${badgeName} x${badgeCount}` : badgeName;
+                    const badgeLabel = badgeCount > 1 ? `${t(badgeName)} x${badgeCount}` : t(badgeName);
 
                     return (
                       <div 
@@ -1272,7 +1272,7 @@ export default function ProfilePage() {
                         </div>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-bold text-neutral-900 dark:text-white">{badgeLabel}</p>
-                          <p className="truncate text-[10px] text-neutral-500">{config.desc}</p>
+                          <p className="truncate text-[10px] text-neutral-500">{t(config.desc)}</p>
                         </div>
                       </div>
                     );
@@ -1287,7 +1287,7 @@ export default function ProfilePage() {
 
             <div className="mt-8 border-t border-neutral-200 pt-6 dark:border-neutral-800">
               <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                Certificates ({user.certificates?.length || 0})
+                {t("Certificates ({count})", { count: user.certificates?.length || 0 })}
               </p>
               <div className="space-y-3">
                 {user.certificates && user.certificates.length > 0 ? (
@@ -1322,7 +1322,7 @@ export default function ProfilePage() {
                 ) : (
                   <div className="rounded-xl border border-dashed border-neutral-200 p-4 text-center dark:border-neutral-800">
                     <p className="text-xs text-neutral-500 italic">
-                      No certificates earned yet. Reach milestones like 100 solutions or Fast Responder to unlock one.
+                      {t("No certificates earned yet. Reach milestones like 100 solutions or Fast Responder to unlock one.")}
                     </p>
                   </div>
                 )}
@@ -1333,7 +1333,7 @@ export default function ProfilePage() {
           <Card>
             <h4 className="mb-4 font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-primary-500" />
-              Your Activity
+              {t("Your Activity")}
             </h4>
             <div className="space-y-3">
               <div className="flex justify-between">
@@ -1351,7 +1351,7 @@ export default function ProfilePage() {
               <div className="flex justify-between pt-3 border-t border-neutral-200 dark:border-neutral-700">
               <span className="text-sm text-neutral-600 dark:text-neutral-400 font-medium">{t("Global Rank")}</span>
                 <span className="font-bold text-primary-600 dark:text-primary-400">
-                  {user.rank ? `#${user.rank}` : "Unranked"}
+                  {user.rank ? `#${user.rank}` : t("Unranked")}
                 </span>
               </div>
             </div>
@@ -1360,7 +1360,7 @@ export default function ProfilePage() {
           {/* Connected Services */}
           <Card>
             <h4 className="mb-4 font-semibold text-neutral-900 dark:text-white">
-              Connected Services
+              {t("Connected Services")}
             </h4>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -1377,7 +1377,7 @@ export default function ProfilePage() {
           <div>
             <h3 className="font-bold text-red-900 dark:text-red-100">{t("Delete account")}</h3>
             <p className="mt-1 text-sm text-red-800 dark:text-red-200">
-              Permanently remove your profile and related records. This action cannot be undone.
+              {t("Permanently remove your profile and related records. This action cannot be undone.")}
             </p>
           </div>
           <Button
@@ -1389,7 +1389,7 @@ export default function ProfilePage() {
             isLoading={deletingAccount}
           >
             <Trash2 className="mr-2 h-4 w-4" />
-            Delete account
+            {t("Delete account")}
           </Button>
         </div>
       </Card>

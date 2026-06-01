@@ -98,17 +98,17 @@ function isSavedChat(value: unknown): value is ChatMessage[] {
   );
 }
 
-function expertTitle(expert: EscalationExpert) {
+function expertTitle(expert: EscalationExpert, t: (key: string) => string) {
   const top = expert.expertise[0];
-  if (!top) return "Verified expert";
-  const level = top.proficiency === "expert" ? "Expert" : top.proficiency;
-  return `${level} in ${top.subject}`;
+  if (!top) return t("Verified expert");
+  const level = top.proficiency === "expert" ? t("Expert") : t(top.proficiency);
+  return `${level} ${t("in")} ${top.subject}`;
 }
 
-function statusLabel(status: EscalationExpert["availabilityStatus"]) {
-  if (status === "online") return "Online";
-  if (status === "busy" || status === "in_session") return "Busy";
-  return "Offline";
+function statusLabel(status: EscalationExpert["availabilityStatus"], t: (key: string) => string) {
+  if (status === "online") return t("Online");
+  if (status === "busy" || status === "in_session") return t("Busy");
+  return t("Offline");
 }
 
 function renderInlineMarkdown(text: string): ReactNode[] {
@@ -430,7 +430,7 @@ export default function AIAssistantPage() {
                                       {expert.name}
                                     </p>
                                     <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                                      {expertTitle(expert)} · {statusLabel(expert.availabilityStatus)}
+                                      {expertTitle(expert, t)} · {statusLabel(expert.availabilityStatus, t)}
                                     </p>
                                     <p className="mt-1 line-clamp-2 text-xs text-neutral-600 dark:text-neutral-300">
                                       {expert.reasons.slice(0, 2).join(" · ")}
@@ -442,7 +442,7 @@ export default function AIAssistantPage() {
                                     className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg bg-primary-600 px-2.5 text-xs font-semibold text-white hover:bg-primary-700"
                                   >
                                     <MessageSquare className="mr-1 h-3.5 w-3.5" />
-                                    {expert.availabilityStatus === "online" ? "DM" : t("View")}
+                                    {expert.availabilityStatus === "online" ? t("DM") : t("View")}
                                   </button>
                                 </div>
                               </div>
@@ -531,7 +531,7 @@ export default function AIAssistantPage() {
                         {t(suggestion.title)}
                       </h4>
                       <p className="mt-1 text-xs leading-5 text-neutral-600 dark:text-neutral-400">
-                        {suggestion.prompt}
+                        {t(suggestion.prompt)}
                       </p>
                     </div>
                   </div>

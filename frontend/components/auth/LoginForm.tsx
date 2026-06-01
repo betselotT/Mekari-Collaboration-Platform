@@ -102,7 +102,7 @@ export function LoginForm() {
       >
         {loading ? t("auth.signingIn") : t("auth.signIn")}
       </button>
-      <div className="grid grid-cols-2 gap-2 pt-2">
+      <div className="grid gap-2 pt-2 sm:grid-cols-2">
         <GoogleAuthButton onCredential={onGoogleSignIn} onError={setError} />
         <GithubAuthButton mode="login" />
       </div>

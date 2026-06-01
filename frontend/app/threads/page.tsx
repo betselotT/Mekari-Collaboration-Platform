@@ -19,7 +19,7 @@ import { ThemeToggle } from "../../components/theme/ThemeToggle";
 import { LanguageToggle } from "../../components/i18n/LanguageToggle";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
-import { useLanguage } from "../../lib/i18n";
+import { formatTechnicalTag, useLanguage } from "../../lib/i18n";
 import { ContourField } from "../../components/visual/ContourField";
 
 interface PublicThread {
@@ -41,8 +41,16 @@ const EMPTY_STATE_MESSAGE = "No public threads yet.";
 
 const THREADS_ENDPOINT = "/api/threads/public";
 
+const THREAD_STATUS_LABELS: Record<string, string> = {
+  OPEN: "threads.open",
+  PENDING_EXPERT: "threads.needsExpert",
+  AI_RESOLVED: "threads.aiResolved",
+  SOLVED: "threads.solved",
+  CLOSED: "threads.closed",
+};
+
 export default function PublicThreadsPage() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [threads, setThreads] = useState<PublicThread[]>([]);
 
   const [query, setQuery] = useState("");
@@ -221,7 +229,7 @@ export default function PublicThreadsPage() {
                       </Badge>
 
                       <Badge variant="default">
-                        {thread.status}
+                        {t(THREAD_STATUS_LABELS[thread.status] || thread.status)}
                       </Badge>
 
                       {(thread.tags || [])
@@ -231,7 +239,7 @@ export default function PublicThreadsPage() {
                             key={tag}
                             variant="default"
                           >
-                            {tag}
+                            {formatTechnicalTag(tag, language)}
                           </Badge>
                         ))}
                     </div>

@@ -712,10 +712,10 @@ export default function ExpertsPage() {
         <div className="relative grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <h2 className="max-w-3xl text-2xl font-bold tracking-tight text-neutral-950 dark:text-white md:text-3xl">
-              Find the right mentor for your next technical move.
+              {t("Find the right mentor for your next technical move.")}
             </h2>
             <p className="mt-2.5 max-w-2xl text-xs leading-relaxed text-neutral-500 dark:text-neutral-400 font-medium">
-              Browse verified peers by discipline, reputation, availability, and real learner reviews.
+              {t("Browse verified peers by discipline, reputation, availability, and real learner reviews.")}
             </p>
           </div>
           
@@ -725,7 +725,7 @@ export default function ExpertsPage() {
               { label: "Online", value: availableExperts, Icon: CheckCircle2, color: "text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/20" },
               {
                 label: "Avg Rating",
-                value: averageNetworkRating ? averageNetworkRating.toFixed(1) : "New",
+                value: averageNetworkRating ? averageNetworkRating.toFixed(1) : t("New"),
                 Icon: Star,
                 color: "text-amber-500 bg-amber-50 dark:bg-amber-950/20"
               },
@@ -740,7 +740,7 @@ export default function ExpertsPage() {
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="text-lg font-bold text-neutral-950 dark:text-white leading-none">{stat.value}</div>
-                  <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-300">{stat.label}</div>
+                  <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-300">{t(stat.label)}</div>
                 </div>
               );
             })}
@@ -760,7 +760,7 @@ export default function ExpertsPage() {
                 : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-950 dark:text-neutral-400 dark:hover:bg-white/10 dark:hover:text-white"
             }`}
           >
-            {filter}
+            {t(filter)}
           </button>
         ))}
       </div>

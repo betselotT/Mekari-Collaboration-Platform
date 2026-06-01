@@ -4,7 +4,7 @@ import Link from "next/link";
 import { MessageCircle } from "lucide-react";
 import { Avatar } from "../ui/Avatar";
 import { Badge } from "../ui/Badge";
-import { TranslationKey, useLanguage } from "../../lib/i18n";
+import { formatTechnicalTag, TranslationKey, useLanguage } from "../../lib/i18n";
 
 export interface ThreadCardProps {
   title: string;
@@ -38,7 +38,7 @@ export function ThreadCard({
   href,
   status,
 }: ThreadCardProps) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const statusMeta = status ? STATUS_BADGE[status] : null;
 
   return (
@@ -72,7 +72,7 @@ export function ThreadCard({
         <div className="mb-4 flex gap-2 flex-wrap">
           {tags.map((tag) => (
             <Badge key={tag} variant="default" className="text-xs">
-              {tag}
+              {formatTechnicalTag(tag, language)}
             </Badge>
           ))}
         </div>

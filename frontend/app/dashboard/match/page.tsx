@@ -146,7 +146,7 @@ function MatchContent() {
             {t("Tell us what you need help with")}
           </h2>
           <p className="mb-6 text-sm text-neutral-600 dark:text-neutral-400">
-            We’ll compute a weighted match using topic tags, reputation, and availability.
+            {t("We'll compute a weighted match using topic tags, reputation, and availability.")}
           </p>
 
           <div className="space-y-4">
@@ -231,7 +231,7 @@ function MatchContent() {
             {t("Recommendations")}
           </h2>
           <p className="mb-6 text-sm text-neutral-600 dark:text-neutral-400">
-            Results are ranked by weighted score (tag match, proficiency, reputation, availability).
+            {t("Results are ranked by weighted score (tag match, proficiency, reputation, availability).")}
           </p>
 
           {!result ? (
@@ -269,11 +269,11 @@ function MatchContent() {
                         </span>
                         <span className="inline-flex items-center gap-1 rounded-full border border-primary-200 bg-primary-50 px-2 py-0.5 text-[11px] font-bold text-primary-700 dark:border-primary-400 dark:bg-primary-700 dark:text-white">
                           <MessageSquare className="h-3 w-3" />
-                          {dmLoadingId === rec.expert._id ? t("Opening...") : "DM"}
+                          {dmLoadingId === rec.expert._id ? t("Opening...") : t("DM")}
                         </span>
                       </div>
                       <div className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
-                        Availability: {rec.expert.availabilityStatus} • Points: {rec.expert.points}
+                        {t("Availability")}: {t(rec.expert.availabilityStatus)} • {t("Points")}: {rec.expert.points}
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {rec.expert.expertise.slice(0, 4).map((e) => (

@@ -10,7 +10,7 @@ import { Badge } from "../../../../components/ui/Badge";
 import { apiClient } from "../../../../lib/api";
 import { useAuth } from "../../../../lib/useAuth";
 import { ensureSocket } from "../../../../lib/useSocket";
-import { useLanguage } from "../../../../lib/i18n";
+import { formatTechnicalTag, useLanguage } from "../../../../lib/i18n";
 import {
   Send,
   Bot,
@@ -129,6 +129,14 @@ const STATUS_COLOR: Record<string, string> = {
   CLOSED: "error",
 };
 
+const STATUS_LABEL: Record<string, string> = {
+  OPEN: "threads.open",
+  PENDING_EXPERT: "threads.needsExpert",
+  AI_RESOLVED: "threads.aiResolved",
+  SOLVED: "threads.solved",
+  CLOSED: "threads.closed",
+};
+
 function senderName(sender: Sender | string): string {
   if (typeof sender === "string") return "User";
   return sender.name || "User";
@@ -150,6 +158,12 @@ function getMessageId(message: ChatMessage): string {
 
 function attachmentLabel(message: ChatMessage, imageFallback: string, fileFallback: string) {
   return message.body || (message.type === "IMAGE" ? imageFallback : fileFallback);
+}
+
+function translatedSystemEvent(body: string, t: (key: string, values?: Record<string, string | number>) => string) {
+  const started = body.match(/^Live session started! Join here: (.+)$/);
+  if (started) return t("Live session started! Join here: {link}", { link: started[1] });
+  return body;
 }
 
 function readReceiptUserId(receipt: NonNullable<ChatMessage["readBy"]>[number]) {
@@ -242,7 +256,7 @@ function MessageContent({ message }: { message: ChatMessage }) {
 }
 
 export default function ThreadDetailPage() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const threadId = params?.id ?? "";
@@ -974,11 +988,11 @@ export default function ThreadDetailPage() {
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Badge variant="info">{thread.subject.toUpperCase()}</Badge>
             <Badge variant={statusVariant}>
-              {t(thread.status === "SOLVED" ? "threads.solved" : thread.status.replace("_", " "))}
+              {t(STATUS_LABEL[thread.status] || thread.status.replace("_", " "))}
             </Badge>
             {thread.tags.map((tag) => (
               <Badge key={tag} variant="default" className="text-xs">
-                {tag}
+                {formatTechnicalTag(tag, language)}
               </Badge>
             ))}
             {isAuthor && (
@@ -1089,7 +1103,7 @@ export default function ThreadDetailPage() {
                   <div key={msgId} className="flex justify-center">
                     <div className="flex max-w-full items-center gap-2 break-words rounded-lg bg-blue-50 px-3 py-1.5 text-xs text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 sm:rounded-full sm:px-4">
                       <Video className="h-3.5 w-3.5" />
-                      {msg.body}
+                      {translatedSystemEvent(msg.body, t)}
                     </div>
                   </div>
                 );
@@ -1561,7 +1575,7 @@ export default function ThreadDetailPage() {
                                 key={tag}
                                 className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
                               >
-                                {tag}
+                                {formatTechnicalTag(tag, language)}
                               </span>
                             ))}
                           </div>

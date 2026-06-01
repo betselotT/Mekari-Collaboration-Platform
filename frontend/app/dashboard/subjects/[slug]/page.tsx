@@ -216,14 +216,14 @@ export default function SubjectPage() {
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-neutral-600 dark:text-neutral-400">
-            Browse active discussions, mentors, and files shared in this subject.
+            {t("Browse active discussions, mentors, and files shared in this subject.")}
           </p>
         </div>
         {summary && (
           <Link href={threadBoardHref}>
             <Button variant="primary" size="md">
               <Plus className="h-4 w-4" />
-              Open Thread Board
+              {t("Open Thread Board")}
             </Button>
           </Link>
         )}
@@ -233,25 +233,25 @@ export default function SubjectPage() {
         <Link href={threadBoardHref} className="block transition-transform hover:-translate-y-0.5">
           <StatCard
             icon={MessageSquare}
-            label="Active Threads"
+            label={t("Active Threads")}
             value={loading ? "..." : summary?.activeThreads ?? 0}
-            description={`${summary?.weeklyThreads ?? 0} new this week`}
+            description={t("{count} new this week", { count: summary?.weeklyThreads ?? 0 })}
           />
         </Link>
         <button type="button" onClick={showExperts} className="block text-left transition-transform hover:-translate-y-0.5">
           <StatCard
             icon={Users}
-            label="Experts Online"
+            label={t("Experts Online")}
             value={loading ? "..." : summary?.expertsOnline ?? 0}
-            description="Currently providing guidance"
+            description={t("Currently providing guidance")}
           />
         </button>
         <button type="button" onClick={showResources} className="block text-left transition-transform hover:-translate-y-0.5">
           <StatCard
             icon={BookOpen}
-            label="Resources"
+            label={t("Resources")}
             value={loading ? "..." : summary?.resources ?? 0}
-            description="Files shared in threads"
+            description={t("Files shared in threads")}
           />
         </button>
       </div>
@@ -260,17 +260,17 @@ export default function SubjectPage() {
         <div className="mb-6 flex items-center justify-between gap-3">
           <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
             {activePanel === "experts"
-              ? "Online Experts"
+              ? t("Online Experts")
               : activePanel === "resources"
-                ? "Shared Files"
-                : "Available Threads"}
+                ? t("Shared Files")
+                : t("Available Threads")}
           </h3>
           {summary && (
             <Link
               href={threadBoardHref}
               className="text-sm font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400"
             >
-              View All
+              {t("View All")}
             </Link>
           )}
         </div>
@@ -278,7 +278,7 @@ export default function SubjectPage() {
         <div className="space-y-4">
           {loading ? (
             <div className="rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
-              Loading subject threads...
+              {t("Loading subject threads...")}
             </div>
           ) : error ? (
             <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300">
@@ -287,11 +287,11 @@ export default function SubjectPage() {
           ) : activePanel === "experts" ? (
             loadingPanel ? (
               <div className="rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
-                Loading online experts...
+                {t("Loading online experts...")}
               </div>
             ) : experts.length === 0 ? (
               <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-400">
-                No online experts are available for this subject right now.
+                {t("No online experts are available for this subject right now.")}
               </div>
             ) : (
               experts.map((expert) => (
@@ -305,7 +305,7 @@ export default function SubjectPage() {
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-neutral-900 dark:text-white">{expert.name}</p>
                       <p className="line-clamp-1 text-sm text-neutral-600 dark:text-neutral-400">
-                        {expert.bio || expert.expertise?.[0]?.subject || "Available to help"}
+                        {expert.bio || expert.expertise?.[0]?.subject || t("Available to help")}
                       </p>
                     </div>
                   </div>
@@ -322,11 +322,11 @@ export default function SubjectPage() {
           ) : activePanel === "resources" ? (
             loadingPanel ? (
               <div className="rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
-                Loading shared files...
+                {t("Loading shared files...")}
               </div>
             ) : resources.length === 0 ? (
               <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-400">
-                No files have been shared in this subject yet.
+                {t("No files have been shared in this subject yet.")}
               </div>
             ) : (
               resources.map((resource) => (
@@ -342,9 +342,9 @@ export default function SubjectPage() {
                       <FileText className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate font-semibold text-neutral-900 dark:text-white">{resource.body || "Shared file"}</p>
+                      <p className="truncate font-semibold text-neutral-900 dark:text-white">{resource.body || t("Shared file")}</p>
                       <p className="truncate text-sm text-neutral-600 dark:text-neutral-400">
-                        {resource.thread?.title || "Thread"} · {resource.sender?.name || "Unknown"} · {formatDate(resource.createdAt)}
+                        {resource.thread?.title || t("Thread")} · {resource.sender?.name || t("threads.unknownAuthor")} · {formatDate(resource.createdAt)}
                       </p>
                     </div>
                   </div>
@@ -354,16 +354,16 @@ export default function SubjectPage() {
             )
           ) : recentThreads.length === 0 ? (
             <div className="rounded-lg border border-dashed border-neutral-300 p-6 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-400">
-              No threads are available for this subject yet.
+              {t("No threads are available for this subject yet.")}
             </div>
           ) : (
             recentThreads.map((thread) => (
               <ThreadCard
                 key={thread._id || thread.id}
                 title={thread.title}
-                category={String(thread.subject || "General").toUpperCase()}
-                description={thread.preview || "Open the thread to view details."}
-                author={thread.createdBy?.name || "Unknown"}
+                category={String(thread.subject || t("threads.defaultCategory")).toUpperCase()}
+                description={thread.preview || t("threads.defaultDescription")}
+                author={thread.createdBy?.name || t("threads.unknownAuthor")}
                 timestamp={formatDate(thread.updatedAt || thread.createdAt)}
                 replyCount={Math.max(0, (thread.messageCount || 1) - 1)}
                 tags={thread.tags || []}

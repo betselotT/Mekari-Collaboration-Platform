@@ -121,6 +121,15 @@ function attachmentLabel(message: DmMessage, imageFallback: string, fileFallback
   return message.body || (message.type === "IMAGE" ? imageFallback : fileFallback);
 }
 
+function translatedSystemEvent(body: string, t: (key: string, values?: Record<string, string | number>) => string) {
+  const started = body.match(/^Live session started\. Join here: (.+)$/);
+  if (started) return t("Live session started. Join here: {link}", { link: started[1] });
+  if (body === "Live session started") return t("Live session started");
+  if (body === "Live session ended") return t("Live session ended");
+  if (body === "Live session ended.") return t("Live session ended.");
+  return body;
+}
+
 function readReceiptUserId(receipt: NonNullable<DmMessage["readBy"]>[number]) {
   return typeof receipt.user === "string" ? receipt.user : receipt.user?._id;
 }
@@ -344,10 +353,10 @@ function EndSessionDialog({
           </div>
           <div className="min-w-0 flex-1">
             <h2 id="end-session-title" className="text-base font-bold text-neutral-900 dark:text-white">
-              End Live Session
+              {t("End Live Session")}
             </h2>
             <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-              Confirm whether {mentorName} delivered meaningful help during this session.
+              {t("Confirm whether {name} delivered meaningful help during this session.", { name: mentorName })}
             </p>
           </div>
           <button
@@ -374,10 +383,10 @@ function EndSessionDialog({
               ) : (
                 <CheckCircle2 className="h-4 w-4" />
               )}
-              Mentor was helpful
+              {t("Mentor was helpful")}
             </span>
             <span className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
-              End session and confirm help was delivered.
+              {t("End session and confirm help was delivered.")}
             </span>
           </button>
 
@@ -944,7 +953,7 @@ function MessagesContent() {
         });
       }
     } catch (e: any) {
-      setError(e?.response?.data?.error?.message || "Failed to create the live session");
+      setError(e?.response?.data?.error?.message || t("Failed to create the live session"));
     } finally {
       setCreatingSession(false);
     }
@@ -960,7 +969,7 @@ function MessagesContent() {
       );
       window.open(res.data.session.meetLink, "_blank", "noopener,noreferrer");
     } catch (e: any) {
-      setError(e?.response?.data?.error?.message || "Failed to open the live session");
+      setError(e?.response?.data?.error?.message || t("Failed to open the live session"));
     } finally {
       setJoiningSession(false);
     }
@@ -997,7 +1006,7 @@ function MessagesContent() {
       }
       setShowEndSessionDialog(false);
     } catch (e: any) {
-      setError(e?.response?.data?.error?.message || "Failed to end the live session");
+      setError(e?.response?.data?.error?.message || t("Failed to end the live session"));
     } finally {
       setEndingSession(false);
     }
@@ -1008,10 +1017,10 @@ function MessagesContent() {
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title={t("Delete Message")}
-        description="This message will be removed from the conversation."
+        description={t("This message will be removed from the conversation.")}
         tone="danger"
-        confirmLabel="Delete"
-        cancelLabel="Keep"
+        confirmLabel={t("Delete")}
+        cancelLabel={t("Keep")}
         isLoading={Boolean(deletingMessageId)}
         icon={<Trash2 className="h-5 w-5" />}
         onCancel={() => {
@@ -1023,9 +1032,9 @@ function MessagesContent() {
       <ConfirmDialog
         open={availabilityModalOpen}
         title={t("Mentor unavailable")}
-        description="Mentor isn't available right now. Try again later."
-        confirmLabel="OK"
-        cancelLabel="Close"
+        description={t("Mentor isn't available right now. Try again later.")}
+        confirmLabel={t("OK")}
+        cancelLabel={t("Close")}
         icon={<AlertTriangle className="h-5 w-5" />}
         onCancel={() => setAvailabilityModalOpen(false)}
         onConfirm={() => setAvailabilityModalOpen(false)}
@@ -1044,7 +1053,7 @@ function MessagesContent() {
       <div className="mb-6 flex items-center gap-2">
         <MessageCircle className="h-5 w-5 text-primary-600" />
         <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-          PRIVATE DIRECT MESSAGES
+          {t("Private direct messages")}
         </span>
       </div>
 
@@ -1086,10 +1095,12 @@ function MessagesContent() {
                     />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-neutral-900 dark:text-white">
-                        {other?.name || "Conversation"}
+                        {other?.name || t("Conversation")}
                       </span>
                       <span className="block truncate text-xs text-neutral-500 dark:text-neutral-400">
-                        {conversation.lastMessagePreview || "Private conversation"}
+                        {conversation.lastMessagePreview
+                          ? translatedSystemEvent(conversation.lastMessagePreview, t)
+                          : t("Private conversation")}
                       </span>
                     </span>
                   </button>
@@ -1120,16 +1131,16 @@ function MessagesContent() {
                   />
                   <div className="min-w-0">
                     <h2 className="truncate text-sm font-bold text-neutral-900 dark:text-white">
-                      {otherParticipant(activeConversation)?.name || "Conversation"}
+                      {otherParticipant(activeConversation)?.name || t("Conversation")}
                     </h2>
                     <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                      One-on-one private DM
+                      {t("One-on-one private DM")}
                     </p>
                   </div>
                 </div>
                 <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
                   <span className="hidden text-xs font-medium text-neutral-500 dark:text-neutral-400 sm:inline">
-                    Need deeper discussion?
+                    {t("Need deeper discussion?")}
                   </span>
                   {activeConversation.activeSession?.status === "active" ? (
                     <div className="flex w-full flex-col gap-2 min-[380px]:flex-row sm:w-auto">
@@ -1144,7 +1155,7 @@ function MessagesContent() {
                         ) : (
                           <Video className="h-4 w-4" />
                         )}
-                        {joiningSession ? "Opening..." : "Rejoin"}
+                        {joiningSession ? t("Opening...") : t("Rejoin")}
                         <ExternalLink className="h-3.5 w-3.5" />
                       </button>
                       <button
@@ -1158,7 +1169,7 @@ function MessagesContent() {
                         ) : (
                           <Square className="h-4 w-4" />
                         )}
-                        End
+                        {t("End")}
                       </button>
                       <button
                         type="button"
@@ -1166,7 +1177,7 @@ function MessagesContent() {
                         className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50 dark:border-primary-900/60 dark:bg-neutral-900 dark:text-primary-300 dark:hover:bg-primary-950/30"
                       >
                         <PenLine className="h-4 w-4" />
-                        Whiteboard
+                        {t("Whiteboard")}
                       </button>
                     </div>
                   ) : (
@@ -1183,8 +1194,8 @@ function MessagesContent() {
                           <Video className="h-4 w-4" />
                         )}
                         {creatingSession || activeConversation.activeSession?.status === "creating"
-                          ? "Creating..."
-                          : "Start Session"}
+                          ? t("Creating...")
+                          : t("Start Session")}
                       </button>
                       <button
                         type="button"
@@ -1192,7 +1203,7 @@ function MessagesContent() {
                         className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50 dark:border-primary-900/60 dark:bg-neutral-900 dark:text-primary-300 dark:hover:bg-primary-950/30"
                       >
                         <PenLine className="h-4 w-4" />
-                        Whiteboard
+                        {t("Whiteboard")}
                       </button>
                     </div>
                   )}
@@ -1204,7 +1215,7 @@ function MessagesContent() {
                   <div className="text-sm text-neutral-500">{t("Loading messages...")}</div>
                 ) : messages.length === 0 ? (
                   <div className="text-sm text-neutral-500">
-                    Start the conversation with a private message.
+                    {t("Start the conversation with a private message.")}
                   </div>
                 ) : (
                   messages.map((message) => {
@@ -1220,7 +1231,7 @@ function MessagesContent() {
                       return (
                         <div key={messageId} className="flex justify-center">
                           <div className="max-w-full rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs font-medium text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200 sm:max-w-[90%]">
-                            {message.body}
+                            {translatedSystemEvent(message.body, t)}
                           </div>
                         </div>
                       );
@@ -1255,10 +1266,10 @@ function MessagesContent() {
                               {message.parentMessageId && (
                                 <div className="mb-2 rounded-lg border-l-4 border-primary-500 bg-neutral-100 px-3 py-2 dark:bg-neutral-900/60">
                                   <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-primary-500">
-                                    Replying to
+                                    {t("Replying to")}
                                   </p>
                                   <p className="line-clamp-2 text-xs text-neutral-600 dark:text-neutral-400">
-                                    {parent?.body ?? "Original message"}
+                                    {parent?.body ?? t("Original message")}
                                   </p>
                                 </div>
                               )}
@@ -1280,7 +1291,7 @@ function MessagesContent() {
                                       disabled={savingEditId === messageId}
                                       className="rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
                                     >
-                                      Cancel
+                                      {t("threads.cancel")}
                                     </button>
                                     <button
                                       type="button"
@@ -1288,7 +1299,7 @@ function MessagesContent() {
                                       disabled={!editDraft.trim() || savingEditId === messageId}
                                       className="rounded-md bg-primary-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
                                     >
-                                      {savingEditId === messageId ? "Saving..." : "Save"}
+                                      {savingEditId === messageId ? t("Saving...") : t("Save")}
                                     </button>
                                   </div>
                                 </div>
@@ -1302,7 +1313,7 @@ function MessagesContent() {
                             {isLatestSeenOwnMessage && (
                               <div className="mt-1 flex items-center justify-end gap-1 text-[11px] font-medium text-primary-600 dark:text-primary-300">
                                 <CheckCheck className="h-3.5 w-3.5" />
-                                Seen
+                                {t("Seen")}
                               </div>
                             )}
 
@@ -1313,7 +1324,7 @@ function MessagesContent() {
                                 className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-primary-500 hover:underline"
                               >
                                 <Reply className="h-3 w-3" />
-                                Reply
+                                {t("Reply")}
                               </button>
                               {canEdit && !isEditingThisMessage && (
                                 <button
@@ -1322,7 +1333,7 @@ function MessagesContent() {
                                   className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-primary-500 hover:underline"
                                 >
                                   <PenLine className="h-3 w-3" />
-                                  Edit
+                                  {t("Edit")}
                                 </button>
                               )}
                               {isMine && (
@@ -1333,7 +1344,7 @@ function MessagesContent() {
                                   className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-red-500 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                   <Trash2 className="h-3 w-3" />
-                                  {deletingMessageId === messageId ? "Deleting..." : "Delete"}
+                                  {deletingMessageId === messageId ? t("Deleting...") : t("Delete")}
                                 </button>
                               )}
                             </div>
@@ -1352,8 +1363,8 @@ function MessagesContent() {
                       <span className="animate-bounce [animation-delay:0.2s]">.</span>
                     </div>
                     {typingUsers.length === 1
-                      ? `${typingUsers[0].name} is typing...`
-                      : `${typingUsers.map((typingUser) => typingUser.name).join(", ")} are typing...`}
+                      ? t("{name} is typing...", { name: typingUsers[0].name })
+                      : t("{names} are typing...", { names: typingUsers.map((typingUser) => typingUser.name).join(", ") })}
                   </div>
                 )}
                 <div ref={messagesEndRef} />
@@ -1364,7 +1375,7 @@ function MessagesContent() {
                   <div className="flex items-start justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm dark:border-primary-900/50 dark:bg-primary-950/30">
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-primary-700 dark:text-primary-300">
-                        Replying to {senderName(replyTo.sender)}
+                        {t("Replying to {name}", { name: senderName(replyTo.sender) })}
                       </p>
                       <p className="truncate text-xs text-neutral-600 dark:text-neutral-400">
                         {replyTo.body}
@@ -1491,12 +1502,12 @@ function MessagesContent() {
                       }}
                       placeholder={
                         composerMode === "CODE"
-                          ? "Paste a code snippet..."
+                          ? t("Paste a code snippet...")
                           : attachment
-                          ? "Add an optional caption..."
+                          ? t("Add an optional caption...")
                           : replyTo
-                          ? "Write a reply..."
-                          : "Type a private message..."
+                          ? t("Write a reply...")
+                          : t("Type a private message...")
                       }
                       className="min-w-0 flex-1 resize-none rounded-lg border border-neutral-300 bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
                       disabled={sending}
@@ -1510,7 +1521,7 @@ function MessagesContent() {
             </>
           ) : (
             <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-neutral-500">
-              Select a conversation or start one from an expert profile.
+              {t("Select a conversation or start one from an expert profile.")}
             </div>
           )}
         </section>

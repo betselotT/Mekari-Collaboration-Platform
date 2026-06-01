@@ -8,7 +8,7 @@ import { GoogleAuthButton } from "../components/auth/GoogleAuthButton";
 import { GithubAuthButton } from "../components/auth/GithubAuthButton";
 import { Button } from "../components/ui/Button";
 import { apiClient } from "../lib/api";
-import { useLanguage } from "../lib/i18n";
+import { formatTechnicalTag, useLanguage } from "../lib/i18n";
 import { ContourField } from "../components/visual/ContourField";
 import {
   Zap,
@@ -43,7 +43,7 @@ type LandingPreview = {
 };
 
 export default function LandingPage() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [authError, setAuthError] = useState<string | null>(null);
   const [landingEmail, setLandingEmail] = useState("");
   const [landingPassword, setLandingPassword] = useState("");
@@ -123,10 +123,10 @@ export default function LandingPage() {
     },
   ];
   const connectionLabel = landingPreview?.hasLiveSession
-    ? "Live session link saved"
+    ? t("Live session link saved")
     : landingPreview?.connectionPreferences.length
-      ? landingPreview.connectionPreferences.map(formatConnectionPreference).join(", ")
-      : "No live session yet";
+      ? landingPreview.connectionPreferences.map((preference) => t(formatConnectionPreference(preference))).join(", ")
+      : t("No live session yet");
 
   return (
     <div className="min-h-screen overflow-hidden bg-white dark:bg-neutral-950">
@@ -198,7 +198,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-55 lg:relative lg:min-h-[540px] lg:opacity-100">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-55 lg:relative lg:min-h-[540px] lg:overflow-visible lg:opacity-100">
               <ContourField className="absolute -right-64 top-8 h-[300px] w-[500px] rotate-[-5deg] opacity-75 dark:opacity-95 sm:-right-40 lg:-right-24 lg:top-0 lg:h-[370px] lg:w-[620px]" />
               <ContourField className="absolute -bottom-10 -right-44 h-[250px] w-[420px] rotate-[167deg] opacity-55 dark:opacity-75 sm:-right-16 lg:-bottom-8 lg:right-2 lg:h-[300px] lg:w-[500px]" />
               <div className="absolute right-0 top-20 h-20 w-20 rounded-full border border-primary-400/50 bg-primary-500/10 shadow-[0_0_80px_rgba(139,92,246,.3)] backdrop-blur sm:right-4 sm:h-24 sm:w-24 lg:top-12">
@@ -215,13 +215,13 @@ export default function LandingPage() {
                 <div>
                   <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur">
                     <Zap className="h-3.5 w-3.5" />
-                    Live collaboration preview
+                    {t("Live collaboration preview")}
                   </div>
                   <h2 className="text-2xl font-bold leading-tight sm:text-3xl">
-                    From stuck to solved in one shared workspace.
+                    {t("From stuck to solved in one shared workspace.")}
                   </h2>
                   <p className="mt-3 max-w-md text-sm leading-6 text-violet-100">
-                    Post a technical blocker, get smart tags, match with available mentors, and keep the solution searchable for the next learner.
+                    {t("Post a technical blocker, get smart tags, match with available mentors, and keep the solution searchable for the next learner.")}
                   </p>
                 </div>
 
@@ -232,7 +232,7 @@ export default function LandingPage() {
                       <div key={stat.label} className="rounded-lg bg-white/12 p-3 ring-1 ring-white/15 backdrop-blur">
                         <Icon className="mb-2 h-4 w-4 text-violet-100" />
                         <p className="text-lg font-bold">{stat.value}</p>
-                        <p className="mt-1 text-xs text-violet-100">{stat.label}</p>
+                        <p className="mt-1 text-xs text-violet-100">{t(stat.label)}</p>
                       </div>
                     );
                   })}
@@ -243,15 +243,15 @@ export default function LandingPage() {
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-primary-600 dark:text-primary-400">
-                      Active thread
+                      {t("Active thread")}
                     </p>
                     <h3 className="mt-1 text-base font-bold text-neutral-950 dark:text-white">
-                      {landingPreview?.threadTitle || "Loading project activity..."}
+                      {landingPreview?.threadTitle || t("Loading project activity...")}
                     </h3>
                   </div>
                   {landingPreview?.helpers[0]?.availabilityStatus && (
                     <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                      Mentor {landingPreview.helpers[0].availabilityStatus}
+                      {t("Mentor")} {t(landingPreview.helpers[0].availabilityStatus)}
                     </span>
                   )}
                 </div>
@@ -260,12 +260,12 @@ export default function LandingPage() {
                   <div className="rounded-xl border border-primary-100 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
                     <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white">
                       <Search className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-                      Saved tags
+                      {t("Saved tags")}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {(landingPreview?.tags || []).map((tag) => (
                         <span key={tag} className="rounded-md border border-primary-100 bg-primary-50 px-2 py-1 text-xs font-semibold text-primary-700 dark:border-primary-600/60 dark:bg-primary-900/80 dark:text-primary-100">
-                          {tag}
+                          {formatTechnicalTag(tag, language)}
                         </span>
                       ))}
                       {landingPreview && landingPreview.tags.length === 0 && (
@@ -277,20 +277,20 @@ export default function LandingPage() {
                   <div className="rounded-xl border border-primary-100 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
                     <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white">
                       <Users className="h-4 w-4 text-amber-500" />
-                      Matched helpers
+                      {t("Matched helpers")}
                     </div>
                     <div className="space-y-2">
                       {(landingPreview?.helpers || []).map((mentor) => (
                         <div key={mentor.name} className="flex items-center justify-between rounded-lg bg-primary-50/70 px-3 py-2 dark:bg-white/5">
-                          <span className="text-sm text-neutral-700 dark:text-neutral-200">{mentor.name} - {mentor.expertise}</span>
+                          <span className="text-sm text-neutral-700 dark:text-neutral-200">{mentor.name} - {t(mentor.expertise)}</span>
                           <span className="text-xs font-bold text-primary-600 dark:text-primary-400">
-                            {mentor.points} pts
+                            {mentor.points} {t("pts")}
                           </span>
                         </div>
                       ))}
                       {landingPreview && landingPreview.helpers.length === 0 && (
                         <p className="rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
-                          No matched helpers saved yet
+                          {t("No matched helpers saved yet")}
                         </p>
                       )}
                     </div>
@@ -300,7 +300,7 @@ export default function LandingPage() {
                     <div className="rounded-xl border border-primary-100 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
                       <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white">
                         <Video className="h-4 w-4 text-sky-500" />
-                        Connection
+                        {t("Connection")}
                       </div>
                       <p className="text-xs text-neutral-500 dark:text-neutral-400">
                         {connectionLabel}
@@ -309,10 +309,12 @@ export default function LandingPage() {
                     <div className="rounded-xl border border-primary-100 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
                       <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white">
                         <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                        Project subject
+                        {t("Project subject")}
                       </div>
                       <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                        {landingPreview?.subject ? `Subject: ${landingPreview.subject}` : "No subject loaded"}
+                        {landingPreview?.subject
+                          ? t("Subject: {subject}", { subject: t(landingPreview.subject) })
+                          : t("No subject loaded")}
                       </p>
                     </div>
                   </div>
@@ -335,7 +337,7 @@ export default function LandingPage() {
             </p>
             <h2 className="mb-4 text-4xl font-black tracking-tight text-neutral-900 dark:text-white">{t("Why Mekari?")}</h2>
             <p className="text-lg text-neutral-600 dark:text-neutral-400">
-              Empowering developers through real-time support.
+              {t("Empowering developers through real-time support.")}
             </p>
           </div>
 
@@ -350,8 +352,8 @@ export default function LandingPage() {
                   <div className="mb-4 inline-flex rounded-xl bg-primary-100 p-3 transition-transform group-hover:scale-110 dark:bg-primary-900">
                     <Icon className="h-6 w-6 text-primary-600 dark:text-primary-400" />
                   </div>
-                  <h3 className="mb-2 text-lg font-bold text-neutral-900 dark:text-white">{feature.title}</h3>
-                  <p className="text-sm text-neutral-600 dark:text-neutral-400">{feature.description}</p>
+                  <h3 className="mb-2 text-lg font-bold text-neutral-900 dark:text-white">{t(feature.title)}</h3>
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400">{t(feature.description)}</p>
                 </div>
               );
             })}
@@ -415,7 +417,7 @@ export default function LandingPage() {
               </p>
             )}
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-2 sm:grid-cols-2">
               <GoogleAuthButton onCredential={onGoogleSignIn} onError={setAuthError} />
               <GithubAuthButton mode="login" />
             </div>

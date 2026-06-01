@@ -10,7 +10,7 @@ import { LanguageToggle } from "../../../components/i18n/LanguageToggle";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Avatar } from "../../../components/ui/Avatar";
-import { useLanguage } from "../../../lib/i18n";
+import { formatTechnicalTag, useLanguage } from "../../../lib/i18n";
 import { ContourField } from "../../../components/visual/ContourField";
 
 interface Sender {
@@ -51,8 +51,16 @@ function messageId(message: PublicMessage): string {
   return message._id;
 }
 
+const THREAD_STATUS_LABELS: Record<string, string> = {
+  OPEN: "threads.open",
+  PENDING_EXPERT: "threads.needsExpert",
+  AI_RESOLVED: "threads.aiResolved",
+  SOLVED: "threads.solved",
+  CLOSED: "threads.closed",
+};
+
 export default function PublicThreadDetailPage() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const params = useParams<{ id: string }>();
   const threadId = params?.id || "";
   const [thread, setThread] = useState<PublicThread | null>(null);
@@ -157,10 +165,10 @@ export default function PublicThreadDetailPage() {
             <article className="rounded-2xl border border-primary-100 bg-white/85 p-5 shadow-xl shadow-primary-100/30 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/80 dark:shadow-primary-950/20">
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <Badge variant="info">{thread.subject}</Badge>
-                <Badge variant="default">{t(thread.status)}</Badge>
+                <Badge variant="default">{t(THREAD_STATUS_LABELS[thread.status] || thread.status)}</Badge>
                 {(thread.tags || []).map((tag) => (
                   <Badge key={tag} variant="default">
-                    {tag}
+                    {formatTechnicalTag(tag, language)}
                   </Badge>
                 ))}
               </div>

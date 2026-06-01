@@ -287,7 +287,7 @@ export function RegisterForm() {
                   className={`inline-flex items-center gap-1 ${met ? "text-emerald-600 dark:text-emerald-300" : "text-neutral-500 dark:text-neutral-400"}`}
                 >
                   <Check className={`h-3 w-3 ${met ? "opacity-100" : "opacity-25"}`} />
-                  {rule.label}
+                  {t(rule.label)}
                 </span>
               );
             })}
@@ -303,18 +303,18 @@ export function RegisterForm() {
               placeholder={t("auth.technicalFieldPlaceholder")}
             />
             <datalist id="primary-technical-field-options">
-              {technicalFields.map((field) => <option key={field} value={field} />)}
+              {technicalFields.map((field) => <option key={field} value={field} label={t(field)} />)}
             </datalist>
           </Field>
         )}
         <Field label={t("auth.currentRole")}>
           <select className={inputClass} value={roleOrStatus} onChange={(e) => setRoleOrStatus(e.target.value)}>
-            {roleOptions.map((role) => <option key={role}>{role}</option>)}
+            {roleOptions.map((role) => <option key={role} value={role}>{t(role)}</option>)}
           </select>
         </Field>
         <Field label={t("auth.experience")}>
           <select className={inputClass} value={yearsOfExperience} onChange={(e) => setYearsOfExperience(e.target.value)}>
-            {experienceOptions.map((years) => <option key={years}>{years}</option>)}
+            {experienceOptions.map((years) => <option key={years} value={years}>{t(years)}</option>)}
           </select>
         </Field>
         <div className="space-y-2">
@@ -323,7 +323,7 @@ export function RegisterForm() {
             {deviceOptions.map((device) => (
               <label key={device} className="flex items-center gap-2 rounded border border-neutral-300 px-3 py-2 text-xs dark:border-neutral-700">
                 <input type="checkbox" checked={devicesUsed.includes(device)} onChange={() => toggleDevice(device)} />
-                {device}
+                {t(device)}
               </label>
             ))}
           </div>
@@ -351,7 +351,7 @@ export function RegisterForm() {
                 placeholder={t("auth.expertiseAreaPlaceholder")}
               />
               <datalist id="mentor-expertise-options">
-                {technicalFields.map((field) => <option key={field} value={field} />)}
+                {technicalFields.map((field) => <option key={field} value={field} label={t(field)} />)}
               </datalist>
             </Field>
             <Field label={t("auth.expertiseLevel")}>
@@ -414,7 +414,7 @@ export function RegisterForm() {
       >
         {loading ? t("auth.creatingAccount") : accountType === "mentor" ? t("auth.createMentor") : t("auth.createLearner")}
       </button>
-      <div className="grid grid-cols-2 gap-2 pt-2">
+      <div className="grid gap-2 pt-2 sm:grid-cols-2">
         <GoogleAuthButton
           onCredential={onGoogleSignIn}
           onError={showError}
