@@ -11,7 +11,7 @@ import { Button } from "../../../components/ui/Button";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Badge } from "../../../components/ui/Badge";
 import { Input } from "../../../components/ui/Input";
-import { Edit, Lock, Globe, Bell, Save, X, Plus, CheckCircle2, Clock, Moon, Video, Award, Zap, Bot, Trophy, Star, TrendingUp, FileText, Trash2 } from "lucide-react";
+import { Edit, Lock, Globe, Bell, Save, X, Plus, CheckCircle2, Clock, Moon, Video, Award, Zap, Bot, Trophy, Star, StarHalf, TrendingUp, FileText, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { type Language, useLanguage } from "../../../lib/i18n";
 
 type AccountType = "learner" | "mentor";
@@ -32,6 +32,18 @@ type NotificationPreferences = Record<
     email: boolean;
   }
 >;
+
+type ExpertReview = {
+  _id: string;
+  by: {
+    _id: string;
+    name: string;
+    avatarUrl?: string;
+  };
+  stars: number;
+  comment?: string;
+  createdAt?: string;
+};
 
 const defaultNotificationPreferences: NotificationPreferences = {
   chat: { internal: true, push: false, email: false },
@@ -78,6 +90,39 @@ function passwordErrors(value: string) {
   return errors;
 }
 
+function initials(name?: string) {
+  return (name || "User")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function ReviewStars({ rating }: { rating: number }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {Array.from({ length: 5 }).map((_, index) => {
+        const filled = index + 1 <= rating;
+        const half = !filled && rating - index >= 0.5;
+        const Icon = half ? StarHalf : Star;
+        return (
+          <Icon
+            key={index}
+            className={`h-4 w-4 ${
+              filled || half
+                ? "fill-amber-400 text-amber-400"
+                : "text-neutral-300 dark:text-neutral-600"
+            }`}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const { language, setLanguage, t } = useLanguage();
   const [user, setUser] = useState<any>(null);
@@ -97,11 +142,16 @@ export default function ProfilePage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [resubmittingVerification, setResubmittingVerification] = useState(false);
+  const [mentorReviews, setMentorReviews] = useState<ExpertReview[]>([]);
+  const [mentorReviewIndex, setMentorReviewIndex] = useState(0);
+  const [mentorReviewsLoading, setMentorReviewsLoading] = useState(false);
+  const [mentorReviewsError, setMentorReviewsError] = useState("");
   const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(
     defaultNotificationPreferences
   );
   const [savingPreferences, setSavingPreferences] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteAccountModalOpen, setDeleteAccountModalOpen] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const [setupForm, setSetupForm] = useState({
     accountType: "learner" as AccountType,
@@ -168,6 +218,25 @@ export default function ProfilePage() {
     needsPasswordSetup;
   const isMentor = user?.role === "expert";
   const verificationStatus = user?.expertVerification?.status;
+  const selectedMentorReview = mentorReviews[mentorReviewIndex] || mentorReviews[0];
+
+  useEffect(() => {
+    if (mentorReviewIndex >= mentorReviews.length) {
+      setMentorReviewIndex(0);
+    }
+  }, [mentorReviewIndex, mentorReviews.length]);
+
+  function showPreviousMentorReview() {
+    setMentorReviewIndex((current) =>
+      mentorReviews.length <= 1 ? 0 : (current - 1 + mentorReviews.length) % mentorReviews.length
+    );
+  }
+
+  function showNextMentorReview() {
+    setMentorReviewIndex((current) =>
+      mentorReviews.length <= 1 ? 0 : (current + 1) % mentorReviews.length
+    );
+  }
 
   function toggleSetupDevice(device: string) {
     setSetupForm((current) => ({
@@ -370,6 +439,37 @@ export default function ProfilePage() {
             skillTags: res.data.user.skillTags?.join(", ") || current.skillTags,
             availabilityStatus: res.data.user.availabilityStatus || current.availabilityStatus,
           }));
+          if (res.data.user.role === "expert") {
+            setMentorReviewsLoading(true);
+            setMentorReviewsError("");
+            try {
+              const reviewRes = await apiClient.get<{
+                reviews: ExpertReview[];
+                expertRatingAverage?: number;
+                expertReviewCount: number;
+              }>(`/api/users/${res.data.user._id}/reviews`);
+              setMentorReviews(reviewRes.data.reviews || []);
+              setUser((current: any) =>
+                current
+                  ? {
+                      ...current,
+                      expertRatingAverage: reviewRes.data.expertRatingAverage,
+                      expertReviewCount: reviewRes.data.expertReviewCount,
+                    }
+                  : current
+              );
+            } catch (reviewErr: any) {
+              setMentorReviews([]);
+              setMentorReviewsError(
+                reviewErr?.response?.data?.error?.message || "Failed to load mentor reviews."
+              );
+            } finally {
+              setMentorReviewsLoading(false);
+            }
+          } else {
+            setMentorReviews([]);
+            setMentorReviewsError("");
+          }
         }
       } catch (err) {
         setError("Failed to fetch user profile.");
@@ -468,11 +568,6 @@ export default function ProfilePage() {
   };
 
   async function handleDeleteAccount() {
-    const confirmed = window.confirm(
-      "Delete your Mekari account permanently? Your profile and related records will be removed. This cannot be undone."
-    );
-    if (!confirmed) return;
-
     setDeletingAccount(true);
     setError("");
     setMessage("");
@@ -483,6 +578,7 @@ export default function ProfilePage() {
     } catch (err: any) {
       setError(err.response?.data?.error?.message || "Failed to delete account.");
       setDeletingAccount(false);
+      setDeleteAccountModalOpen(false);
     }
   }
 
@@ -1297,6 +1393,107 @@ export default function ProfilePage() {
             </div>
           </Card>
 
+          {isMentor && (
+            <Card>
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <div>
+                  <h4 className="font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
+                    <Star className="h-5 w-5 text-amber-500" />
+                    {t("Past Reviews")}
+                  </h4>
+                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                    {user.expertReviewCount || mentorReviews.length} {t("reviews received")}
+                  </p>
+                </div>
+                {user.expertRatingAverage ? (
+                  <div className="shrink-0 text-right">
+                    <ReviewStars rating={user.expertRatingAverage} />
+                    <p className="mt-1 text-xs font-bold text-neutral-900 dark:text-white">
+                      {user.expertRatingAverage.toFixed(1)} / 5
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+
+              {mentorReviewsLoading ? (
+                <div className="rounded-xl border border-dashed border-neutral-200 p-4 text-center dark:border-neutral-800">
+                  <p className="text-xs text-neutral-500">{t("Loading reviews...")}</p>
+                </div>
+              ) : mentorReviewsError ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200">
+                  {mentorReviewsError}
+                </div>
+              ) : mentorReviews.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-neutral-200 p-4 text-center dark:border-neutral-800">
+                  <p className="text-xs text-neutral-500 italic">{t("No reviews yet.")}</p>
+                </div>
+              ) : selectedMentorReview ? (
+                <div>
+                  <div className="rounded-xl border border-neutral-100 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
+                    <div className="flex items-start gap-3">
+                      <Avatar
+                        size="sm"
+                        initials={initials(selectedMentorReview.by?.name)}
+                        src={selectedMentorReview.by?.avatarUrl}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="truncate text-sm font-bold text-neutral-900 dark:text-white">
+                            {selectedMentorReview.by?.name || t("Unknown reviewer")}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <ReviewStars rating={selectedMentorReview.stars} />
+                            <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
+                              {selectedMentorReview.stars.toFixed(1)}
+                            </span>
+                          </div>
+                        </div>
+                        {selectedMentorReview.comment && (
+                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-neutral-600 dark:text-neutral-300">
+                            {selectedMentorReview.comment}
+                          </p>
+                        )}
+                        {selectedMentorReview.createdAt && (
+                          <p className="mt-2 text-xs text-neutral-400">
+                            {new Date(selectedMentorReview.createdAt).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {mentorReviews.length > 1 && (
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        onClick={showPreviousMentorReview}
+                        className="rounded-lg border border-neutral-200 p-2 text-neutral-600 transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                        aria-label={t("Previous review")}
+                        title={t("Previous review")}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">
+                        {mentorReviewIndex + 1} / {mentorReviews.length}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={showNextMentorReview}
+                        className="rounded-lg border border-neutral-200 p-2 text-neutral-600 transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                        aria-label={t("Next review")}
+                        title={t("Next review")}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                null
+              )}
+            </Card>
+          )}
+
           <Card>
             <h4 className="mb-4 font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-primary-500" />
@@ -1352,7 +1549,7 @@ export default function ProfilePage() {
             variant="outline"
             size="md"
             className="shrink-0 border-red-300 text-red-700 hover:bg-red-100 dark:border-red-800 dark:text-red-200 dark:hover:bg-red-950"
-            onClick={handleDeleteAccount}
+            onClick={() => setDeleteAccountModalOpen(true)}
             isLoading={deletingAccount}
           >
             <Trash2 className="mr-2 h-4 w-4" />
@@ -1360,6 +1557,50 @@ export default function ProfilePage() {
           </Button>
         </div>
       </Card>
+
+      {deleteAccountModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/60 px-4 py-6 backdrop-blur-sm">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-account-title"
+            className="w-full max-w-md rounded-lg border border-red-200 bg-white p-6 shadow-2xl dark:border-red-900 dark:bg-neutral-900"
+          >
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-red-100 p-2 text-red-700 dark:bg-red-950 dark:text-red-200">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 id="delete-account-title" className="text-lg font-bold text-neutral-900 dark:text-white">
+                  {t("Delete account")}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
+                  {t("Permanently remove your profile and related records. This action cannot be undone.")}
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setDeleteAccountModalOpen(false)}
+                disabled={deletingAccount}
+              >
+                {t("threads.cancel")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-red-300 text-red-700 hover:bg-red-100 dark:border-red-800 dark:text-red-200 dark:hover:bg-red-950"
+                onClick={handleDeleteAccount}
+                isLoading={deletingAccount}
+              >
+                {t("Delete account")}
+              </Button>
+            </div>
+          </section>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

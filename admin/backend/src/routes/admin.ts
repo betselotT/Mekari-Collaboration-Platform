@@ -1,4 +1,5 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 import { z } from "zod";
 import { adminUsername } from "../auth";
 import { AuditLog } from "../models/AuditLog";
@@ -7,6 +8,7 @@ import { Notification } from "../models/Notification";
 import { Report } from "../models/Report";
 import { Thread } from "../models/Thread";
 import { User } from "../models/User";
+import { broadcastAdminDashboardUpdate } from "../realtime";
 
 const router = Router();
 
@@ -270,6 +272,11 @@ router.post("/announcements", async (req, res, next) => {
         createdAt: auditLog.createdAt,
       },
     });
+    broadcastAdminDashboardUpdate({
+      type: "announcement_sent",
+      id: String(auditLog._id),
+      message: `Announcement "${parsed.title}" sent to ${recipients.length} user(s).`,
+    });
   } catch (err) {
     next(err);
   }
@@ -277,13 +284,85 @@ router.post("/announcements", async (req, res, next) => {
 
 router.get("/notifications", async (_req, res, next) => {
   try {
-    const notifications = await Notification.find({
-      type: { $in: ["new_report", "mentor_verification_submitted"] },
-    })
-      .sort({ createdAt: -1 })
-      .limit(30)
-      .lean();
-    res.json({ notifications });
+    const [notifications, auditAlerts] = await Promise.all([
+      Notification.find({
+        type: { $in: ["new_report", "mentor_verification_submitted"] },
+      })
+        .sort({ createdAt: -1 })
+        .limit(30)
+        .lean(),
+      AuditLog.find({
+        actionType: {
+          $in: [
+            "report_submitted",
+            "mentor_verification_submitted",
+            "mentor_verification_resubmitted",
+          ],
+        },
+      })
+        .sort({ createdAt: -1 })
+        .limit(30)
+        .lean(),
+    ]);
+
+    const auditNotifications = auditAlerts.map((alert) => {
+      const isReport = alert.actionType === "report_submitted";
+      return {
+        _id: `audit-${String(alert._id)}`,
+        type: isReport ? "new_report" : "mentor_verification_submitted",
+        message: alert.action,
+        link: isReport ? "/admin/reports" : "/admin/mentor-verifications",
+        read: false,
+        createdAt: alert.createdAt,
+      };
+    });
+
+    const merged = [...notifications, ...auditNotifications]
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+      .slice(0, 30);
+
+    res.json({ notifications: merged });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch("/notifications/read-all", async (_req, res, next) => {
+  try {
+    const result = await Notification.updateMany(
+      { type: { $in: ["new_report", "mentor_verification_submitted"] }, read: false },
+      { $set: { read: true } }
+    );
+
+    res.json({ ok: true, modifiedCount: result.modifiedCount });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch("/notifications/:notificationId", async (req, res, next) => {
+  try {
+    const { notificationId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(notificationId)) {
+      res.json({ ok: true });
+      return;
+    }
+
+    const notification = await Notification.findByIdAndUpdate(
+      notificationId,
+      { $set: { read: true } },
+      { new: true }
+    ).lean();
+
+    if (!notification) {
+      res.status(404).json({ error: { message: "Notification not found" } });
+      return;
+    }
+
+    res.json({ notification });
   } catch (err) {
     next(err);
   }
@@ -502,6 +581,12 @@ router.patch("/mentor-verifications/:userId", async (req, res, next) => {
       read: false,
     });
 
+    broadcastAdminDashboardUpdate({
+      type: "mentor_verification_reviewed",
+      id: String(user._id),
+      message: `${user.name} mentor verification was ${parsed.status}.`,
+    });
+
     res.json({ user });
   } catch (err) {
     next(err);
@@ -697,6 +782,12 @@ router.patch("/reports/:reportId", async (req, res, next) => {
         });
       }
     }
+
+    broadcastAdminDashboardUpdate({
+      type: "report_reviewed",
+      id: String(report._id),
+      message: `Report marked ${parsed.status}.`,
+    });
 
     res.json({ report, strikeCount, banned: shouldBan || Boolean(targetUser?.isBanned), banReason: targetUser?.banReason });
   } catch (err) {

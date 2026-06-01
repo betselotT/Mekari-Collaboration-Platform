@@ -110,6 +110,33 @@ textarea {
   gap: 12px;
 }
 
+.icon-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  padding: 0;
+  position: relative;
+  transition: background 0.18s ease, color 0.18s ease;
+  width: 40px;
+}
+
+.icon-button:hover,
+.icon-button:focus-visible {
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+.icon-button:focus-visible {
+  outline: 2px solid rgba(124, 58, 237, 0.28);
+  outline-offset: 2px;
+}
+
 .admin-notification-wrap {
   position: relative;
 }
@@ -125,8 +152,13 @@ textarea {
   border-radius: 999px;
   color: white;
   font-size: 11px;
-  min-width: 20px;
-  padding: 2px 6px;
+  font-weight: 800;
+  line-height: 1;
+  min-width: 18px;
+  padding: 3px 5px;
+  position: absolute;
+  right: -4px;
+  top: -4px;
 }
 
 .admin-notification-panel {
@@ -134,13 +166,18 @@ textarea {
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: var(--shadow-md);
-  overflow: hidden;
   position: absolute;
   right: 0;
   top: calc(100% + 10px);
   width: 360px;
   z-index: 30;
   max-width: calc(100vw - 32px);
+  overflow: hidden;
+}
+
+.admin-notification-list {
+  max-height: min(520px, calc(100vh - 120px));
+  overflow-y: auto;
 }
 
 .notification-panel-header {
@@ -227,14 +264,46 @@ textarea {
 }
 
 .admin-notification-item {
+  align-items: flex-start;
+  background: var(--surface);
+  border: 0;
   border-bottom: 1px solid var(--border);
-  display: grid;
-  gap: 4px;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
   padding: 12px 14px;
+  text-align: left;
+  width: 100%;
+}
+
+.admin-notification-item:hover,
+.admin-notification-item:focus-visible {
+  background: var(--surface-soft);
+}
+
+.admin-notification-item:focus-visible {
+  outline: 2px solid rgba(124, 58, 237, 0.28);
+  outline-offset: -2px;
 }
 
 .admin-notification-item:last-child {
   border-bottom: 0;
+}
+
+.admin-notification-item.unread {
+  background: var(--primary-soft);
+}
+
+.admin-notification-item.read span,
+.admin-notification-item.read small {
+  color: var(--muted-soft);
+}
+
+.admin-notification-item > div {
+  display: grid;
+  gap: 4px;
 }
 
 .admin-notification-item span {
@@ -246,6 +315,24 @@ textarea {
 .admin-notification-item small {
   color: var(--muted);
   font-size: 12px;
+}
+
+.notification-expand-button {
+  background: var(--surface);
+  border: 0;
+  border-top: 1px solid var(--border);
+  color: var(--primary);
+  cursor: pointer;
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 12px 14px;
+  text-align: center;
+  width: 100%;
+}
+
+.notification-expand-button:hover {
+  background: var(--surface-soft);
 }
 
 .content {
@@ -602,6 +689,14 @@ textarea {
 .review-actions .note {
   min-height: 96px;
   resize: vertical;
+}
+
+.inline-error {
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 700;
+  margin: 2px 0 0;
+  max-width: 260px;
 }
 
 .status-control {

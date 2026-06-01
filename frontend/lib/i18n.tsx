@@ -246,6 +246,7 @@ const translations: Record<Language, Record<string, string>> = {
     "Available soon": "Available soon",
     "Away": "Away",
     "Consult": "Consult",
+    "DM": "DM",
     "Be the first to review": "Be the first to review",
     "review": "review",
     "reviews": "reviews",

@@ -19,6 +19,7 @@ import {
   userCanAccessDm,
 } from "../services/dmMessages";
 import { User } from "../models/User";
+import { ADMIN_DASHBOARD_ROOM } from "../services/adminRealtime";
 import {
   addWhiteboardStroke,
   clearWhiteboard,
@@ -73,6 +74,14 @@ async function authenticateSocket(socket: Socket) {
   }
 }
 
+function canJoinAdminDashboard(socket: Socket) {
+  const expectedKey = process.env.ADMIN_API_KEY?.trim();
+  if (!expectedKey) return true;
+
+  const providedKey = socket.handshake.auth?.adminApiKey;
+  return typeof providedKey === "string" && providedKey === expectedKey;
+}
+
 export function registerChatHandlers(
   io: Server,
   _redis?: RedisClientType<any, any, any> | null
@@ -93,6 +102,15 @@ export function registerChatHandlers(
     socket.on("leave_room", (threadId: string) => {
       if (!threadId) return;
       socket.leave(roomName("thread", threadId));
+    });
+
+    socket.on("join_admin_dashboard", () => {
+      if (!canJoinAdminDashboard(socket)) return;
+      socket.join(ADMIN_DASHBOARD_ROOM);
+    });
+
+    socket.on("leave_admin_dashboard", () => {
+      socket.leave(ADMIN_DASHBOARD_ROOM);
     });
 
     socket.on("send_message", async (payload: unknown) => {

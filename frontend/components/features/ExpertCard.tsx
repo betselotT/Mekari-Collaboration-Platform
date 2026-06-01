@@ -170,20 +170,20 @@ export function ExpertCard(props: ExpertCardProps) {
 
         {/* Action Buttons */}
         <div className="flex flex-col gap-2 min-[360px]:flex-row">
-          <Button
+          {/* <Button
             variant="primary"
             className="flex-1 rounded-xl bg-primary-600 text-white text-xs font-semibold shadow-sm transition-all hover:bg-primary-700 hover:scale-[1.01] active:scale-[0.99]"
             onClick={onConsult}
           >
             {t("Consult")}
-          </Button>
+          </Button> */}
           <Button
             variant="secondary"
             className="flex-1 rounded-xl border border-neutral-200 bg-white text-xs font-semibold text-neutral-700 shadow-sm transition-all hover:bg-neutral-50 hover:text-neutral-900 active:scale-[0.99] dark:border-neutral-800 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
             onClick={onDm}
           >
             <MessageSquare className="mr-1.5 inline h-3.5 w-3.5 opacity-80" />
-            DM
+            {t("DM")}
           </Button>
         </div>
       </div>

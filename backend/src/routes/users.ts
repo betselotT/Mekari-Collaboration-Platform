@@ -6,6 +6,7 @@ import { requireAuth, AuthRequest } from "../middleware/auth";
 import { User } from "../models/User";
 import { ExpertReview } from "../models/ExpertReview";
 import { logAuditEvent } from "../services/auditLog";
+import { broadcastAdminDashboardUpdate } from "../services/adminRealtime";
 import { withAchievementSummaries, withAchievementSummary } from "../services/awardPoints";
 import { notifyAdmins } from "../services/notifications";
 import { COMMUNITY_GUIDELINES_VERSION } from "../config/communityGuidelines";
@@ -362,6 +363,11 @@ router.post("/me/setup", requireAuth, async (req: AuthRequest, res, next) => {
           message: `${user.name} asked to be approved as a mentor.`,
           link: "/admin/mentor-verifications",
         });
+        await broadcastAdminDashboardUpdate({
+          type: "mentor_verification_submitted",
+          id: String(user._id),
+          message: `${user.name} asked to be approved as a mentor.`,
+        });
       }
     }
 
@@ -416,6 +422,11 @@ router.post("/me/mentor-verification-document", requireAuth, async (req: AuthReq
       title: "Mentor document resubmitted",
       message: `${user.name} uploaded a new mentor verification document.`,
       link: "/admin/mentor-verifications",
+    });
+    await broadcastAdminDashboardUpdate({
+      type: "mentor_verification_submitted",
+      id: String(user._id),
+      message: `${user.name} uploaded a new mentor verification document.`,
     });
 
     res.json({ user: serializePrivateUser(user) });

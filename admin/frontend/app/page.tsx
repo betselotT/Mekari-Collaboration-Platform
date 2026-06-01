@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Bell, LogOut } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { adminFetch } from "../lib/api";
+import { subscribeAdminDashboardUpdates } from "../lib/adminSocket";
 import { registerAdminPushNotifications } from "../lib/pushNotifications";
 
 type Summary = {
@@ -159,6 +161,15 @@ type StatusFilter = "all" | "pending" | "approved" | "rejected";
 type ReportFilter = "all" | "pending" | "struck" | "dismissed";
 type AdminSection = "analytics" | "announcements" | "verifications" | "users" | "reports" | "logs";
 const PAGE_SIZE = 10;
+const NOTIFICATION_PREVIEW_COUNT = 5;
+const READ_AUDIT_NOTIFICATIONS_KEY = "mekari_admin_read_audit_notifications";
+
+type AdminDashboardUpdate = {
+  type?: string;
+  id?: string;
+  message?: string;
+  createdAt?: string;
+};
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
   year: "numeric",
@@ -190,6 +201,46 @@ function targetLabel(report: ReportItem) {
   return `${report.target.name || "User"} ${report.target.email ? `(${report.target.email})` : ""}`;
 }
 
+function mergeAdminNotifications(
+  fetched: AdminNotification[],
+  current: AdminNotification[],
+  readLocalIds: Set<string>
+) {
+  const byId = new Map<string, AdminNotification>();
+
+  for (const notification of [...current, ...fetched]) {
+    const existing = byId.get(notification._id);
+    byId.set(notification._id, {
+      ...notification,
+      read: notification.read || existing?.read || readLocalIds.has(notification._id),
+    });
+  }
+
+  return Array.from(byId.values())
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+    .slice(0, 30);
+}
+
+function readLocalNotificationIds() {
+  if (typeof window === "undefined") return new Set<string>();
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem(READ_AUDIT_NOTIFICATIONS_KEY) || "[]"
+    );
+    return new Set(Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : []);
+  } catch {
+    return new Set<string>();
+  }
+}
+
+function writeLocalNotificationIds(ids: Set<string>) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(READ_AUDIT_NOTIFICATIONS_KEY, JSON.stringify(Array.from(ids)));
+}
+
 export default function AdminDashboard() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
@@ -202,6 +253,7 @@ export default function AdminDashboard() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsExpanded, setNotificationsExpanded] = useState(false);
   const [actionTypes, setActionTypes] = useState<string[]>([]);
   const [activeSection, setActiveSection] = useState<AdminSection>("verifications");
   const [verificationFilter, setVerificationFilter] = useState<StatusFilter>("pending");
@@ -218,6 +270,7 @@ export default function AdminDashboard() {
   const [learnerPagination, setLearnerPagination] = useState<Pagination | null>(null);
   const [logPagination, setLogPagination] = useState<Pagination | null>(null);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  const [reviewErrors, setReviewErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
@@ -233,6 +286,9 @@ export default function AdminDashboard() {
   const [announcementLink, setAnnouncementLink] = useState("/dashboard");
   const [sendingAnnouncement, setSendingAnnouncement] = useState(false);
   const [announcementStatus, setAnnouncementStatus] = useState<string | null>(null);
+  const loadDashboardRef = useRef<() => Promise<void>>(async () => undefined);
+  const realtimeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notificationsPanelRef = useRef<HTMLDivElement | null>(null);
 
   const metrics = useMemo(
     () => [
@@ -243,6 +299,11 @@ export default function AdminDashboard() {
     ],
     [summary]
   );
+  const visibleNotifications = notificationsExpanded
+    ? notifications
+    : notifications.slice(0, NOTIFICATION_PREVIEW_COUNT);
+  const hiddenNotificationCount = Math.max(0, notifications.length - visibleNotifications.length);
+  const unreadNotificationCount = notifications.filter((notification) => !notification.read).length;
 
   function openMetric(metricId: string) {
     if (metricId === "pending-mentors") {
@@ -335,7 +396,9 @@ export default function AdminDashboard() {
       setReports(reportRes.reports);
       setReportedUsers(reportedUsersRes.reportedUsers);
       setLogs(logRes.logs);
-      setNotifications(notificationRes.notifications || []);
+      setNotifications((current) =>
+        mergeAdminNotifications(notificationRes.notifications || [], current, readLocalNotificationIds())
+      );
       setActionTypes(logRes.actionTypes || []);
       setVerificationPagination(verificationRes.pagination);
       setMentorPagination(mentorRes.pagination);
@@ -350,17 +413,118 @@ export default function AdminDashboard() {
   }
 
   useEffect(() => {
+    loadDashboardRef.current = loadDashboard;
+  });
+
+  useEffect(() => {
     loadDashboard();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [verificationFilter, reportFilter, verificationPage, mentorPage, learnerPage, reportPage, logPage, logActionType]);
 
+  useEffect(() => {
+    const unsubscribe = subscribeAdminDashboardUpdates(handleRealtimeUpdate);
+    return () => {
+      unsubscribe();
+      if (realtimeRefreshTimerRef.current) {
+        clearTimeout(realtimeRefreshTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      if (!notificationsOpen) return;
+      const target = event.target;
+      if (target instanceof Node && notificationsPanelRef.current?.contains(target)) return;
+      setNotificationsOpen(false);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [notificationsOpen]);
+
+  function handleRealtimeUpdate(payload: unknown) {
+    const update = payload as AdminDashboardUpdate;
+    if (update?.message && (update.type === "report_created" || update.type === "mentor_verification_submitted")) {
+      const notificationId = `realtime-${update.type}-${update.id || update.createdAt || Date.now()}`;
+      setNotifications((current) => {
+        if (current.some((item) => item._id === notificationId)) return current;
+        return [
+          {
+            _id: notificationId,
+            type: update.type || "admin_dashboard_update",
+            message: update.message || "Admin dashboard updated.",
+            link: update.type === "report_created" ? "/admin/reports" : "/admin/mentor-verifications",
+            read: false,
+            createdAt: update.createdAt || new Date().toISOString(),
+          },
+          ...current,
+        ].slice(0, 30);
+      });
+    }
+
+    if (realtimeRefreshTimerRef.current) {
+      clearTimeout(realtimeRefreshTimerRef.current);
+    }
+    realtimeRefreshTimerRef.current = setTimeout(() => {
+      void loadDashboardRef.current();
+    }, 350);
+  }
+
+  async function markAllNotificationsRead() {
+    const unread = notifications.filter((notification) => !notification.read);
+    if (unread.length === 0) return;
+
+    setNotifications((current) =>
+      current.map((item) => ({ ...item, read: true }))
+    );
+
+    const localIds = readLocalNotificationIds();
+    for (const notification of unread) {
+      if (notification._id.startsWith("audit-") || notification._id.startsWith("realtime-")) {
+        localIds.add(notification._id);
+      }
+    }
+    writeLocalNotificationIds(localIds);
+
+    try {
+      await adminFetch("/api/admin/notifications/read-all", {
+        method: "PATCH",
+      });
+    } catch {
+      await loadDashboardRef.current();
+    }
+  }
+
+  function openNotificationTarget(notification: AdminNotification) {
+    if (notification.type === "new_report" || notification.link?.includes("reports")) {
+      setActiveSection("reports");
+      setReportFilter("pending");
+      setReportPage(1);
+    } else if (
+      notification.type === "mentor_verification_submitted" ||
+      notification.link?.includes("mentor-verifications")
+    ) {
+      setActiveSection("verifications");
+      setVerificationFilter("pending");
+      setVerificationPage(1);
+    }
+
+    setNotificationsOpen(false);
+  }
+
   async function reviewMentor(userId: string, status: "pending" | "approved" | "rejected") {
     if (status === "rejected" && !reviewNotes[userId]?.trim()) {
-      setError("Rejection reason is required.");
+      setReviewErrors((current) => ({ ...current, [userId]: "Rejection reason is required." }));
       return;
     }
     setSavingId(userId);
     setError(null);
+    setReviewErrors((current) => {
+      const next = { ...current };
+      delete next[userId];
+      return next;
+    });
     try {
       await adminFetch(`/api/admin/mentor-verifications/${userId}`, {
         method: "PATCH",
@@ -374,6 +538,59 @@ export default function AdminDashboard() {
       setError(err instanceof Error ? err.message : "Failed to review mentor");
     } finally {
       setSavingId(null);
+    }
+  }
+
+  function applyReviewedReport(
+    reportId: string,
+    status: "struck" | "dismissed",
+    actionTaken: string
+  ) {
+    let removedFromCurrentView = false;
+    setReports((current) => {
+      const next = current
+        .map((report) =>
+          report._id === reportId ? { ...report, status, actionTaken } : report
+        )
+        .filter((report) => {
+          const visible =
+            reportFilter === "all" ||
+            reportFilter === report.status ||
+            (reportFilter === "pending" && report.status === "pending");
+          if (report._id === reportId && !visible) removedFromCurrentView = true;
+          return visible;
+        });
+      return next;
+    });
+
+    if (removedFromCurrentView) {
+      setReportPagination((current) =>
+        current
+          ? {
+              ...current,
+              total: Math.max(0, current.total - 1),
+            }
+          : current
+      );
+    }
+
+    if (reportFilter === "pending") {
+      setSummary((current) =>
+        current
+          ? { ...current, pendingReports: Math.max(0, current.pendingReports - 1) }
+          : current
+      );
+      setAnalytics((current) =>
+        current
+          ? {
+              ...current,
+              metrics: {
+                ...current.metrics,
+                pendingReports: Math.max(0, current.metrics.pendingReports - 1),
+              },
+            }
+          : current
+      );
     }
   }
 
@@ -396,24 +613,26 @@ export default function AdminDashboard() {
   async function updateReport(reportId: string, status: "struck" | "dismissed", options?: { banReason?: string }) {
     setSavingId(reportId);
     setError(null);
+    const actionTaken = status === "struck"
+      ? options?.banReason
+        ? `Third strike issued. User banned: ${options.banReason}`
+        : "Strike issued"
+      : "Report dismissed";
     try {
       await adminFetch(`/api/admin/reports/${reportId}`, {
         method: "PATCH",
         body: JSON.stringify({
           status,
-          actionTaken: status === "struck"
-            ? options?.banReason
-              ? `Third strike issued. User banned: ${options.banReason}`
-              : "Strike issued"
-            : "Report dismissed",
+          actionTaken,
           banReason: options?.banReason,
         }),
       });
+      applyReviewedReport(reportId, status, actionTaken);
       if (options?.banReason) {
         setBanReview(null);
         setBanReason("");
       }
-      await loadDashboard();
+      void loadDashboardRef.current();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update report");
     } finally {
@@ -496,37 +715,75 @@ export default function AdminDashboard() {
           </div>
           <div className="topbar-actions">
             <div className="topbar-meta">{loading ? "Syncing data" : "Admin Workspace"}</div>
-            <div className="admin-notification-wrap">
+            <div className="admin-notification-wrap" ref={notificationsPanelRef}>
               <button
-                className="button secondary notification-button"
+                type="button"
+                className="icon-button notification-button"
                 onClick={() => setNotificationsOpen((value) => !value)}
+                aria-label="Alerts"
+                title="Alerts"
               >
-                Alerts
-                {notifications.length > 0 ? <strong>{notifications.length}</strong> : null}
+                <Bell size={20} aria-hidden="true" />
+                {unreadNotificationCount > 0 ? <strong>{unreadNotificationCount}</strong> : null}
               </button>
               {notificationsOpen && (
                 <div className="admin-notification-panel">
                   <div className="notification-panel-header">
                     <strong>Admin alerts</strong>
-                    <button className="link-button" onClick={loadDashboard}>Refresh</button>
+                    <button
+                      className="link-button"
+                      disabled={unreadNotificationCount === 0}
+                      onClick={() => void markAllNotificationsRead()}
+                    >
+                      Mark all read
+                    </button>
                   </div>
                   {notifications.length === 0 ? (
                     <div className="empty">No admin alerts yet.</div>
                   ) : (
-                    notifications.map((notification) => (
-                      <div className="admin-notification-item" key={notification._id}>
-                        <span>{notification.message}</span>
-                        <small>{formatDate(notification.createdAt)}</small>
-                      </div>
-                    ))
+                    <div className="admin-notification-list">
+                      {visibleNotifications.map((notification) => (
+                        <button
+                          type="button"
+                          className={`admin-notification-item ${notification.read ? "read" : "unread"}`}
+                          key={notification._id}
+                          onClick={() => openNotificationTarget(notification)}
+                        >
+                          <div>
+                            <span>{notification.message}</span>
+                            <small>{formatDate(notification.createdAt)}</small>
+                          </div>
+                        </button>
+                      ))}
+                      {hiddenNotificationCount > 0 && (
+                        <button
+                          type="button"
+                          className="notification-expand-button"
+                          onClick={() => setNotificationsExpanded(true)}
+                        >
+                          Show {hiddenNotificationCount} more
+                        </button>
+                      )}
+                      {notificationsExpanded && notifications.length > NOTIFICATION_PREVIEW_COUNT && (
+                        <button
+                          type="button"
+                          className="notification-expand-button"
+                          onClick={() => setNotificationsExpanded(false)}
+                        >
+                          Show fewer
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
             </div>
+            <button className="icon-button" onClick={logout} aria-label="Sign out" title="Sign out">
+              <LogOut size={20} aria-hidden="true" />
+            </button>
             <button className="button secondary" disabled={enablingPush} onClick={enablePush}>
               {enablingPush ? "Enabling..." : "Enable push"}
             </button>
-            <button className="button secondary" onClick={logout}>Sign out</button>
           </div>
         </div>
       </header>
@@ -817,13 +1074,25 @@ export default function AdminDashboard() {
                     className="input note"
                     placeholder="Review note. Required when rejecting."
                     value={reviewNotes[item._id] || ""}
-                    onChange={(event) => setReviewNotes((current) => ({ ...current, [item._id]: event.target.value }))}
+                    onChange={(event) => {
+                      setReviewNotes((current) => ({ ...current, [item._id]: event.target.value }));
+                      if (event.target.value.trim()) {
+                        setReviewErrors((current) => {
+                          const next = { ...current };
+                          delete next[item._id];
+                          return next;
+                        });
+                      }
+                    }}
                   />
                   <MentorStatusControl
                     currentStatus={item.expertVerification.status}
                     disabled={savingId === item._id}
                     onChange={(status) => reviewMentor(item._id, status)}
                   />
+                  {reviewErrors[item._id] && (
+                    <p className="inline-error">{reviewErrors[item._id]}</p>
+                  )}
                 </div>
               </article>
             ))}

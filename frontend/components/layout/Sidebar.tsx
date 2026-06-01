@@ -30,9 +30,9 @@ const mainMenu: NavItem[] = [
   { icon: Zap, labelKey: "nav.match", href: "/dashboard/match" },
   { icon: Users, labelKey: "nav.experts", href: "/dashboard/experts" },
   { icon: BarChart3, labelKey: "nav.leaderboard", href: "/dashboard/leaderboard" },
-  { icon: User, labelKey: "nav.profile", href: "/dashboard/profile" },
   { icon: Bot, labelKey: "nav.aiAssistant", href: "/dashboard/ai-assistant" },
   { icon: ShieldAlert, labelKey: "nav.reportUser", href: "/dashboard/reports" },
+  { icon: User, labelKey: "nav.profile", href: "/dashboard/profile" },
 ];
 
 const subjectsMenu: NavItem[] = [
