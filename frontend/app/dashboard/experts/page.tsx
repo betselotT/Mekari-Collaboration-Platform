@@ -9,6 +9,7 @@ import { Button } from "../../../components/ui/Button";
 import { ArrowRight, CheckCircle2, Star, StarHalf, Users, X } from "lucide-react";
 import { apiClient } from "../../../lib/api";
 import { useLanguage } from "../../../lib/i18n";
+import { ContourField } from "../../../components/visual/ContourField";
 
 interface DBExpert {
   _id: string;
@@ -704,9 +705,9 @@ export default function ExpertsPage() {
       })()}
 
       {/* Modern, Clean Green-Free Statistics & Header section */}
-      <section className="relative mb-8 overflow-hidden rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50/50 via-white to-cyan-50/30 p-6 shadow-sm dark:border-neutral-800 dark:from-neutral-950 dark:via-neutral-900 dark:to-primary-950/10">
+      <section className="relative mb-8 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white/80 p-6 shadow-sm backdrop-blur dark:border-white/10 dark:bg-neutral-900/75">
         <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-cyan-400/5 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 left-1/4 h-56 w-56 rounded-full bg-primary-400/5 blur-3xl" />
+        <ContourField className="pointer-events-none absolute -right-24 -top-16 h-52 w-[350px] rotate-[-8deg] opacity-[0.14] dark:opacity-[0.24]" />
         <div className="relative grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <h2 className="max-w-3xl text-2xl font-bold tracking-tight text-neutral-950 dark:text-white md:text-3xl">

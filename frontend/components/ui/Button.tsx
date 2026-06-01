@@ -29,7 +29,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         disabled={disabled || isLoading}
-        className={`inline-flex items-center justify-center rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+        className={`inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
         {...props}
       >
         {isLoading ? (

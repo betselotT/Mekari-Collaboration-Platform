@@ -9,6 +9,7 @@ import { GithubAuthButton } from "../components/auth/GithubAuthButton";
 import { Button } from "../components/ui/Button";
 import { apiClient } from "../lib/api";
 import { useLanguage } from "../lib/i18n";
+import { ContourField } from "../components/visual/ContourField";
 import {
   Zap,
   Users,
@@ -19,6 +20,7 @@ import {
   CheckCircle2,
   Search,
   Video,
+  ArrowRight,
 } from "lucide-react";
 
 type LandingPreview = {
@@ -127,22 +129,24 @@ export default function LandingPage() {
       : "No live session yet";
 
   return (
-    <div className="min-h-screen bg-white dark:bg-neutral-950">
+    <div className="min-h-screen overflow-hidden bg-white dark:bg-neutral-950">
       {/* Navigation */}
-      <nav className="fixed top-0 z-50 w-full border-b border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+      <nav className="fixed top-0 z-50 w-full border-b border-neutral-200/80 bg-white/85 text-neutral-950 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/85 dark:text-white dark:shadow-lg dark:shadow-black/10">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-600 text-white font-bold">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-violet-700 text-white font-bold shadow-lg shadow-primary-950/50 ring-1 ring-white/20">
               M
             </div>
-            <span className="text-xl font-bold text-neutral-900 dark:text-white">Mekari</span>
+            <div>
+              <span className="block text-xl font-bold tracking-tight">Mekari</span>
+            </div>
           </div>
 
           <div className="hidden items-center gap-8 md:flex">
-            <a href="#community" className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">
+            <a href="#community" className="text-xs font-bold uppercase tracking-[0.18em] text-neutral-600 transition-colors hover:text-neutral-950 dark:text-neutral-300 dark:hover:text-white">
               {t("landing.community")}
             </a>
-            <a href="#solutions" className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">
+            <a href="#solutions" className="text-xs font-bold uppercase tracking-[0.18em] text-neutral-600 transition-colors hover:text-neutral-950 dark:text-neutral-300 dark:hover:text-white">
               {t("landing.solutions")}
             </a>
             {/* <a href="#pricing" className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">
@@ -154,7 +158,7 @@ export default function LandingPage() {
             <ThemeToggle />
             <LanguageToggle />
             <Link href="/login">
-              <Button variant="secondary" size="sm">
+              <Button variant="primary" size="sm" className="rounded-full px-5 shadow-lg shadow-primary-200/60 hover:scale-105 hover:shadow-primary-300/70 dark:shadow-primary-950/40 dark:hover:shadow-primary-900/60">
                 {t("auth.signIn")}
               </Button>
             </Link>
@@ -163,32 +167,51 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-6">
-        <div className="mx-auto max-w-4xl text-center">
-          <h1 className="mb-6 text-5xl font-bold leading-tight text-neutral-900 dark:text-white">
-            {t("landing.ask")}<br />
-            {t("landing.collaborate")}<br />
-            <span className="text-primary-600">{t("landing.grow")}</span>
-          </h1>
-          <p className="mb-8 text-lg text-neutral-600 dark:text-neutral-300">
-            {t("landing.heroCopy")}
-          </p>
-          <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
-            <Link href="/register">
-              <Button variant="primary" size="lg">
-                {t("landing.getStarted")}
-              </Button>
-            </Link>
-            <Link href="/threads">
-              <Button variant="secondary" size="lg">
-                {t("landing.browseThreads")}
-              </Button>
-            </Link>
+      <section className="relative isolate overflow-hidden bg-white px-6 pb-20 pt-32 dark:bg-neutral-950">
+        <div className="absolute inset-0 -z-30 bg-[radial-gradient(circle_at_15%_20%,rgba(139,92,246,0.18),transparent_28%),radial-gradient(circle_at_85%_12%,rgba(59,130,246,0.12),transparent_24%),linear-gradient(135deg,#ffffff_0%,#faf7ff_54%,#f8fbff_100%)] dark:bg-[radial-gradient(circle_at_15%_20%,rgba(124,58,237,0.24),transparent_27%),radial-gradient(circle_at_82%_25%,rgba(59,130,246,0.16),transparent_22%),linear-gradient(135deg,#050507_0%,#0a0712_52%,#030306_100%)]" />
+        <div className="absolute inset-0 -z-20 opacity-50 [background-image:linear-gradient(rgba(109,40,217,.06)_1px,transparent_1px),linear-gradient(90deg,rgba(109,40,217,.06)_1px,transparent_1px)] [background-size:52px_52px] dark:opacity-30 dark:[background-image:linear-gradient(rgba(255,255,255,.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.05)_1px,transparent_1px)]" />
+        <div className="mx-auto max-w-7xl">
+          <div className="grid min-h-[560px] items-center gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="relative z-10">
+              <h1 className="text-6xl font-black leading-[0.94] tracking-[-0.07em] text-neutral-950 dark:text-white sm:text-7xl lg:text-[7rem]">
+                {t("landing.ask")}<br />
+                {t("landing.collaborate")}<br />
+                <span className="bg-gradient-to-r from-primary-600 via-violet-500 to-sky-500 bg-clip-text text-transparent dark:from-primary-300 dark:via-violet-400 dark:to-sky-300">
+                  {t("landing.grow")}
+                </span>
+              </h1>
+              <p className="mt-7 max-w-xl text-base leading-7 text-neutral-600 dark:text-neutral-300 sm:text-lg">
+                {t("landing.heroCopy")}
+              </p>
+              <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+                <Link href="/register">
+                  <Button variant="primary" size="lg" className="w-full rounded-full px-7 shadow-xl shadow-primary-200/70 transition-all duration-300 hover:-translate-y-1 hover:scale-[1.03] hover:shadow-2xl hover:shadow-primary-300/70 dark:shadow-primary-950/70 dark:hover:shadow-primary-900/70 sm:w-auto">
+                    {t("landing.getStarted")}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link href="/threads">
+                  <Button variant="outline" size="lg" className="w-full rounded-full border-primary-200 bg-white/70 px-7 text-neutral-900 backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:scale-[1.03] hover:border-primary-400 hover:bg-white hover:shadow-xl hover:shadow-primary-100 dark:border-white/25 dark:bg-white/5 dark:text-white dark:hover:border-primary-400 dark:hover:bg-white/10 dark:hover:shadow-primary-950/60 sm:w-auto">
+                    {t("landing.browseThreads")}
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            <div className="relative min-h-[420px] lg:min-h-[540px]">
+              <ContourField className="absolute -right-24 top-0 h-[370px] w-[620px] rotate-[-5deg] opacity-75 dark:opacity-95" />
+              <ContourField className="absolute -bottom-8 right-2 h-[300px] w-[500px] rotate-[167deg] opacity-55 dark:opacity-75" />
+              <div className="absolute right-4 top-12 h-24 w-24 rounded-full border border-primary-400/50 bg-primary-500/10 shadow-[0_0_80px_rgba(139,92,246,.3)] backdrop-blur">
+                <div className="absolute inset-4 rounded-full border border-sky-400/60" />
+                <div className="absolute inset-9 rounded-full bg-primary-500 shadow-[0_0_30px_rgba(139,92,246,.75)]" />
+              </div>
+            </div>
           </div>
 
-          <div id="community" className="mt-16 scroll-mt-24 overflow-hidden rounded-2xl border border-neutral-200 bg-white text-left shadow-xl shadow-primary-100/50 dark:border-neutral-700 dark:bg-neutral-900 dark:shadow-none">
+          <div id="community" className="relative mt-8 scroll-mt-24 overflow-hidden rounded-3xl border border-primary-100 bg-white/80 text-left shadow-2xl shadow-primary-100/60 backdrop-blur-xl transition-transform duration-500 hover:-translate-y-1 dark:border-primary-700/50 dark:bg-neutral-950/85 dark:shadow-primary-950/30">
             <div className="grid min-h-[360px] md:grid-cols-[1.05fr_0.95fr]">
-              <div className="flex flex-col justify-between gap-6 bg-gradient-to-br from-primary-600 via-violet-600 to-indigo-700 p-6 text-white sm:p-8">
+              <div className="relative flex flex-col justify-between gap-6 overflow-hidden bg-gradient-to-br from-primary-600 via-violet-600 to-indigo-950 p-6 text-white sm:p-8">
+                <ContourField className="absolute -bottom-28 -right-32 h-80 w-[520px] rotate-[155deg] opacity-25" />
                 <div>
                   <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur">
                     <Zap className="h-3.5 w-3.5" />
@@ -216,7 +239,7 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              <div className="bg-neutral-50 p-5 dark:bg-neutral-950 sm:p-6">
+              <div className="bg-white/85 p-5 dark:bg-neutral-950/90 sm:p-6">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-primary-600 dark:text-primary-400">
@@ -234,14 +257,14 @@ export default function LandingPage() {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                  <div className="rounded-xl border border-primary-100 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
                     <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white">
                       <Search className="h-4 w-4 text-primary-600 dark:text-primary-400" />
                       Saved tags
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {(landingPreview?.tags || []).map((tag) => (
-                        <span key={tag} className="rounded bg-primary-50 px-2 py-1 text-xs font-semibold text-primary-700 dark:bg-primary-950 dark:text-primary-300">
+                        <span key={tag} className="rounded-md border border-primary-100 bg-primary-50 px-2 py-1 text-xs font-semibold text-primary-700 dark:border-primary-600/60 dark:bg-primary-900/80 dark:text-primary-100">
                           {tag}
                         </span>
                       ))}
@@ -251,14 +274,14 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                  <div className="rounded-xl border border-primary-100 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
                     <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white">
                       <Users className="h-4 w-4 text-amber-500" />
                       Matched helpers
                     </div>
                     <div className="space-y-2">
                       {(landingPreview?.helpers || []).map((mentor) => (
-                        <div key={mentor.name} className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2 dark:bg-neutral-800">
+                        <div key={mentor.name} className="flex items-center justify-between rounded-lg bg-primary-50/70 px-3 py-2 dark:bg-white/5">
                           <span className="text-sm text-neutral-700 dark:text-neutral-200">{mentor.name} - {mentor.expertise}</span>
                           <span className="text-xs font-bold text-primary-600 dark:text-primary-400">
                             {mentor.points} pts
@@ -274,7 +297,7 @@ export default function LandingPage() {
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                    <div className="rounded-xl border border-primary-100 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
                       <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white">
                         <Video className="h-4 w-4 text-sky-500" />
                         Connection
@@ -283,7 +306,7 @@ export default function LandingPage() {
                         {connectionLabel}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                    <div className="rounded-xl border border-primary-100 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
                       <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-white">
                         <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                         Project subject
@@ -301,10 +324,16 @@ export default function LandingPage() {
       </section>
 
       {/* Why Mekari Section */}
-      <section id="solutions" className="bg-neutral-50 py-20 px-6 dark:bg-neutral-900">
-        <div className="mx-auto max-w-6xl">
+      <section id="solutions" className="relative overflow-hidden bg-gradient-to-b from-white to-primary-50/50 px-6 py-24 dark:from-neutral-950 dark:to-neutral-900">
+        <div className="absolute inset-0 opacity-50 [background-image:linear-gradient(rgba(109,40,217,.05)_1px,transparent_1px),linear-gradient(90deg,rgba(109,40,217,.05)_1px,transparent_1px)] [background-size:52px_52px] dark:opacity-20 dark:[background-image:linear-gradient(rgba(255,255,255,.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.05)_1px,transparent_1px)]" />
+        <div className="absolute -right-40 top-16 h-80 w-80 rounded-full bg-primary-200/30 blur-3xl dark:bg-primary-900/20" />
+        <ContourField className="pointer-events-none absolute -left-36 bottom-0 h-72 w-[480px] rotate-[170deg] opacity-20 dark:opacity-35" />
+        <div className="relative mx-auto max-w-6xl">
           <div className="mb-16 text-center">
-            <h2 className="mb-4 text-4xl font-bold text-neutral-900 dark:text-white">{t("Why Mekari?")}</h2>
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.22em] text-primary-600 dark:text-primary-300">
+              {t("landing.solutions")}
+            </p>
+            <h2 className="mb-4 text-4xl font-black tracking-tight text-neutral-900 dark:text-white">{t("Why Mekari?")}</h2>
             <p className="text-lg text-neutral-600 dark:text-neutral-400">
               Empowering developers through real-time support.
             </p>
@@ -316,9 +345,9 @@ export default function LandingPage() {
               return (
                 <div
                   key={feature.title}
-                  className="rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800"
+                  className="group rounded-2xl border border-primary-100 bg-white/80 p-6 shadow-sm backdrop-blur transition-all hover:-translate-y-1 hover:border-primary-300 hover:shadow-xl hover:shadow-primary-100/70 dark:border-white/10 dark:bg-white/5 dark:hover:border-primary-700 dark:hover:shadow-primary-950/30"
                 >
-                  <div className="mb-4 inline-flex rounded-lg bg-primary-100 p-3 dark:bg-primary-900">
+                  <div className="mb-4 inline-flex rounded-xl bg-primary-100 p-3 transition-transform group-hover:scale-110 dark:bg-primary-900">
                     <Icon className="h-6 w-6 text-primary-600 dark:text-primary-400" />
                   </div>
                   <h3 className="mb-2 text-lg font-bold text-neutral-900 dark:text-white">{feature.title}</h3>
@@ -331,16 +360,19 @@ export default function LandingPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="border-t border-neutral-200 px-6 py-20 dark:border-neutral-700">
-        <div className="mx-auto max-w-3xl text-center">
-          <h2 className="mb-6 text-3xl font-bold text-neutral-900 dark:text-white">{t("auth.welcomeBack")}</h2>
+      <section className="relative overflow-hidden border-t border-primary-100 bg-white px-6 py-24 dark:border-white/10 dark:bg-neutral-950">
+        <div className="absolute inset-0 opacity-50 [background-image:linear-gradient(rgba(109,40,217,.05)_1px,transparent_1px),linear-gradient(90deg,rgba(109,40,217,.05)_1px,transparent_1px)] [background-size:52px_52px] dark:opacity-20 dark:[background-image:linear-gradient(rgba(255,255,255,.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.05)_1px,transparent_1px)]" />
+        <div className="absolute left-1/2 top-8 h-56 w-96 -translate-x-1/2 rounded-full bg-primary-200/30 blur-3xl dark:bg-primary-900/20" />
+        <ContourField className="pointer-events-none absolute -right-44 bottom-0 h-72 w-[480px] rotate-[-8deg] opacity-15 dark:opacity-30" />
+        <div className="relative mx-auto max-w-3xl text-center">
+          <h2 className="mb-6 text-4xl font-black tracking-tight text-neutral-900 dark:text-white">{t("auth.welcomeBack")}</h2>
           <p className="mb-8 text-neutral-600 dark:text-neutral-400">
             {t("auth.accessCommunity")}
           </p>
 
           <form
             onSubmit={onLandingSignIn}
-            className="rounded-2xl border border-neutral-200 bg-neutral-50 p-8 dark:border-neutral-700 dark:bg-neutral-800"
+            className="relative rounded-3xl border border-primary-100 bg-white/85 p-8 shadow-2xl shadow-primary-100/60 backdrop-blur-xl dark:border-white/10 dark:bg-white/5 dark:shadow-primary-950/20"
           >
             <div className="mb-6">
               <input
@@ -365,7 +397,7 @@ export default function LandingPage() {
               type="submit"
               variant="primary"
               size="lg"
-              className="mb-4 w-full"
+              className="mb-4 w-full transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary-200 dark:hover:shadow-primary-950"
               disabled={landingLoading}
             >
               {landingLoading ? t("auth.signingIn") : t("auth.signIn")}
@@ -434,5 +466,4 @@ const features = [
 function formatConnectionPreference(preference: string) {
   return preference.replace(/_/g, " ");
 }
-
 
