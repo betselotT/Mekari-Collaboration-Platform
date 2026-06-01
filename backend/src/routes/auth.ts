@@ -14,10 +14,10 @@ import {
   getEmailOtpHash,
   storeEmailOtpHash,
 } from "../services/emailOtpStore";
+import { COMMUNITY_GUIDELINES_VERSION } from "../config/communityGuidelines";
 
 const router = Router();
 const googleClient = new OAuth2Client();
-const COMMUNITY_GUIDELINES_VERSION = "2026-06-01";
 
 const accountTypeSchema = z.enum(["learner", "mentor"]);
 const expertiseSchema = z.object({

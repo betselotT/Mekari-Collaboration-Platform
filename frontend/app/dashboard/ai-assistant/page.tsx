@@ -2,7 +2,7 @@
 
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { AxiosError } from "axios";
-import { AlertCircle, CheckCircle, Cpu, DraftingCompass, MessageSquare, Plus, Send, UserRoundCheck, Zap } from "lucide-react";
+import { AlertCircle, ArrowDown, CheckCircle, Cpu, DraftingCompass, MessageSquare, Plus, Send, UserRoundCheck, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "../../../components/layout";
 import { Button } from "../../../components/ui/Button";
@@ -217,7 +217,11 @@ export default function AIAssistantPage() {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasLoadedSavedChat, setHasLoadedSavedChat] = useState(false);
+  const [isAtLatestMessage, setIsAtLatestMessage] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+  const shouldFollowLatestRef = useRef(true);
 
   const apiHistory = useMemo(
     () =>
@@ -247,11 +251,31 @@ export default function AIAssistantPage() {
   }, [hasLoadedSavedChat, messages]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
+    if (!shouldFollowLatestRef.current) return;
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, isSending]);
+
+  function scrollToLatestMessage(behavior: ScrollBehavior = "smooth") {
+    shouldFollowLatestRef.current = true;
+    setIsAtLatestMessage(true);
+    messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
+  }
+
+  function handleChatScroll() {
+    const container = scrollRef.current;
+    if (!container) return;
+    const isNearBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+    shouldFollowLatestRef.current = isNearBottom;
+    setIsAtLatestMessage(isNearBottom);
+  }
+
+  function showError(message: string) {
+    setError(message);
+    window.requestAnimationFrame(() => {
+      errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
 
   async function sendMessage(promptOverride?: string) {
     const prompt = (promptOverride ?? input).trim();
@@ -267,6 +291,8 @@ export default function AIAssistantPage() {
     setInput("");
     setError(null);
     setIsSending(true);
+    shouldFollowLatestRef.current = true;
+    setIsAtLatestMessage(true);
 
     try {
       const res = await apiClient.post<AiChatResponse>("/api/ai/chat", {
@@ -288,7 +314,7 @@ export default function AIAssistantPage() {
       const message =
         axiosError.response?.data?.error?.message ||
         t("Mekari AI could not respond right now. Check the backend Gemini API key and try again.");
-      setError(message);
+      showError(message);
       setMessages((current) => current.filter((message) => message !== userMessage));
       setInput(prompt);
     } finally {
@@ -305,6 +331,8 @@ export default function AIAssistantPage() {
     setMessages([localizedStarterMessage]);
     setInput("");
     setError(null);
+    shouldFollowLatestRef.current = true;
+    setIsAtLatestMessage(true);
     window.localStorage.removeItem(CHAT_STORAGE_KEY);
   }
 
@@ -322,13 +350,13 @@ export default function AIAssistantPage() {
       router.push(`/dashboard/messages?conversation=${res.data.conversation._id}`);
     } catch (err) {
       const axiosError = err as AxiosError<{ error?: { message?: string } }>;
-      setError(axiosError.response?.data?.error?.message || "Failed to start direct message.");
+      showError(axiosError.response?.data?.error?.message || t("Failed to start direct message."));
     }
   }
 
   return (
     <DashboardLayout title={t("Mekari AI")} searchPlaceholder={t("Search engineering topics...")}>
-      <div className="mx-auto flex min-h-[calc(100dvh-8rem)] max-w-5xl flex-col">
+      <div className="mx-auto flex h-[calc(100dvh-8rem)] min-h-0 max-w-5xl flex-col">
         <div className="mb-6 flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
           <span>MEKARI</span>
           <span>/</span>
@@ -357,8 +385,12 @@ export default function AIAssistantPage() {
         </div>
 
         <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <section className="flex min-h-[520px] min-w-0 flex-col rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900">
-            <div ref={scrollRef} className="min-h-0 flex-1 space-y-5 overflow-y-auto p-3 sm:p-5">
+          <section className="relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900">
+            <div
+              ref={scrollRef}
+              onScroll={handleChatScroll}
+              className="relative min-h-0 flex-1 space-y-5 overflow-y-auto p-3 sm:p-5"
+            >
               {messages.map((message, index) => (
                 <div
                   key={`${message.timestamp}-${index}`}
@@ -439,10 +471,22 @@ export default function AIAssistantPage() {
                   </div>
                 </div>
               )}
+              <div ref={messagesEndRef} />
             </div>
 
+            {!isAtLatestMessage && (
+              <button
+                type="button"
+                onClick={() => scrollToLatestMessage()}
+                className="absolute bottom-20 left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 shadow-md hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
+              >
+                <ArrowDown className="h-3.5 w-3.5" />
+                {t("Jump to latest")}
+              </button>
+            )}
+
             {error && (
-              <div className="mx-5 mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+              <div ref={errorRef} className="mx-5 mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
                 {error}
               </div>
             )}

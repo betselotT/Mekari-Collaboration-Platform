@@ -4,6 +4,7 @@ import { ReactNode, useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { useLanguage } from "../../lib/i18n";
+import { CommunityGuidelinesModal } from "../guidelines/CommunityGuidelinesModal";
 // Props for configuring the dashboard layout structure and header content
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -20,6 +21,8 @@ export function DashboardLayout({
 
   return (
     <div className="min-h-dvh bg-neutral-50 dark:bg-neutral-950">
+      <CommunityGuidelinesModal />
+
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 

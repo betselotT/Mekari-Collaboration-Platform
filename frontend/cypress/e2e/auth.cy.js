@@ -76,10 +76,12 @@ describe("Mekari authentication", () => {
       .parent()
       .find("textarea")
       .type("Quick questions and mentorship.");
-    cy.contains("I have read and agree to follow the community guidelines.")
+    cy.contains("button", "Review and accept").click();
+    cy.contains("I have read and agree to follow these community guidelines.")
       .parent()
       .find("input")
       .check();
+    cy.contains("button", "Accept and continue").click();
     cy.contains("button", "Create learner account").click();
 
     cy.wait("@registerRequest").its("request.body").should("deep.include", {
@@ -103,6 +105,8 @@ describe("Mekari authentication", () => {
     });
     cy.get('button[aria-label="Continue with Google"]').click();
     cy.contains("You must accept the community guidelines before registering.").should("be.visible");
+    cy.contains("Community guidelines agreement").should("be.visible");
+    cy.get('button[aria-label="Close community guidelines"]').click();
     cy.get("@scrollToError").should("have.been.called");
     cy.contains("span", /^Full name$/).parent("label").find("input").type("New Learner");
     cy.contains("span", /^Email$/).parent("label").find("input").type("new@example.com");

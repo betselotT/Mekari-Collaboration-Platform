@@ -6,6 +6,8 @@ import { apiClient } from "../../lib/api";
 import { GoogleAuthButton } from "./GoogleAuthButton";
 import { GithubAuthButton } from "./GithubAuthButton";
 import { useLanguage } from "../../lib/i18n";
+import { COMMUNITY_GUIDELINES_VERSION } from "../../lib/communityGuidelines";
+import { CommunityGuidelinesAgreement } from "../guidelines/CommunityGuidelinesAgreement";
 
 type AccountType = "learner" | "mentor";
 
@@ -85,6 +87,8 @@ export function RegisterForm() {
   const [availabilityStatus, setAvailabilityStatus] = useState<"online" | "busy" | "offline">("online");
   const [verificationDocument, setVerificationDocument] = useState<VerificationDocument | null>(null);
   const [communityGuidelinesAccepted, setCommunityGuidelinesAccepted] = useState(false);
+  const [guidelinesAcknowledged, setGuidelinesAcknowledged] = useState(false);
+  const [guidelinesModalOpen, setGuidelinesModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const errorRef = useRef<HTMLParagraphElement | null>(null);
@@ -97,6 +101,16 @@ export function RegisterForm() {
     window.requestAnimationFrame(() => {
       errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
+  }
+
+  function openGuidelinesModal() {
+    setGuidelinesAcknowledged(communityGuidelinesAccepted);
+    setGuidelinesModalOpen(true);
+  }
+
+  function requireGuidelinesAcceptance() {
+    openGuidelinesModal();
+    showError(t("auth.guidelinesRequired"));
   }
 
   function toggleDevice(device: string) {
@@ -146,7 +160,7 @@ export function RegisterForm() {
       return;
     }
     if (!communityGuidelinesAccepted) {
-      showError(t("auth.guidelinesRequired"));
+      requireGuidelinesAcceptance();
       return;
     }
     if (accountType === "learner" && !primaryTechnicalField.trim()) {
@@ -196,7 +210,7 @@ export function RegisterForm() {
 
   async function onGoogleSignIn(credential: string) {
     if (!communityGuidelinesAccepted) {
-      showError(t("auth.guidelinesRequired"));
+      requireGuidelinesAcceptance();
       return;
     }
     if (accountType === "mentor") {
@@ -379,31 +393,22 @@ export function RegisterForm() {
         </div>
       )}
 
-      <section className="space-y-3 rounded border border-primary-200 bg-primary-50 p-4 dark:border-primary-900 dark:bg-primary-950/30">
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded border border-primary-200 bg-primary-50 p-4 dark:border-primary-900 dark:bg-primary-950/30">
         <div>
-          <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-            {t("auth.guidelinesTitle")}
-          </h2>
+          <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{t("guidelines.eula.title")}</h2>
           <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
-            {t("auth.guidelinesIntro")}
+            {communityGuidelinesAccepted
+              ? t("guidelines.eula.registrationAccepted", { version: COMMUNITY_GUIDELINES_VERSION })
+              : t("guidelines.eula.registrationReview", { version: COMMUNITY_GUIDELINES_VERSION })}
           </p>
         </div>
-        <ul className="list-disc space-y-1 pl-5 text-xs text-neutral-700 dark:text-neutral-300">
-          <li>{t("auth.guidelinesRespect")}</li>
-          <li>{t("auth.guidelinesRelevant")}</li>
-          <li>{t("auth.guidelinesSafety")}</li>
-          <li>{t("auth.guidelinesPrivacy")}</li>
-        </ul>
-        <label className="flex items-start gap-2 text-xs font-medium text-neutral-800 dark:text-neutral-200">
-          <input
-            type="checkbox"
-            checked={communityGuidelinesAccepted}
-            onChange={(e) => setCommunityGuidelinesAccepted(e.target.checked)}
-            aria-required="true"
-            className="mt-0.5"
-          />
-          <span>{t("auth.guidelinesAccept")}</span>
-        </label>
+        <button
+          type="button"
+          onClick={openGuidelinesModal}
+          className="rounded bg-primary-600 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-700"
+        >
+          {communityGuidelinesAccepted ? t("guidelines.eula.review") : t("guidelines.eula.reviewAndAccept")}
+        </button>
       </section>
 
       <button
@@ -418,14 +423,14 @@ export function RegisterForm() {
           onCredential={onGoogleSignIn}
           onError={showError}
           canContinue={communityGuidelinesAccepted}
-          onContinueBlocked={() => showError(t("auth.guidelinesRequired"))}
+          onContinueBlocked={requireGuidelinesAcceptance}
         />
         {accountType === "learner" ? (
           <GithubAuthButton
             accountType={accountType}
             mode="register"
             communityGuidelinesAccepted={communityGuidelinesAccepted}
-            onAcceptanceRequired={() => showError(t("auth.guidelinesRequired"))}
+            onAcceptanceRequired={requireGuidelinesAcceptance}
           />
         ) : (
           <p className="flex min-h-10 items-center text-xs text-neutral-500 dark:text-neutral-400">
@@ -433,6 +438,21 @@ export function RegisterForm() {
           </p>
         )}
       </div>
+      {guidelinesModalOpen && (
+        <CommunityGuidelinesAgreement
+          version={COMMUNITY_GUIDELINES_VERSION}
+          acknowledged={guidelinesAcknowledged}
+          onAcknowledgedChange={setGuidelinesAcknowledged}
+          onConfirm={() => {
+            setCommunityGuidelinesAccepted(true);
+            setGuidelinesModalOpen(false);
+          }}
+          onClose={() => {
+            setGuidelinesAcknowledged(communityGuidelinesAccepted);
+            setGuidelinesModalOpen(false);
+          }}
+        />
+      )}
     </form>
   );
 }
