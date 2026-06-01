@@ -28,6 +28,17 @@ function normalizeTag(tag: string) {
     .replace(/^-|-$/g, "");
 }
 
+function buildTagRegex(tag: string) {
+  const normalized = normalizeTag(tag);
+  if (!normalized) return undefined;
+
+  const pattern = normalized
+    .split("-")
+    .map(escapeRegex)
+    .join("[^a-z0-9]+");
+  return new RegExp(`^${pattern}$`, "i");
+}
+
 function parseTags(rawTags: unknown) {
   if (typeof rawTags !== "string") return [];
 
@@ -41,14 +52,14 @@ function parseTags(rawTags: unknown) {
 }
 
 function buildTagCondition(tags: string[]) {
-  const variants = [...new Set(
-    tags.flatMap((tag) => [tag, normalizeTag(tag)]).filter(Boolean)
-  )];
+  const patterns = tags
+    .map(buildTagRegex)
+    .filter((pattern): pattern is RegExp => Boolean(pattern));
 
-  if (!variants.length) return undefined;
+  if (!patterns.length) return undefined;
   return {
     tags: {
-      $in: variants.map((tag) => new RegExp(`^${escapeRegex(tag)}$`, "i")),
+      $in: patterns,
     },
   };
 }
