@@ -262,6 +262,55 @@ describe("Capstone functional acceptance tests", () => {
     });
   });
 
+  it("FT-021 | FR-021 | searches the knowledge repository and active threads from the threads page", () => {
+    cy.intercept(
+      {
+        method: "GET",
+        pathname: "/api/search",
+        query: { q: "aggregation", tags: "mongodb,indexing", page: "1" },
+      },
+      {
+        body: {
+          threads: [{
+            _id: "thread-active-1",
+            title: "Active aggregation debugging thread",
+            subject: "Databases",
+            preview: "The aggregation pipeline is still timing out.",
+            tags: ["mongodb", "indexing"],
+            status: "OPEN",
+            messageCount: 2,
+            createdBy: { name: "Betselot Tesfa" },
+            updatedAt: "2026-06-01T10:00:00.000Z",
+          }],
+          knowledgeDocs: [{
+            _id: "knowledge-1",
+            questionId: "thread-knowledge-1",
+            title: "Solved MongoDB aggregation latency",
+            threadSummary: "A compound index reduced aggregation latency.",
+            tags: ["mongodb", "indexing"],
+          }],
+          total: 1,
+          knowledgeTotal: 1,
+          totalResults: 2,
+          page: 1,
+          pages: 1,
+          knowledgePages: 1,
+        },
+      }
+    ).as("repositorySearch");
+
+    cy.visitAsUser("/dashboard/threads");
+    cy.get('input[placeholder="e.g., MongoDB aggregation latency"]').type("aggregation");
+    cy.get('input[placeholder="e.g., mongodb, indexing"]').type("mongodb, indexing");
+    cy.contains("button", /^Search$/).click();
+
+    cy.wait("@repositorySearch");
+    cy.contains("Knowledge repository").should("be.visible");
+    cy.contains("Solved MongoDB aggregation latency").should("be.visible");
+    cy.contains("Active threads").should("be.visible");
+    cy.contains("Active aggregation debugging thread").should("be.visible");
+  });
+
   it("FT-023 | FR-023-FR-025 | updates points and a badge immediately after upvote and solved mark", () => {
     cy.intercept("POST", "/api/threads/thread-award-1/messages/message-helpful-1/upvote", {
       body: {

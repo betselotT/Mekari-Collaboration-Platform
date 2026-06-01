@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "../../../components/layout";
 import { ThreadCard } from "../../../components/features/ThreadCard";
+import { ThreadRepositorySearch } from "../../../components/features/ThreadRepositorySearch";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Plus, Users } from "lucide-react";
@@ -29,6 +30,7 @@ function ThreadsContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [latestMatch, setLatestMatch] = useState<any | null>(null);
+  const [searchActive, setSearchActive] = useState(false);
 
   const [showNewThread, setShowNewThread] = useState(false);
   const [title, setTitle] = useState("");
@@ -134,8 +136,10 @@ function ThreadsContent() {
 
   return (
     <DashboardLayout title={t("threads.title")} searchPlaceholder={t("threads.searchPlaceholder")}>
+      <ThreadRepositorySearch onSearchStateChange={setSearchActive} />
+
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {threads.length > 0 && (
+        {!searchActive && threads.length > 0 && (
           <div className="min-w-0 overflow-x-auto pb-1 sm:pb-0">
             <div className="flex min-w-max gap-2">
               {statusChoices.map((choice) => (
@@ -281,7 +285,7 @@ function ThreadsContent() {
       )}
 
       {/* Thread list */}
-      <div className="space-y-4">
+      {!searchActive && <div className="space-y-4">
         {loading ? (
           <div className="rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
             {t("threads.loading")}
@@ -310,7 +314,7 @@ function ThreadsContent() {
             />
           ))
         )}
-      </div>
+      </div>}
     </DashboardLayout>
   );
 }
