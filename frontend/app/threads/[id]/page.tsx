@@ -42,8 +42,8 @@ interface PublicMessage {
   parentMessageId?: string;
 }
 
-function senderName(sender: Sender | string): string {
-  return typeof sender === "string" ? "User" : sender.name || "User";
+function senderName(sender: Sender | string, fallback: string): string {
+  return typeof sender === "string" ? fallback : sender.name || fallback;
 }
 
 function messageId(message: PublicMessage): string {
@@ -215,12 +215,12 @@ export default function PublicThreadDetailPage() {
                         <div className="mb-3 flex items-center gap-2">
                           <Avatar
                             size="sm"
-                            initials={senderName(message.sender).slice(0, 2).toUpperCase()}
+                            initials={senderName(message.sender, t("user")).slice(0, 2).toUpperCase()}
                             src={typeof message.sender === "object" ? message.sender.avatarUrl : undefined}
                           />
                           <div>
                             <p className="text-sm font-medium">
-                              {message.isFromAi ? "Mekari AI" : senderName(message.sender)}
+                              {message.isFromAi ? "Mekari AI" : senderName(message.sender, t("user"))}
                             </p>
                             <p className="text-xs text-neutral-500">
                               {new Date(message.createdAt).toLocaleString()}
@@ -232,7 +232,7 @@ export default function PublicThreadDetailPage() {
                           <div className="mb-3 rounded-lg border border-primary-100 bg-primary-50/70 px-3 py-2 dark:border-primary-900/40 dark:bg-primary-950/20">
                             <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-primary-700 dark:text-primary-300">
                               <Reply className="h-3.5 w-3.5" />
-                              {t("Replying to")} {parent ? senderName(parent.sender) : t("another message")}
+                              {t("Replying to")} {parent ? senderName(parent.sender, t("user")) : t("another message")}
                             </div>
                             <p className="line-clamp-2 text-xs text-neutral-600 dark:text-neutral-400">
                               {parent?.body || t("Original message is not available in this view.")}

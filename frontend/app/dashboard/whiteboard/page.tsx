@@ -16,6 +16,7 @@ import { DashboardLayout } from "../../../components/layout/DashboardLayout";
 import { apiClient } from "../../../lib/api";
 import { useAuth } from "../../../lib/useAuth";
 import { ensureSocket } from "../../../lib/useSocket";
+import { useLanguage } from "../../../lib/i18n";
 
 type WhiteboardPoint = {
   x: number;
@@ -86,6 +87,7 @@ function drawStroke(ctx: CanvasRenderingContext2D, stroke: WhiteboardStroke) {
 }
 
 function WhiteboardContent() {
+  const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
   const conversationId = searchParams?.get("conversation") || "";
@@ -294,7 +296,7 @@ function WhiteboardContent() {
   }
 
   return (
-    <DashboardLayout title="Collaborative Whiteboard">
+    <DashboardLayout title={t("Collaborative Whiteboard")}>
       <div className="flex h-[calc(100vh-5rem)] min-h-[560px] flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
           <div className="flex min-w-0 items-center gap-3">
@@ -302,7 +304,7 @@ function WhiteboardContent() {
               type="button"
               onClick={leaveWhiteboard}
               className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-              aria-label="Go back"
+          aria-label={t("Go back")}
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
@@ -323,8 +325,8 @@ function WhiteboardContent() {
                     ? "bg-primary-600 text-white"
                     : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 }`}
-                title="Pen"
-                aria-label="Pen"
+              title={t("Pen")}
+              aria-label={t("Pen")}
               >
                 <Brush className="h-4 w-4" />
               </button>
@@ -336,8 +338,8 @@ function WhiteboardContent() {
                     ? "bg-primary-600 text-white"
                     : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
                 }`}
-                title="Eraser"
-                aria-label="Eraser"
+              title={t("Eraser")}
+              aria-label={t("Eraser")}
               >
                 <Eraser className="h-4 w-4" />
               </button>
@@ -442,8 +444,8 @@ function WhiteboardContent() {
               onClick={undoLastOwnStroke}
               className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
               disabled={!strokes.some((stroke) => stroke.userId === user?._id)}
-              title="Undo"
-              aria-label="Undo last stroke"
+              title={t("Undo")}
+              aria-label={t("Undo last stroke")}
             >
               <RotateCcw className="h-4 w-4" />
             </button>
@@ -451,8 +453,8 @@ function WhiteboardContent() {
               type="button"
               onClick={clearBoard}
               className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-900/60 dark:text-rose-300 dark:hover:bg-rose-950/30"
-              title="Clear"
-              aria-label="Clear whiteboard"
+              title={t("Clear")}
+              aria-label={t("Clear whiteboard")}
             >
               <Trash2 className="h-4 w-4" />
             </button>

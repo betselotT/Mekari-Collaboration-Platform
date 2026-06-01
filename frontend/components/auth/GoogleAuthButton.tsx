@@ -3,6 +3,7 @@
 import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 import { usePublicConfig } from "../../lib/publicConfig";
+import { useLanguage } from "../../lib/i18n";
 
 declare global {
   interface Window {
@@ -13,11 +14,20 @@ declare global {
 type GoogleAuthButtonProps = {
   onCredential: (credential: string) => Promise<void> | void;
   onError?: (message: string) => void;
+  canContinue?: boolean;
+  onContinueBlocked?: () => void;
   className?: string;
 };
 
-export function GoogleAuthButton({ onCredential, onError, className = "" }: GoogleAuthButtonProps) {
+export function GoogleAuthButton({
+  onCredential,
+  onError,
+  canContinue = true,
+  onContinueBlocked,
+  className = "",
+}: GoogleAuthButtonProps) {
   const { googleClientId, googleAllowedOrigins } = usePublicConfig();
+  const { t } = useLanguage();
   const [scriptReady, setScriptReady] = useState(false);
   const [hasClientId, setHasClientId] = useState(false);
   const [canUseGoogle, setCanUseGoogle] = useState(true);
@@ -122,7 +132,7 @@ export function GoogleAuthButton({ onCredential, onError, className = "" }: Goog
   }, [googleClientId, onError]);
 
   return (
-    <div className={className}>
+    <div className={`relative ${className}`}>
       {!hasClientId && (
         <button
           type="button"
@@ -131,7 +141,7 @@ export function GoogleAuthButton({ onCredential, onError, className = "" }: Goog
           }
           className="flex h-10 w-full items-center justify-center rounded border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
         >
-          Continue with Google
+          {t("Continue with Google")}
         </button>
       )}
       {hasClientId && !canUseGoogle && (
@@ -145,7 +155,7 @@ export function GoogleAuthButton({ onCredential, onError, className = "" }: Goog
           }}
           className="flex h-10 w-full items-center justify-center rounded border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
         >
-          Continue with Google
+          {t("Continue with Google")}
         </button>
       )}
       {hasClientId && canUseGoogle && (
@@ -161,6 +171,14 @@ export function GoogleAuthButton({ onCredential, onError, className = "" }: Goog
         />
       )}
       <div ref={containerRef} className="flex h-10 w-full overflow-hidden [&>div]:w-full [&_iframe]:!w-full" />
+      {!canContinue && (
+        <button
+          type="button"
+          aria-label={t("Continue with Google")}
+          onClick={onContinueBlocked}
+          className="absolute inset-0 z-10 h-10 w-full cursor-pointer rounded bg-transparent"
+        />
+      )}
     </div>
   );
 }

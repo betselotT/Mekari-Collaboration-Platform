@@ -12,6 +12,7 @@ import { Avatar } from "../../../components/ui/Avatar";
 import { Badge } from "../../../components/ui/Badge";
 import { Input } from "../../../components/ui/Input";
 import { Edit, Lock, Globe, Bell, Save, X, Plus, CheckCircle2, Clock, Moon, Video, Award, Zap, Bot, Trophy, Star, TrendingUp, FileText } from "lucide-react";
+import { useLanguage } from "../../../lib/i18n";
 
 type AccountType = "learner" | "mentor";
 
@@ -55,6 +56,7 @@ const roleOptions = ["Student", "Professional", "Educator", "Researcher", "Other
 const deviceOptions = ["Desktop/Laptop", "Smartphone", "Tablet"];
 
 export default function ProfilePage() {
+  const { t } = useLanguage();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -420,7 +422,7 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <DashboardLayout title="Profile">
+      <DashboardLayout title={t("Profile")}>
         <div className="flex h-[60vh] items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"></div>
         </div>
@@ -430,16 +432,16 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <DashboardLayout title="Profile">
+      <DashboardLayout title={t("Profile")}>
         <div className="flex h-[60vh] flex-col items-center justify-center gap-4 text-center">
-          <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">Profile not found</h2>
-          <p className="text-neutral-600 dark:text-neutral-400">Please make sure you are logged in.</p>
+          <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">{t("Profile not found")}</h2>
+          <p className="text-neutral-600 dark:text-neutral-400">{t("Please make sure you are logged in.")}</p>
         </div>
       </DashboardLayout>
     );
   }
   return (
-    <DashboardLayout title="Profile">
+      <DashboardLayout title={t("Profile")}>
       {/* Edit Profile Button */}
       <div className="mb-8 flex items-center justify-end">
         <div className="flex gap-2">
@@ -485,7 +487,7 @@ export default function ProfilePage() {
         <Card className="mb-8">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
-              <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Mentor verification</h3>
+              <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{t("Mentor verification")}</h3>
               <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
                 {verificationStatus === "approved"
                   ? "Approved. Your mentor profile is visible to learners."
@@ -501,7 +503,7 @@ export default function ProfilePage() {
               {verificationStatus === "rejected" && (
                 <form onSubmit={handleResubmitVerification} className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-700 dark:bg-neutral-900">
                   <label className="space-y-1">
-                    <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Upload a new verification document</span>
+                <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("Upload a new verification document")}</span>
                     <input
                       type="file"
                       accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
@@ -545,7 +547,7 @@ export default function ProfilePage() {
       {(needsSetup || showSetup) && (
         <Card className="mb-8">
           <div className="mb-5">
-            <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Finish setting up</h3>
+          <h3 className="text-lg font-bold text-neutral-900 dark:text-white">{t("Finish setting up")}</h3>
             <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
               Complete your learner or mentor profile so Mekari can personalize matching and verification.
             </p>
@@ -571,19 +573,19 @@ export default function ProfilePage() {
 
             <div className="grid gap-4 md:grid-cols-3">
               <label className="space-y-1">
-                <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Primary technical field</span>
+              <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.primaryField")}</span>
                 <select className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white" value={setupForm.primaryTechnicalField} onChange={(e) => setSetupForm({ ...setupForm, primaryTechnicalField: e.target.value })}>
                   {technicalFields.map((field) => <option key={field}>{field}</option>)}
                 </select>
               </label>
               <label className="space-y-1">
-                <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Current role or status</span>
+              <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.currentRole")}</span>
                 <select className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white" value={setupForm.roleOrStatus} onChange={(e) => setSetupForm({ ...setupForm, roleOrStatus: e.target.value })}>
                   {roleOptions.map((role) => <option key={role}>{role}</option>)}
                 </select>
               </label>
               <label className="space-y-1">
-                <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Years of experience</span>
+              <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.experience")}</span>
                 <select className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white" value={setupForm.yearsOfExperience} onChange={(e) => setSetupForm({ ...setupForm, yearsOfExperience: e.target.value })}>
                   {experienceOptions.map((years) => <option key={years}>{years}</option>)}
                 </select>
@@ -591,7 +593,7 @@ export default function ProfilePage() {
             </div>
 
             <div>
-              <span className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">Devices used</span>
+              <span className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.devicesUsed")}</span>
               <div className="flex flex-wrap gap-2">
                 {deviceOptions.map((device) => (
                   <label key={device} className="flex items-center gap-2 rounded border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800">
@@ -603,13 +605,13 @@ export default function ProfilePage() {
             </div>
 
             <label className="block space-y-1">
-              <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">How do you want to use Mekari?</span>
+              <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.goals")}</span>
               <textarea
                 className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
                 rows={3}
                 value={setupForm.collaborationGoals}
                 onChange={(e) => setSetupForm({ ...setupForm, collaborationGoals: e.target.value })}
-                placeholder="Quick questions, in-depth troubleshooting, mentorship..."
+                placeholder={t("auth.goalsPlaceholder")}
               />
             </label>
 
@@ -617,25 +619,25 @@ export default function ProfilePage() {
               <div className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="space-y-1">
-                    <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Expertise area</span>
+              <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.expertiseArea")}</span>
                     <select className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white" value={setupForm.expertiseSubject} onChange={(e) => setSetupForm({ ...setupForm, expertiseSubject: e.target.value })}>
                       {technicalFields.map((field) => <option key={field}>{field}</option>)}
                     </select>
                   </label>
                   <label className="space-y-1">
-                    <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Expertise level</span>
+              <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.expertiseLevel")}</span>
                     <select className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white" value={setupForm.expertiseLevel} onChange={(e) => setSetupForm({ ...setupForm, expertiseLevel: e.target.value as typeof setupForm.expertiseLevel })}>
-                      <option value="intermediate">Intermediate</option>
-                      <option value="advanced">Advanced</option>
-                      <option value="expert">Expert</option>
+              <option value="intermediate">{t("Intermediate")}</option>
+              <option value="advanced">{t("Advanced")}</option>
+              <option value="expert">{t("Expert")}</option>
                     </select>
                   </label>
                   <label className="space-y-1">
-                    <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Skill tags</span>
-                    <Input value={setupForm.skillTags} onChange={(e) => setSetupForm({ ...setupForm, skillTags: e.target.value })} placeholder="React, MongoDB, auth" />
+              <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.skillTags")}</span>
+              <Input value={setupForm.skillTags} onChange={(e) => setSetupForm({ ...setupForm, skillTags: e.target.value })} placeholder={t("auth.skillTagsPlaceholder")} />
                   </label>
                   <label className="space-y-1">
-                    <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Verification document</span>
+              <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.verificationDocument")}</span>
                     <input type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white" onChange={onSetupDocumentChange} required />
                   </label>
                 </div>
@@ -675,7 +677,7 @@ export default function ProfilePage() {
                   <Input
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Enter your name"
+                    placeholder={t("Enter your name")}
                   />
                 </div>
                 <div>
@@ -697,7 +699,7 @@ export default function ProfilePage() {
                     rows={4}
                     value={formData.bio}
                     onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                    placeholder="Tell us about yourself"
+                    placeholder={t("Tell us about yourself")}
                   />
                 </div>
                 <div className="flex gap-2">
@@ -740,7 +742,7 @@ export default function ProfilePage() {
                       </Badge>
                     ))
                   ) : (
-                    <Badge variant="default">No expertise yet</Badge>
+            <Badge variant="default">{t("No expertise yet")}</Badge>
                   )}
                 
                 </div>
@@ -912,13 +914,13 @@ export default function ProfilePage() {
                       </Badge>
                     ))
                   ) : (
-                    <span className="text-sm text-neutral-500 italic">No expertise areas listed.</span>
+                    <span className="text-sm text-neutral-500 italic">{t("No expertise areas listed.")}</span>
                   )}
                 </div>
                 {isEditingSkills && (
                   <div className="flex gap-2 items-center mt-2">
                     <Input 
-                      placeholder="Subject" 
+                          placeholder={t("Subject")}
                       value={newExpertiseSubject} 
                       onChange={(e) => setNewExpertiseSubject(e.target.value)} 
                     />
@@ -927,10 +929,10 @@ export default function ProfilePage() {
                       onChange={(e) => setNewExpertiseProficiency(e.target.value)}
                       className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
                     >
-                      <option value="beginner">Beginner</option>
-                      <option value="intermediate">Intermediate</option>
-                      <option value="advanced">Advanced</option>
-                      <option value="expert">Expert</option>
+                          <option value="beginner">{t("Beginner")}</option>
+                          <option value="intermediate">{t("Intermediate")}</option>
+                          <option value="advanced">{t("Advanced")}</option>
+                          <option value="expert">{t("Expert")}</option>
                     </select>
                     <Button type="button" variant="primary" size="sm" onClick={handleAddExpertise}>
                       <Plus className="h-4 w-4" />
@@ -961,13 +963,13 @@ export default function ProfilePage() {
                       </Badge>
                     ))
                   ) : (
-                    <span className="text-sm text-neutral-500 italic">No skills listed.</span>
+                  <span className="text-sm text-neutral-500 italic">{t("No skills listed.")}</span>
                   )}
                 </div>
                 {isEditingSkills && (
                   <div className="flex gap-2 items-center mt-2">
                     <Input 
-                      placeholder="Add a skill" 
+                    placeholder={t("Add a skill")}
                       value={newSkill} 
                       onChange={(e) => setNewSkill(e.target.value)} 
                       onKeyDown={(e) => {
@@ -1060,7 +1062,7 @@ export default function ProfilePage() {
             {/* Progress Bar to next level */}
             <div className="mb-8">
               <div className="mb-2 flex justify-between text-xs">
-                <span className="text-neutral-500">Next Level Progress</span>
+                  <span className="text-neutral-500">{t("Next Level Progress")}</span>
                 <span className="font-bold text-neutral-900 dark:text-white">{(user.points || 0) % 100}%</span>
               </div>
               <div className="h-2 w-full rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
@@ -1108,7 +1110,7 @@ export default function ProfilePage() {
                   })
                 ) : (
                   <div className="rounded-xl border border-dashed border-neutral-200 p-4 text-center dark:border-neutral-800">
-                    <p className="text-xs text-neutral-500 italic">No badges earned yet. Solve threads to unlock!</p>
+                  <p className="text-xs text-neutral-500 italic">{t("No badges earned yet. Solve threads to unlock!")}</p>
                   </div>
                 )}
               </div>
@@ -1166,19 +1168,19 @@ export default function ProfilePage() {
             </h4>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-sm text-neutral-600 dark:text-neutral-400">Total Points</span>
+              <span className="text-sm text-neutral-600 dark:text-neutral-400">{t("Total Points")}</span>
                 <span className="font-bold text-neutral-900 dark:text-white">{user.points?.toLocaleString() || 0}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-neutral-600 dark:text-neutral-400">Badges Collected</span>
+              <span className="text-sm text-neutral-600 dark:text-neutral-400">{t("Badges Collected")}</span>
                 <span className="font-bold text-neutral-900 dark:text-white">{user.badges?.length || 0}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-neutral-600 dark:text-neutral-400">Certificates Earned</span>
+              <span className="text-sm text-neutral-600 dark:text-neutral-400">{t("Certificates Earned")}</span>
                 <span className="font-bold text-neutral-900 dark:text-white">{user.certificates?.length || 0}</span>
               </div>
               <div className="flex justify-between pt-3 border-t border-neutral-200 dark:border-neutral-700">
-                <span className="text-sm text-neutral-600 dark:text-neutral-400 font-medium">Global Rank</span>
+              <span className="text-sm text-neutral-600 dark:text-neutral-400 font-medium">{t("Global Rank")}</span>
                 <span className="font-bold text-primary-600 dark:text-primary-400">
                   {user.rank ? `#${user.rank}` : "Unranked"}
                 </span>
@@ -1194,7 +1196,7 @@ export default function ProfilePage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-neutral-600 dark:text-neutral-400">Google Meet</span>
-                <Badge variant="success">Connected</Badge>
+                <Badge variant="success">{t("Connected")}</Badge>
               </div>
             </div>
           </Card>

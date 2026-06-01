@@ -1,5 +1,6 @@
 import React from "react";
 import { Search } from "lucide-react";
+import { useLanguage } from "../../lib/i18n";
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   icon?: React.ComponentType<{ className?: string }>;
@@ -39,7 +40,8 @@ Input.displayName = "Input";
 // SearchInput component
 export const SearchInput = React.forwardRef<HTMLInputElement, Omit<InputProps, "icon">>(
   (props, ref) => {
-    return <Input ref={ref} icon={Search} placeholder="Search..." {...props} />;
+    const { t } = useLanguage();
+    return <Input ref={ref} icon={Search} placeholder={t("Search...")} {...props} />;
   }
 );
 

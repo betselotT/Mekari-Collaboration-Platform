@@ -201,7 +201,7 @@ function ThreadsContent() {
             <div className="grid gap-3 md:grid-cols-3">
               {latestMatch.suggestedExperts.map((rec: any) => {
                 const expert = rec.expert;
-                const expertise = expert.expertise?.[0]?.subject || expert.skillTags?.[0] || "Mentor";
+                const expertise = expert.expertise?.[0]?.subject || expert.skillTags?.[0] || t("role.mentor");
                 return (
                   <div
                     key={expert._id}

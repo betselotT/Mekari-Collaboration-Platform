@@ -65,7 +65,7 @@ function SidebarContent({ onNavigate, showClose }: { onNavigate?: () => void; sh
           </div>
           <div className="flex min-w-0 flex-col">
             <span className="text-base font-bold text-neutral-900 dark:text-white">Mekari</span>
-            <span className="text-xs text-neutral-600 dark:text-neutral-400">KNOWLEDGE HUB</span>
+            <span className="text-xs text-neutral-600 dark:text-neutral-400">{t("Knowledge Hub")}</span>
           </div>
         </div>
         {showClose && (
@@ -137,6 +137,8 @@ function SidebarContent({ onNavigate, showClose }: { onNavigate?: () => void; sh
 }
 
 export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
+  const { t } = useLanguage();
+
   return (
     <>
       <aside className="fixed left-0 top-0 z-40 hidden h-screen w-60 flex-col overflow-y-auto border-r border-neutral-200 bg-white px-6 py-6 dark:border-neutral-700 dark:bg-neutral-900 lg:flex">
@@ -149,7 +151,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             type="button"
             className="absolute inset-0 h-full w-full bg-black/40"
             onClick={onClose}
-            aria-label="Close navigation overlay"
+            aria-label={t("header.closeNavigation")}
           />
           <aside className="relative flex h-dvh w-72 max-w-[85vw] flex-col overflow-y-auto border-r border-neutral-200 bg-white px-6 py-6 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
             <SidebarContent onNavigate={onClose} showClose />

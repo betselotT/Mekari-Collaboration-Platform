@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, ReactNode, useState } from "react";
+import { ChangeEvent, FormEvent, ReactNode, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { apiClient } from "../../lib/api";
 import { GoogleAuthButton } from "./GoogleAuthButton";
@@ -74,21 +74,30 @@ export function RegisterForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [primaryTechnicalField, setPrimaryTechnicalField] = useState(technicalFields[0]);
+  const [primaryTechnicalField, setPrimaryTechnicalField] = useState("");
   const [roleOrStatus, setRoleOrStatus] = useState(roleOptions[0]);
   const [yearsOfExperience, setYearsOfExperience] = useState(experienceOptions[2]);
   const [devicesUsed, setDevicesUsed] = useState<string[]>(["Desktop/Laptop"]);
   const [collaborationGoals, setCollaborationGoals] = useState("");
-  const [expertiseSubject, setExpertiseSubject] = useState("Software Engineering");
+  const [expertiseSubject, setExpertiseSubject] = useState("");
   const [expertiseLevel, setExpertiseLevel] = useState<"intermediate" | "advanced" | "expert">("advanced");
   const [skillTags, setSkillTags] = useState("");
   const [availabilityStatus, setAvailabilityStatus] = useState<"online" | "busy" | "offline">("online");
   const [verificationDocument, setVerificationDocument] = useState<VerificationDocument | null>(null);
+  const [communityGuidelinesAccepted, setCommunityGuidelinesAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLParagraphElement | null>(null);
   const normalizedName = normalizeFullName(name);
   const nameError = name ? fullNameError(name, t) : "";
   const currentPasswordErrors = password ? passwordErrors(password, t) : [];
+
+  function showError(message: string) {
+    setError(message);
+    window.requestAnimationFrame(() => {
+      errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
 
   function toggleDevice(device: string) {
     setDevicesUsed((current) =>
@@ -105,7 +114,7 @@ export function RegisterForm() {
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setError(t("auth.documentTooLarge"));
+      showError(t("auth.documentTooLarge"));
       e.target.value = "";
       return;
     }
@@ -120,7 +129,7 @@ export function RegisterForm() {
       });
       setError(null);
     };
-    reader.onerror = () => setError(t("auth.documentReadError"));
+    reader.onerror = () => showError(t("auth.documentReadError"));
     reader.readAsDataURL(file);
   }
 
@@ -129,11 +138,24 @@ export function RegisterForm() {
     const nextNameError = fullNameError(name, t);
     const nextPasswordErrors = passwordErrors(password, t);
     if (nextNameError) {
-      setError(nextNameError);
+      showError(nextNameError);
       return;
     }
     if (nextPasswordErrors.length > 0) {
-      setError(nextPasswordErrors[0]);
+      showError(nextPasswordErrors[0]);
+      return;
+    }
+    if (!communityGuidelinesAccepted) {
+      showError(t("auth.guidelinesRequired"));
+      return;
+    }
+    if (accountType === "learner" && !primaryTechnicalField.trim()) {
+      showError(t("auth.technicalFieldRequired"));
+      return;
+    }
+    const selectedExpertiseSubject = expertiseSubject.trim();
+    if (accountType === "mentor" && !selectedExpertiseSubject) {
+      showError(t("auth.expertiseAreaRequired"));
       return;
     }
     setLoading(true);
@@ -146,13 +168,13 @@ export function RegisterForm() {
         email,
         password,
         accountType,
-        primaryTechnicalField,
+        primaryTechnicalField: primaryTechnicalField.trim(),
         roleOrStatus,
         yearsOfExperience,
         devicesUsed,
         collaborationGoals: collaborationGoals || undefined,
         expertise: isMentor
-          ? [{ subject: expertiseSubject, proficiency: expertiseLevel }]
+          ? [{ subject: selectedExpertiseSubject, proficiency: expertiseLevel }]
           : [],
         skillTags: isMentor
           ? skillTags
@@ -162,24 +184,33 @@ export function RegisterForm() {
           : [],
         availabilityStatus: isMentor ? availabilityStatus : "offline",
         verificationDocument: isMentor ? verificationDocument : undefined,
+        communityGuidelinesAccepted,
       });
       window.location.href = `/verify-email?email=${encodeURIComponent(email)}`;
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || t("auth.registerFailed"));
+      showError(err.response?.data?.error?.message || t("auth.registerFailed"));
     } finally {
       setLoading(false);
     }
   }
 
   async function onGoogleSignIn(credential: string) {
+    if (!communityGuidelinesAccepted) {
+      showError(t("auth.guidelinesRequired"));
+      return;
+    }
     if (accountType === "mentor") {
-      setError(t("auth.mentorGoogleBlocked"));
+      showError(t("auth.mentorGoogleBlocked"));
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const res = await apiClient.post("/api/auth/google", { credential, accountType });
+      const res = await apiClient.post("/api/auth/google", {
+        credential,
+        accountType,
+        communityGuidelinesAccepted,
+      });
       if (res.data.isNewUser) {
         window.location.href = "/login?registered=google";
         return;
@@ -187,7 +218,7 @@ export function RegisterForm() {
       localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || t("auth.googleSignupFailed"));
+      showError(err.response?.data?.error?.message || t("auth.googleSignupFailed"));
     } finally {
       setLoading(false);
     }
@@ -196,7 +227,7 @@ export function RegisterForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-4 text-sm">
       {error && (
-        <p className="rounded bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-300">
+        <p ref={errorRef} className="rounded bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-300">
           {error}
         </p>
       )}
@@ -252,11 +283,20 @@ export function RegisterForm() {
             })}
           </div>
         </Field>
-        <Field label={t("auth.primaryField")}>
-          <select className={inputClass} value={primaryTechnicalField} onChange={(e) => setPrimaryTechnicalField(e.target.value)}>
-            {technicalFields.map((field) => <option key={field}>{field}</option>)}
-          </select>
-        </Field>
+        {accountType === "learner" && (
+          <Field label={t("auth.primaryField")}>
+            <input
+              className={inputClass}
+              list="primary-technical-field-options"
+              value={primaryTechnicalField}
+              onChange={(e) => setPrimaryTechnicalField(e.target.value)}
+              placeholder={t("auth.technicalFieldPlaceholder")}
+            />
+            <datalist id="primary-technical-field-options">
+              {technicalFields.map((field) => <option key={field} value={field} />)}
+            </datalist>
+          </Field>
+        )}
         <Field label={t("auth.currentRole")}>
           <select className={inputClass} value={roleOrStatus} onChange={(e) => setRoleOrStatus(e.target.value)}>
             {roleOptions.map((role) => <option key={role}>{role}</option>)}
@@ -267,17 +307,16 @@ export function RegisterForm() {
             {experienceOptions.map((years) => <option key={years}>{years}</option>)}
           </select>
         </Field>
-      </div>
-
-      <div className="space-y-2">
-        <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">{t("auth.devicesUsed")}</span>
-        <div className="flex flex-wrap gap-2">
-          {deviceOptions.map((device) => (
-            <label key={device} className="flex items-center gap-2 rounded border border-neutral-300 px-3 py-2 text-xs dark:border-neutral-700">
-              <input type="checkbox" checked={devicesUsed.includes(device)} onChange={() => toggleDevice(device)} />
-              {device}
-            </label>
-          ))}
+        <div className="space-y-2">
+          <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">{t("auth.devicesUsed")}</span>
+          <div className="flex flex-wrap gap-2">
+            {deviceOptions.map((device) => (
+              <label key={device} className="flex items-center gap-2 rounded border border-neutral-300 px-3 py-2 text-xs dark:border-neutral-700">
+                <input type="checkbox" checked={devicesUsed.includes(device)} onChange={() => toggleDevice(device)} />
+                {device}
+              </label>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -294,22 +333,29 @@ export function RegisterForm() {
         <div className="space-y-3 rounded border border-neutral-200 p-4 dark:border-neutral-700">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={t("auth.expertiseArea")}>
-              <select className={inputClass} value={expertiseSubject} onChange={(e) => setExpertiseSubject(e.target.value)}>
-                {technicalFields.map((field) => <option key={field}>{field}</option>)}
-              </select>
+              <input
+                className={inputClass}
+                list="mentor-expertise-options"
+                value={expertiseSubject}
+                onChange={(e) => setExpertiseSubject(e.target.value)}
+                placeholder={t("auth.expertiseAreaPlaceholder")}
+              />
+              <datalist id="mentor-expertise-options">
+                {technicalFields.map((field) => <option key={field} value={field} />)}
+              </datalist>
             </Field>
             <Field label={t("auth.expertiseLevel")}>
               <select className={inputClass} value={expertiseLevel} onChange={(e) => setExpertiseLevel(e.target.value as typeof expertiseLevel)}>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
-                <option value="expert">Expert</option>
+                <option value="intermediate">{t("Intermediate")}</option>
+                <option value="advanced">{t("Advanced")}</option>
+                <option value="expert">{t("Expert")}</option>
               </select>
             </Field>
             <Field label={t("auth.availability")}>
               <select className={inputClass} value={availabilityStatus} onChange={(e) => setAvailabilityStatus(e.target.value as typeof availabilityStatus)}>
-                <option value="online">Online</option>
-                <option value="busy">Busy</option>
-                <option value="offline">Offline</option>
+                <option value="online">{t("Online")}</option>
+                <option value="busy">{t("Busy")}</option>
+                <option value="offline">{t("Offline")}</option>
               </select>
             </Field>
             <Field label={t("auth.skillTags")}>
@@ -333,6 +379,33 @@ export function RegisterForm() {
         </div>
       )}
 
+      <section className="space-y-3 rounded border border-primary-200 bg-primary-50 p-4 dark:border-primary-900 dark:bg-primary-950/30">
+        <div>
+          <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+            {t("auth.guidelinesTitle")}
+          </h2>
+          <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+            {t("auth.guidelinesIntro")}
+          </p>
+        </div>
+        <ul className="list-disc space-y-1 pl-5 text-xs text-neutral-700 dark:text-neutral-300">
+          <li>{t("auth.guidelinesRespect")}</li>
+          <li>{t("auth.guidelinesRelevant")}</li>
+          <li>{t("auth.guidelinesSafety")}</li>
+          <li>{t("auth.guidelinesPrivacy")}</li>
+        </ul>
+        <label className="flex items-start gap-2 text-xs font-medium text-neutral-800 dark:text-neutral-200">
+          <input
+            type="checkbox"
+            checked={communityGuidelinesAccepted}
+            onChange={(e) => setCommunityGuidelinesAccepted(e.target.checked)}
+            aria-required="true"
+            className="mt-0.5"
+          />
+          <span>{t("auth.guidelinesAccept")}</span>
+        </label>
+      </section>
+
       <button
         type="submit"
         disabled={loading}
@@ -341,9 +414,19 @@ export function RegisterForm() {
         {loading ? t("auth.creatingAccount") : accountType === "mentor" ? t("auth.createMentor") : t("auth.createLearner")}
       </button>
       <div className="grid grid-cols-2 gap-2 pt-2">
-        <GoogleAuthButton onCredential={onGoogleSignIn} onError={setError} />
+        <GoogleAuthButton
+          onCredential={onGoogleSignIn}
+          onError={showError}
+          canContinue={communityGuidelinesAccepted}
+          onContinueBlocked={() => showError(t("auth.guidelinesRequired"))}
+        />
         {accountType === "learner" ? (
-          <GithubAuthButton accountType={accountType} mode="register" />
+          <GithubAuthButton
+            accountType={accountType}
+            mode="register"
+            communityGuidelinesAccepted={communityGuidelinesAccepted}
+            onAcceptanceRequired={() => showError(t("auth.guidelinesRequired"))}
+          />
         ) : (
           <p className="flex min-h-10 items-center text-xs text-neutral-500 dark:text-neutral-400">
             {t("auth.githubMentorUnavailable")}

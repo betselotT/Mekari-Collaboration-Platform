@@ -152,14 +152,14 @@ function MatchContent() {
           <div className="space-y-4">
             <Input
               label={t("Thread title")}
-              placeholder="e.g., Designing MongoDB indexes for analytics"
+              placeholder={t("e.g., Designing MongoDB indexes for analytics")}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
 
             <Input
               label={t("Primary subject")}
-              placeholder="e.g., Databases"
+              placeholder={t("e.g., Databases")}
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               list="match-subject-options"
@@ -172,7 +172,7 @@ function MatchContent() {
 
             <Input
               label={t("Topic tags (comma-separated)")}
-              placeholder="e.g., MongoDB, Indexing, Query Optimization"
+              placeholder={t("e.g., MongoDB, Indexing, Query Optimization")}
               value={tags}
               onChange={(e) => setTags(e.target.value)}
             />
@@ -185,7 +185,7 @@ function MatchContent() {
                 className="min-h-[120px] w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100"
                 value={initialMessage}
                 onChange={(e) => setInitialMessage(e.target.value)}
-                placeholder="Add context, constraints, code snippet links, and what you’ve tried..."
+              placeholder={t("Add context, constraints, code snippet links, and what you’ve tried...")}
               />
             </div>
 
