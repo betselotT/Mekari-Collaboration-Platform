@@ -1,6 +1,7 @@
 import { JWT } from "google-auth-library";
 import { Notification } from "../models/Notification";
 import { User } from "../models/User";
+import { sendNotificationEmail } from "./email";
 import { broadcastToUser } from "./realtime";
 
 export type NotificationCategory = "chat" | "documentStatus" | "moderation" | "admin";
@@ -16,6 +17,13 @@ type NotificationInput = {
 
 const DEFAULT_PUSH_TITLE = "Mekari";
 const FCM_SCOPE = "https://www.googleapis.com/auth/firebase.messaging";
+
+function notificationEmailLink(link?: string) {
+  if (!link) return undefined;
+  if (/^https?:\/\//i.test(link)) return link;
+  const baseUrl = process.env.FRONTEND_ORIGIN || "http://localhost:3000";
+  return new URL(link, baseUrl).toString();
+}
 
 function privateKey() {
   return process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
@@ -82,12 +90,15 @@ async function sendFcmPush(tokens: string[], input: NotificationInput) {
 }
 
 export async function createNotification(input: NotificationInput) {
-  const user = await User.findById(input.userId).select("notificationPreferences pushTokens");
+  const user = await User.findById(input.userId).select(
+    "name email emailVerified notificationPreferences pushTokens"
+  );
   if (!user) return null;
 
   const categoryPreferences = user.notificationPreferences?.[input.category];
   const internalEnabled = categoryPreferences?.internal ?? true;
   const pushEnabled = categoryPreferences?.push ?? false;
+  const emailEnabled = categoryPreferences?.email ?? false;
   let notif = null;
 
   if (internalEnabled) {
@@ -113,6 +124,18 @@ export async function createNotification(input: NotificationInput) {
   if (pushEnabled) {
     const tokens = (user.pushTokens || []).map((item) => item.token).filter(Boolean);
     await sendFcmPush(tokens, input);
+  }
+
+  if (emailEnabled && user.emailVerified) {
+    await sendNotificationEmail({
+      to: user.email,
+      name: user.name,
+      title: input.title || DEFAULT_PUSH_TITLE,
+      message: input.message,
+      link: notificationEmailLink(input.link),
+    }).catch((err) => {
+      console.error(`Failed to send notification email to ${user.email}`, err);
+    });
   }
 
   return notif;

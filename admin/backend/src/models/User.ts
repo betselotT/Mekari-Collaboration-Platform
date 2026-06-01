@@ -32,6 +32,7 @@ type ExpertReview = {
 type NotificationChannelPreferences = {
   internal: boolean;
   push: boolean;
+  email: boolean;
 };
 
 type NotificationPreferences = {
@@ -127,6 +128,7 @@ const NotificationChannelPreferencesSchema = new Schema<NotificationChannelPrefe
   {
     internal: { type: Boolean, default: true },
     push: { type: Boolean, default: false },
+    email: { type: Boolean, default: false },
   },
   { _id: false }
 );

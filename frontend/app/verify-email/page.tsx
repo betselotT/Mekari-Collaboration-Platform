@@ -44,6 +44,7 @@ function VerifyShell({ initialEmail = "" }: { initialEmail?: string }) {
       const res = await apiClient.post("/api/auth/verify-email", { email, otp });
       setVerified(true);
       setMessage(res.data.message || t("Email verified. You can sign in now."));
+      window.location.href = `/login?verified=true&email=${encodeURIComponent(email)}`;
     } catch (err: any) {
       setError(err.response?.data?.error?.message || t("Could not verify OTP code"));
     } finally {

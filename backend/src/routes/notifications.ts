@@ -8,16 +8,16 @@ const router = Router();
 
 const preferenceSchema = z.object({
   chat: z
-    .object({ internal: z.boolean().optional(), push: z.boolean().optional() })
+    .object({ internal: z.boolean().optional(), push: z.boolean().optional(), email: z.boolean().optional() })
     .optional(),
   documentStatus: z
-    .object({ internal: z.boolean().optional(), push: z.boolean().optional() })
+    .object({ internal: z.boolean().optional(), push: z.boolean().optional(), email: z.boolean().optional() })
     .optional(),
   moderation: z
-    .object({ internal: z.boolean().optional(), push: z.boolean().optional() })
+    .object({ internal: z.boolean().optional(), push: z.boolean().optional(), email: z.boolean().optional() })
     .optional(),
   admin: z
-    .object({ internal: z.boolean().optional(), push: z.boolean().optional() })
+    .object({ internal: z.boolean().optional(), push: z.boolean().optional(), email: z.boolean().optional() })
     .optional(),
 });
 
@@ -57,6 +57,9 @@ router.put("/preferences", requireAuth, async (req: AuthRequest, res, next) => {
       }
       if (channels.push !== undefined) {
         set[`notificationPreferences.${category}.push`] = channels.push;
+      }
+      if (channels.email !== undefined) {
+        set[`notificationPreferences.${category}.email`] = channels.email;
       }
     }
 
