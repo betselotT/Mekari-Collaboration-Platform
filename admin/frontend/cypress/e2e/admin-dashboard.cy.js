@@ -92,4 +92,40 @@ describe("Admin moderation dashboard", () => {
     cy.contains("td", "mentor_verification").should("be.visible");
     cy.contains("Edom Mulugeta").should("be.visible");
   });
+
+  it("shows analytics and sends an announcement notification", () => {
+    cy.intercept("POST", "/api/admin/announcements", {
+      statusCode: 201,
+      body: {
+        announcement: {
+          id: "announcement-2",
+          title: "Scheduled downtime",
+          message: "The platform will be unavailable tonight.",
+          audience: "all",
+          recipientCount: 7,
+          createdAt: "2026-05-29T09:00:00.000Z",
+        },
+      },
+    }).as("sendAnnouncement");
+
+    cy.visit("/");
+    cy.wait("@adminAnalytics");
+    cy.contains("button", "Analytics").click();
+    cy.contains("Analytics Dashboard").should("be.visible");
+    cy.contains("Messages posted").should("be.visible");
+    cy.contains("46").should("be.visible");
+
+    cy.contains("button", "Announcements").click();
+    cy.get('input[placeholder="Scheduled maintenance"]').type("Scheduled downtime");
+    cy.get('textarea[placeholder="Tell users what is changing and when."]')
+      .type("The platform will be unavailable tonight.");
+    cy.contains("button", "Send notification").click();
+
+    cy.wait("@sendAnnouncement").its("request.body").should("deep.include", {
+      title: "Scheduled downtime",
+      message: "The platform will be unavailable tonight.",
+      audience: "all",
+    });
+    cy.contains("Announcement sent to 7 user(s).").should("be.visible");
+  });
 });

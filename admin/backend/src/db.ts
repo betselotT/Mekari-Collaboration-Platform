@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { maskMongoUri, resolveMongoUri } from "./config/database";
 import { Report } from "./models/Report";
+import { Thread } from "./models/Thread";
 import { User } from "./models/User";
 
 type DiagramView = {
@@ -144,10 +145,27 @@ async function syncClassDiagramCollections() {
   console.log("MongoDB class diagram views are synced.");
 }
 
+async function normalizeLegacyData() {
+  const [users, threads] = await Promise.all([
+    User.updateMany({ role: "user" }, { $set: { role: "learner" } }),
+    Thread.updateMany(
+      { $or: [{ status: { $exists: false } }, { status: null }, { status: "" }] },
+      { $set: { status: "OPEN" } }
+    ),
+  ]);
+
+  if (users.modifiedCount || threads.modifiedCount) {
+    console.log(
+      `Normalized legacy data: ${users.modifiedCount} learner account(s), ${threads.modifiedCount} open thread(s).`
+    );
+  }
+}
+
 export async function connectDb() {
   const mongoUri = resolveMongoUri();
   console.log(`Connecting admin backend to MongoDB: ${maskMongoUri(mongoUri)}`);
   await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 10000 });
   console.log("Admin backend connected to MongoDB");
+  await normalizeLegacyData();
   await syncClassDiagramCollections();
 }

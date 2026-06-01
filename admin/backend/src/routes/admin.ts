@@ -31,6 +31,15 @@ const pushTokenSchema = z.object({
   token: z.string().min(20),
 });
 
+const announcementSchema = z.object({
+  title: z.string().trim().min(1, "Announcement title is required").max(120),
+  message: z.string().trim().min(1, "Announcement message is required").max(1000),
+  audience: z.enum(["all", "learners", "mentors"]),
+  link: z.string().trim().max(300).refine((value) => !value || value.startsWith("/"), {
+    message: "Link must be an internal path beginning with /",
+  }).optional(),
+});
+
 type ActivityLog = {
   id: string;
   date: Date;
@@ -126,6 +135,139 @@ router.get("/summary", async (_req, res, next) => {
         pendingReports,
         approvedMentors,
         totalUsers,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/analytics", async (_req, res, next) => {
+  try {
+    const [
+      totalUsers,
+      totalThreads,
+      totalMessages,
+      pendingReports,
+      solvedThreads,
+      aiResolvedThreads,
+      announcementsSent,
+      roleRows,
+      threadStatusRows,
+    ] = await Promise.all([
+      User.countDocuments({ role: { $nin: ["admin", "mod"] } }),
+      Thread.countDocuments(),
+      Message.countDocuments(),
+      Report.countDocuments({ status: "pending" }),
+      Thread.countDocuments({ status: "SOLVED" }),
+      Thread.countDocuments({ status: "AI_RESOLVED" }),
+      AuditLog.countDocuments({ actionType: "announcement_sent" }),
+      User.aggregate([
+        { $match: { role: { $nin: ["admin", "mod"] } } },
+        { $group: { _id: "$role", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      Thread.aggregate([
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+    ]);
+
+    res.json({
+      analytics: {
+        metrics: {
+          totalUsers,
+          totalThreads,
+          totalMessages,
+          pendingReports,
+          solvedThreads,
+          aiResolvedThreads,
+          announcementsSent,
+        },
+        userRoles: roleRows.map((row) => ({
+          label: row._id === "expert" ? "Mentors" : row._id === "user" ? "General users" : "Learners",
+          value: row.count,
+        })),
+        threadStatuses: threadStatusRows.map((row) => ({
+          label: String(row._id || "UNKNOWN").replace(/_/g, " "),
+          value: row.count,
+        })),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/announcements", async (_req, res, next) => {
+  try {
+    const announcements = await AuditLog.find({ actionType: "announcement_sent" })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
+
+    res.json({
+      announcements: announcements.map((item) => ({
+        id: String(item._id),
+        title: String(item.metadata?.title || "Announcement"),
+        message: String(item.metadata?.message || ""),
+        audience: String(item.metadata?.audience || "all"),
+        recipientCount: Number(item.metadata?.recipientCount || 0),
+        link: String(item.metadata?.link || ""),
+        createdAt: item.createdAt,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/announcements", async (req, res, next) => {
+  try {
+    const parsed = announcementSchema.parse(req.body);
+    const roleFilter =
+      parsed.audience === "mentors"
+        ? { role: "expert" }
+        : parsed.audience === "learners"
+          ? { role: { $in: ["learner", "user"] } }
+          : { role: { $in: ["expert", "learner", "user"] } };
+    const recipients = await User.find(roleFilter).select("_id").lean();
+    const createdAt = new Date();
+    const notificationMessage = `${parsed.title}: ${parsed.message}`;
+
+    if (recipients.length) {
+      await Notification.insertMany(
+        recipients.map((recipient) => ({
+          userId: recipient._id,
+          type: "system_announcement",
+          message: notificationMessage,
+          link: parsed.link || "/dashboard",
+          read: false,
+          createdAt,
+          updatedAt: createdAt,
+        }))
+      );
+    }
+
+    const auditLog = await AuditLog.create({
+      actorName: "Admin",
+      actionType: "announcement_sent",
+      action: `Announcement "${parsed.title}" sent to ${recipients.length} ${parsed.audience} user(s)`,
+      targetType: "users",
+      targetId: parsed.audience,
+      status: "sent",
+      metadata: {
+        ...parsed,
+        recipientCount: recipients.length,
+      },
+    });
+
+    res.status(201).json({
+      announcement: {
+        id: String(auditLog._id),
+        ...parsed,
+        recipientCount: recipients.length,
+        createdAt: auditLog.createdAt,
       },
     });
   } catch (err) {

@@ -8,7 +8,7 @@ import { createApp } from "./app";
 import { setIo } from "./sockets/ioInstance";
 import { registerChatHandlers } from "./sockets/chat";
 import { initRealtime, startPresenceExpiryLoop } from "./services/realtime";
-import { syncClassDiagramCollections } from "./config/classDiagramCollections";
+import { normalizeLegacyData, syncClassDiagramCollections } from "./config/classDiagramCollections";
 import { maskMongoUri, resolveMongoUri } from "./config/database";
 import { FRONTEND_ORIGINS as DEFAULT_FRONTEND_ORIGINS } from "./config/origins";
 
@@ -38,6 +38,7 @@ async function bootstrap() {
     console.log(`Connecting backend to MongoDB: ${maskMongoUri(MONGO_URI)}`);
     await mongoose.connect(MONGO_URI);
     console.log("Connected to MongoDB");
+    await normalizeLegacyData();
     await syncClassDiagramCollections();
 
     let redisClient: ReturnType<typeof createClient> | null = null;
