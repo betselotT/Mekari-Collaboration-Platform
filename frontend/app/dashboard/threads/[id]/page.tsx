@@ -995,7 +995,7 @@ export default function ThreadDetailPage() {
             <button
               type="button"
               onClick={() => setThreadDeleteTarget(true)}
-              className="min-h-[30px] shrink-0 rounded-lg border border-rose-300 px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/40"
+              className="min-h-[30px] shrink-0 rounded-lg border border-rose-600 bg-rose-600 px-3 py-1 text-xs font-semibold text-white transition-colors hover:border-rose-700 hover:bg-rose-700 dark:border-rose-500 dark:bg-rose-600 dark:text-white dark:hover:border-rose-400 dark:hover:bg-rose-500"
             >
               {t("threads.deleteThread")}
             </button>
@@ -1699,7 +1699,7 @@ export default function ThreadDetailPage() {
                           type="button"
                           onClick={() => openExpertDm(id)}
                           disabled={Boolean(dmLoadingId)}
-                          className="inline-flex min-h-[34px] shrink-0 items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-2.5 py-1.5 text-xs font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-wait disabled:opacity-60 dark:border-primary-900/50 dark:bg-primary-950/30 dark:text-primary-200 dark:hover:bg-primary-950/50"
+                          className="inline-flex min-h-[34px] shrink-0 items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-2.5 py-1.5 text-xs font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-wait disabled:opacity-60 dark:border-primary-400 dark:bg-primary-700 dark:text-white dark:hover:bg-primary-600"
                         >
                           <MessageSquare className="h-3.5 w-3.5" />
                           {dmLoadingId === id ? t("Opening...") : t("DM")}

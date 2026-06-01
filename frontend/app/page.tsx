@@ -132,12 +132,12 @@ export default function LandingPage() {
     <div className="min-h-screen overflow-hidden bg-white dark:bg-neutral-950">
       {/* Navigation */}
       <nav className="fixed top-0 z-50 w-full border-b border-neutral-200/80 bg-white/85 text-neutral-950 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/85 dark:text-white dark:shadow-lg dark:shadow-black/10">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-3 sm:px-6">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-violet-700 text-white font-bold shadow-lg shadow-primary-950/50 ring-1 ring-white/20">
               M
             </div>
-            <div>
+            <div className="hidden sm:block">
               <span className="block text-xl font-bold tracking-tight">Mekari</span>
             </div>
           </div>
@@ -154,11 +154,11 @@ export default function LandingPage() {
             </a> */}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1 sm:gap-4">
             <ThemeToggle />
             <LanguageToggle />
             <Link href="/login">
-              <Button variant="primary" size="sm" className="rounded-full px-5 shadow-lg shadow-primary-200/60 hover:scale-105 hover:shadow-primary-300/70 dark:shadow-primary-950/40 dark:hover:shadow-primary-900/60">
+              <Button variant="primary" size="sm" className="rounded-full px-3 shadow-lg shadow-primary-200/60 hover:scale-105 hover:shadow-primary-300/70 dark:shadow-primary-950/40 dark:hover:shadow-primary-900/60 sm:px-5">
                 {t("auth.signIn")}
               </Button>
             </Link>
@@ -167,13 +167,13 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative isolate overflow-hidden bg-white px-6 pb-20 pt-32 dark:bg-neutral-950">
+      <section className="relative isolate overflow-hidden bg-white px-4 pb-16 pt-28 dark:bg-neutral-950 sm:px-6 sm:pb-20 sm:pt-32">
         <div className="absolute inset-0 -z-30 bg-[radial-gradient(circle_at_15%_20%,rgba(139,92,246,0.18),transparent_28%),radial-gradient(circle_at_85%_12%,rgba(59,130,246,0.12),transparent_24%),linear-gradient(135deg,#ffffff_0%,#faf7ff_54%,#f8fbff_100%)] dark:bg-[radial-gradient(circle_at_15%_20%,rgba(124,58,237,0.24),transparent_27%),radial-gradient(circle_at_82%_25%,rgba(59,130,246,0.16),transparent_22%),linear-gradient(135deg,#050507_0%,#0a0712_52%,#030306_100%)]" />
         <div className="absolute inset-0 -z-20 opacity-50 [background-image:linear-gradient(rgba(109,40,217,.06)_1px,transparent_1px),linear-gradient(90deg,rgba(109,40,217,.06)_1px,transparent_1px)] [background-size:52px_52px] dark:opacity-30 dark:[background-image:linear-gradient(rgba(255,255,255,.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.05)_1px,transparent_1px)]" />
         <div className="mx-auto max-w-7xl">
-          <div className="grid min-h-[560px] items-center gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+          <div className="relative grid min-h-[520px] items-center gap-8 lg:min-h-[560px] lg:grid-cols-[0.95fr_1.05fr]">
             <div className="relative z-10">
-              <h1 className="text-6xl font-black leading-[0.94] tracking-[-0.07em] text-neutral-950 dark:text-white sm:text-7xl lg:text-[7rem]">
+              <h1 className="text-5xl font-black leading-[0.94] tracking-[-0.07em] text-neutral-950 dark:text-white sm:text-7xl lg:text-[7rem]">
                 {t("landing.ask")}<br />
                 {t("landing.collaborate")}<br />
                 <span className="bg-gradient-to-r from-primary-600 via-violet-500 to-sky-500 bg-clip-text text-transparent dark:from-primary-300 dark:via-violet-400 dark:to-sky-300">
@@ -198,10 +198,10 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="relative min-h-[420px] lg:min-h-[540px]">
-              <ContourField className="absolute -right-24 top-0 h-[370px] w-[620px] rotate-[-5deg] opacity-75 dark:opacity-95" />
-              <ContourField className="absolute -bottom-8 right-2 h-[300px] w-[500px] rotate-[167deg] opacity-55 dark:opacity-75" />
-              <div className="absolute right-4 top-12 h-24 w-24 rounded-full border border-primary-400/50 bg-primary-500/10 shadow-[0_0_80px_rgba(139,92,246,.3)] backdrop-blur">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-55 lg:relative lg:min-h-[540px] lg:opacity-100">
+              <ContourField className="absolute -right-64 top-8 h-[300px] w-[500px] rotate-[-5deg] opacity-75 dark:opacity-95 sm:-right-40 lg:-right-24 lg:top-0 lg:h-[370px] lg:w-[620px]" />
+              <ContourField className="absolute -bottom-10 -right-44 h-[250px] w-[420px] rotate-[167deg] opacity-55 dark:opacity-75 sm:-right-16 lg:-bottom-8 lg:right-2 lg:h-[300px] lg:w-[500px]" />
+              <div className="absolute right-0 top-20 h-20 w-20 rounded-full border border-primary-400/50 bg-primary-500/10 shadow-[0_0_80px_rgba(139,92,246,.3)] backdrop-blur sm:right-4 sm:h-24 sm:w-24 lg:top-12">
                 <div className="absolute inset-4 rounded-full border border-sky-400/60" />
                 <div className="absolute inset-9 rounded-full bg-primary-500 shadow-[0_0_30px_rgba(139,92,246,.75)]" />
               </div>
@@ -372,7 +372,7 @@ export default function LandingPage() {
 
           <form
             onSubmit={onLandingSignIn}
-            className="relative rounded-3xl border border-primary-100 bg-white/85 p-8 shadow-2xl shadow-primary-100/60 backdrop-blur-xl dark:border-white/10 dark:bg-white/5 dark:shadow-primary-950/20"
+            className="relative rounded-3xl border border-primary-100 bg-white/85 p-5 shadow-2xl shadow-primary-100/60 backdrop-blur-xl dark:border-white/10 dark:bg-white/5 dark:shadow-primary-950/20 sm:p-8"
           >
             <div className="mb-6">
               <input

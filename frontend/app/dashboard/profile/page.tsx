@@ -661,7 +661,7 @@ export default function ProfilePage() {
           {needsPasswordSetup && (
             <form
               onSubmit={handleSetPassword}
-              className="mb-6 rounded-lg border border-primary-100 bg-primary-50/60 p-4 dark:border-primary-900 dark:bg-primary-950/20"
+              className="mb-6 rounded-lg border border-primary-100 bg-primary-50/60 p-4 dark:border-primary-700/70 dark:bg-neutral-900"
             >
               <div className="mb-4 flex items-start gap-3">
                 <div className="rounded-lg bg-white p-2 text-primary-600 dark:bg-neutral-950 dark:text-primary-300">
@@ -669,7 +669,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <h4 className="font-semibold text-neutral-900 dark:text-white">Set a password</h4>
-                  <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                  <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-200">
                     Add a password so you can sign in with your email as well as Google or GitHub.
                   </p>
                 </div>
@@ -679,7 +679,7 @@ export default function ProfilePage() {
                   <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.password")}</span>
                   <input
                     type="password"
-                    className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                    className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-white"
                     value={passwordForm.password}
                     onChange={(e) => setPasswordForm({ ...passwordForm, password: e.target.value })}
                     autoComplete="new-password"
@@ -690,7 +690,7 @@ export default function ProfilePage() {
                   <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Confirm password</span>
                   <input
                     type="password"
-                    className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                    className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-white"
                     value={passwordForm.confirmPassword}
                     onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
                     autoComplete="new-password"
@@ -698,7 +698,7 @@ export default function ProfilePage() {
                   />
                 </label>
               </div>
-              <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">
+              <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-300">
                 Use at least 8 characters with uppercase, lowercase, number, and special character.
               </p>
               <Button type="submit" variant="primary" size="sm" className="mt-4" isLoading={settingPassword}>

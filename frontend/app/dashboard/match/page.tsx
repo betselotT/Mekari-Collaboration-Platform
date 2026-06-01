@@ -267,7 +267,7 @@ function MatchContent() {
                         <span className="text-sm font-bold text-neutral-900 underline-offset-4 hover:underline dark:text-white">
                           {rec.expert.name}
                         </span>
-                        <span className="inline-flex items-center gap-1 rounded-full border border-primary-200 bg-primary-50 px-2 py-0.5 text-[11px] font-bold text-primary-700 dark:border-primary-900/50 dark:bg-primary-950/30 dark:text-primary-200">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-primary-200 bg-primary-50 px-2 py-0.5 text-[11px] font-bold text-primary-700 dark:border-primary-400 dark:bg-primary-700 dark:text-white">
                           <MessageSquare className="h-3 w-3" />
                           {dmLoadingId === rec.expert._id ? t("Opening...") : "DM"}
                         </span>
