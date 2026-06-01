@@ -4,7 +4,12 @@ import { requireAuth, AuthRequest } from "../middleware/auth";
 import { messageRateLimiter } from "../middleware/messageRateLimiter";
 import { Thread } from "../models/Thread";
 import { Message } from "../models/Message";
+import { FeedbackEvent } from "../models/FeedbackEvent";
+import { KnowledgeDoc } from "../models/KnowledgeDoc";
+import { MatchRequest } from "../models/MatchRequest";
+import { Notification } from "../models/Notification";
 import { PointEvent } from "../models/PointEvent";
+import { Report } from "../models/Report";
 import { User } from "../models/User";
 import { awardPoints, awardRepeatableBadge } from "../services/awardPoints";
 import { captureKnowledge } from "../services/knowledgeCapture";
@@ -906,6 +911,52 @@ router.post("/:threadId/session", requireAuth, async (req: AuthRequest, res, nex
     });
 
     res.json({ meetLink, message: systemMsg });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /:threadId - permanently delete a thread and its dependent records
+router.delete("/:threadId", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const { threadId } = req.params;
+    const thread = await Thread.findById(threadId).select("createdBy");
+    if (!thread) {
+      return res.status(404).json({ error: { message: "Thread not found" } });
+    }
+
+    if (String(thread.createdBy) !== String(req.userId)) {
+      return res.status(403).json({ error: { message: "Only the thread author can delete this thread" } });
+    }
+
+    const messages = await Message.find({ thread: threadId }).select("_id").lean();
+    const messageIds = messages.map((message) => message._id);
+
+    await Promise.all([
+      Message.deleteMany({ thread: threadId }),
+      MatchRequest.deleteMany({ thread: threadId }),
+      FeedbackEvent.deleteMany({ threadId }),
+      KnowledgeDoc.deleteMany({ questionId: threadId }),
+      Report.deleteMany({
+        $or: [
+          { targetType: "thread", targetId: threadId },
+          { targetType: "message", targetId: { $in: messageIds } },
+        ],
+      }),
+      Notification.deleteMany({ link: `/dashboard/threads/${threadId}` }),
+      Thread.updateMany(
+        { "similarProblems.threadId": threadId },
+        { $pull: { similarProblems: { threadId } } }
+      ),
+    ]);
+    await Thread.findByIdAndDelete(threadId);
+
+    await broadcastToRoom(roomName("thread", threadId), "thread_deleted", {
+      threadId,
+      deletedBy: req.userId,
+    });
+
+    res.json({ deleted: true, threadId });
   } catch (err) {
     next(err);
   }
