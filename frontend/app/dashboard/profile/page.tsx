@@ -12,7 +12,7 @@ import { Avatar } from "../../../components/ui/Avatar";
 import { Badge } from "../../../components/ui/Badge";
 import { Input } from "../../../components/ui/Input";
 import { Edit, Lock, Globe, Bell, Save, X, Plus, CheckCircle2, Clock, Moon, Video, Award, Zap, Bot, Trophy, Star, TrendingUp, FileText, Trash2 } from "lucide-react";
-import { useLanguage } from "../../../lib/i18n";
+import { type Language, useLanguage } from "../../../lib/i18n";
 
 type AccountType = "learner" | "mentor";
 
@@ -79,7 +79,7 @@ function passwordErrors(value: string) {
 }
 
 export default function ProfilePage() {
-  const { t } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -97,7 +97,6 @@ export default function ProfilePage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [resubmittingVerification, setResubmittingVerification] = useState(false);
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(
     defaultNotificationPreferences
   );
@@ -933,51 +932,8 @@ export default function ProfilePage() {
               {t("Security & Preferences")}
             </h3>
             <div className="grid gap-4 md:grid-cols-2">
-              <Card hoverable>
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="rounded-lg bg-primary-100 p-2 dark:bg-primary-900">
-                      <Lock className="h-5 w-5 text-primary-600 dark:text-primary-400" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-neutral-900 dark:text-white">
-                        {t("Two-Factor Auth")}
-                      </h4>
-                      <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                        {t(twoFactorEnabled ? "Enabled" : "Not enabled")}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={twoFactorEnabled}
-                    onClick={() => {
-                      setTwoFactorEnabled((enabled) => !enabled);
-                      setError("");
-                      setMessage(
-                        twoFactorEnabled
-                          ? "Two-factor authentication disabled."
-                          : "Two-factor authentication enabled."
-                      );
-                    }}
-                    className={`relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full border transition-colors ${
-                      twoFactorEnabled
-                        ? "border-primary-600 bg-primary-600"
-                        : "border-neutral-300 bg-neutral-200 dark:border-neutral-700 dark:bg-neutral-800"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                        twoFactorEnabled ? "translate-x-6" : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </div>
-              </Card>
-
-              <Card hoverable>
-                <div className="flex items-start justify-between">
+              <Card hoverable className="md:col-span-2">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div className="flex items-start gap-3">
                     <div className="rounded-lg bg-primary-100 p-2 dark:bg-primary-900">
                       <Globe className="h-5 w-5 text-primary-600 dark:text-primary-400" />
@@ -987,10 +943,21 @@ export default function ProfilePage() {
                         {t("Language")}
                       </h4>
                       <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                        {t("English (US)")}
+                        {language === "am" ? t("language.amharic") : t("language.english")}
                       </p>
                     </div>
                   </div>
+                  <select
+                    value={language}
+                    onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                      setLanguage(event.target.value as Language)
+                    }
+                    aria-label={t("Language")}
+                    className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-900 shadow-sm transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white dark:focus:border-primary-400 dark:focus:ring-primary-900 md:w-52"
+                  >
+                    <option value="am">{t("language.amharic")}</option>
+                    <option value="en">{t("language.english")}</option>
+                  </select>
                 </div>
               </Card>
 
