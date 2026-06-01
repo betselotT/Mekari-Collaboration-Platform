@@ -213,10 +213,6 @@ export function RegisterForm() {
       requireGuidelinesAcceptance();
       return;
     }
-    if (accountType === "mentor") {
-      showError(t("auth.mentorGoogleBlocked"));
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
@@ -425,18 +421,12 @@ export function RegisterForm() {
           canContinue={communityGuidelinesAccepted}
           onContinueBlocked={requireGuidelinesAcceptance}
         />
-        {accountType === "learner" ? (
-          <GithubAuthButton
-            accountType={accountType}
-            mode="register"
-            communityGuidelinesAccepted={communityGuidelinesAccepted}
-            onAcceptanceRequired={requireGuidelinesAcceptance}
-          />
-        ) : (
-          <p className="flex min-h-10 items-center text-xs text-neutral-500 dark:text-neutral-400">
-            {t("auth.githubMentorUnavailable")}
-          </p>
-        )}
+        <GithubAuthButton
+          accountType={accountType}
+          mode="register"
+          communityGuidelinesAccepted={communityGuidelinesAccepted}
+          onAcceptanceRequired={requireGuidelinesAcceptance}
+        />
       </div>
       {guidelinesModalOpen && (
         <CommunityGuidelinesAgreement

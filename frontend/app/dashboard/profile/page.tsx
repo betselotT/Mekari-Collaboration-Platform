@@ -29,15 +29,28 @@ type NotificationPreferences = Record<
   {
     internal: boolean;
     push: boolean;
+    email: boolean;
   }
 >;
 
 const defaultNotificationPreferences: NotificationPreferences = {
-  chat: { internal: true, push: false },
-  documentStatus: { internal: true, push: false },
-  moderation: { internal: true, push: false },
-  admin: { internal: true, push: false },
+  chat: { internal: true, push: false, email: false },
+  documentStatus: { internal: true, push: false, email: false },
+  moderation: { internal: true, push: false, email: false },
+  admin: { internal: true, push: false, email: false },
 };
+
+function mergeNotificationPreferences(preferences?: Partial<NotificationPreferences>) {
+  return {
+    chat: { ...defaultNotificationPreferences.chat, ...(preferences?.chat || {}) },
+    documentStatus: {
+      ...defaultNotificationPreferences.documentStatus,
+      ...(preferences?.documentStatus || {}),
+    },
+    moderation: { ...defaultNotificationPreferences.moderation, ...(preferences?.moderation || {}) },
+    admin: { ...defaultNotificationPreferences.admin, ...(preferences?.admin || {}) },
+  };
+}
 
 const technicalFields = [
   "Software Engineering",
@@ -335,16 +348,29 @@ export default function ProfilePage() {
         const res = await apiClient.get("/api/users/me");
         if (res.data.user) {
           setUser(res.data.user);
-          setNotificationPreferences({
-            ...defaultNotificationPreferences,
-            ...(res.data.user.notificationPreferences || {}),
-          });
+          setNotificationPreferences(mergeNotificationPreferences(res.data.user.notificationPreferences));
           setFormData({
             name: res.data.user.name || "",
             bio: res.data.user.bio || "",
             avatarUrl: res.data.user.avatarUrl || "",
             availabilityStatus: res.data.user.availabilityStatus || "online",
           });
+          setSetupForm((current) => ({
+            ...current,
+            accountType: res.data.user.role === "expert" ? "mentor" : "learner",
+            primaryTechnicalField: res.data.user.primaryTechnicalField || current.primaryTechnicalField,
+            roleOrStatus: res.data.user.roleOrStatus || current.roleOrStatus,
+            yearsOfExperience: res.data.user.yearsOfExperience || current.yearsOfExperience,
+            devicesUsed: res.data.user.devicesUsed?.length ? res.data.user.devicesUsed : current.devicesUsed,
+            collaborationGoals: res.data.user.collaborationGoals || current.collaborationGoals,
+            expertiseSubject:
+              res.data.user.expertise?.[0]?.subject ||
+              res.data.user.primaryTechnicalField ||
+              current.expertiseSubject,
+            expertiseLevel: res.data.user.expertise?.[0]?.proficiency || current.expertiseLevel,
+            skillTags: res.data.user.skillTags?.join(", ") || current.skillTags,
+            availabilityStatus: res.data.user.availabilityStatus || current.availabilityStatus,
+          }));
         }
       } catch (err) {
         setError("Failed to fetch user profile.");
@@ -357,7 +383,7 @@ export default function ProfilePage() {
 
   async function updateNotificationPreference(
     category: NotificationCategory,
-    channel: "internal" | "push",
+    channel: "internal" | "push" | "email",
     value: boolean
   ) {
     const previous = notificationPreferences;
@@ -383,11 +409,13 @@ export default function ProfilePage() {
           return;
         }
       }
+      if (channel === "email" && value && !user.emailVerified) {
+        setNotificationPreferences(previous);
+        setError("Verify your email before enabling email notifications.");
+        return;
+      }
       const res = await apiClient.put("/api/notifications/preferences", next);
-      setNotificationPreferences({
-        ...defaultNotificationPreferences,
-        ...(res.data.preferences || {}),
-      });
+      setNotificationPreferences(mergeNotificationPreferences(res.data.preferences));
       setMessage("Notification preferences updated.");
     } catch (err: any) {
       setNotificationPreferences(previous);
@@ -992,12 +1020,12 @@ export default function ProfilePage() {
                     return (
                       <div
                         key={key}
-                        className="grid gap-3 border-b border-neutral-200 px-4 py-3 last:border-b-0 dark:border-neutral-700 sm:grid-cols-[1fr_auto_auto]"
+                        className="grid gap-3 border-b border-neutral-200 px-4 py-3 last:border-b-0 dark:border-neutral-700 sm:grid-cols-[1fr_auto_auto_auto]"
                       >
                         <span className="text-sm font-medium text-neutral-900 dark:text-white">
                           {item.label}
                         </span>
-                        {(["internal", "push"] as const).map((channel) => (
+                        {(["internal", "push", "email"] as const).map((channel) => (
                           <label
                             key={channel}
                             className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-neutral-500"
@@ -1011,7 +1039,7 @@ export default function ProfilePage() {
                               }
                               className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
                             />
-                            {channel === "internal" ? "In app" : "Push"}
+                            {channel === "internal" ? "In app" : channel === "push" ? "Push" : "Email"}
                           </label>
                         ))}
                       </div>

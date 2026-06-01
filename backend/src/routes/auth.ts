@@ -50,26 +50,36 @@ const passwordSchema = z
   .regex(/[0-9]/, "Password must include at least 1 number")
   .regex(/[^A-Za-z0-9]/, "Password must include at least 1 special character");
 
-const registerSchema = z.object({
-  name: fullNameSchema,
-  email: z.string().email(),
-  password: passwordSchema,
-  accountType: accountTypeSchema,
-  primaryTechnicalField: z.string().min(1),
-  roleOrStatus: z.string().min(1),
-  yearsOfExperience: z.string().min(1),
-  devicesUsed: z.array(z.string().min(1)).default([]),
-  collaborationGoals: z.string().max(500).optional(),
-  expertise: z.array(expertiseSchema).default([]),
-  skillTags: z.array(z.string().min(1)).default([]),
-  availabilityStatus: z
-    .enum(["online", "busy", "offline", "in_session"])
-    .default("offline"),
-  verificationDocument: verificationDocumentSchema.optional(),
-  communityGuidelinesAccepted: z.literal(true, {
-    errorMap: () => ({ message: "Community guidelines must be accepted before registering" }),
-  }),
-});
+const registerSchema = z
+  .object({
+    name: fullNameSchema,
+    email: z.string().email(),
+    password: passwordSchema,
+    accountType: accountTypeSchema,
+    primaryTechnicalField: z.string().trim().optional(),
+    roleOrStatus: z.string().min(1),
+    yearsOfExperience: z.string().min(1),
+    devicesUsed: z.array(z.string().min(1)).default([]),
+    collaborationGoals: z.string().max(500).optional(),
+    expertise: z.array(expertiseSchema).default([]),
+    skillTags: z.array(z.string().min(1)).default([]),
+    availabilityStatus: z
+      .enum(["online", "busy", "offline", "in_session"])
+      .default("offline"),
+    verificationDocument: verificationDocumentSchema.optional(),
+    communityGuidelinesAccepted: z.literal(true, {
+      errorMap: () => ({ message: "Community guidelines must be accepted before registering" }),
+    }),
+  })
+  .superRefine((value, ctx) => {
+    if (value.accountType === "learner" && !value.primaryTechnicalField) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["primaryTechnicalField"],
+        message: "Learners must enter a primary technical field",
+      });
+    }
+  });
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -259,7 +269,9 @@ router.post("/register", async (req, res, next) => {
       emailVerified: false,
       passwordHash,
       role: roleForAccountType(parsed.accountType),
-      primaryTechnicalField: parsed.primaryTechnicalField,
+      primaryTechnicalField: isMentor
+        ? parsed.expertise[0]?.subject
+        : parsed.primaryTechnicalField,
       roleOrStatus: parsed.roleOrStatus,
       yearsOfExperience: parsed.yearsOfExperience,
       devicesUsed: parsed.devicesUsed,
@@ -477,13 +489,6 @@ router.post("/google", loginRateLimiter, async (req, res, next) => {
           error: { message: "Community guidelines must be accepted before registering" },
         });
       }
-      if (accountType === "mentor") {
-        return res.status(400).json({
-          error: {
-            message: "Mentor Google sign-up requires a verification document. Use the mentor registration form.",
-          },
-        });
-      }
       user = await User.create({
         name: payload.name || payload.email.split("@")[0],
         email: payload.email.toLowerCase(),
@@ -561,14 +566,6 @@ router.get("/github/start", loginRateLimiter, (req, res, next) => {
         })
       );
     }
-    if (parsed.accountType === "mentor" && parsed.mode === "register") {
-      return res.redirect(
-        frontendUrl("/register", {
-          error: "GitHub mentor sign-up requires a verification document.",
-        })
-      );
-    }
-
     const clientId = process.env.GITHUB_CLIENT_ID;
     if (!clientId) {
       return res.redirect(frontendUrl("/login", { error: "GitHub OAuth is not configured." }));
@@ -675,13 +672,6 @@ router.get("/github/callback", async (req, res, next) => {
         return res.redirect(
           frontendUrl("/register", {
             error: "Community guidelines must be accepted before registering.",
-          })
-        );
-      }
-      if (accountType === "mentor") {
-        return res.redirect(
-          frontendUrl("/register", {
-            error: "Mentor GitHub sign-up requires a verification document.",
           })
         );
       }
