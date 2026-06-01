@@ -7,8 +7,14 @@ import { ExpertReview } from "../models/ExpertReview";
 import { logAuditEvent } from "../services/auditLog";
 import { withAchievementSummaries, withAchievementSummary } from "../services/awardPoints";
 import { notifyAdmins } from "../services/notifications";
+import { COMMUNITY_GUIDELINES_VERSION } from "../config/communityGuidelines";
 
 const router = Router();
+
+const communityGuidelinesAcceptanceSchema = z.object({
+  version: z.literal(COMMUNITY_GUIDELINES_VERSION),
+  accepted: z.literal(true),
+});
 
 const profileUpdateSchema = z.object({
   name: z.string().min(2).optional(),
@@ -38,25 +44,35 @@ const verificationDocumentSchema = z.object({
   dataUrl: z.string().startsWith("data:").max(7_000_000),
 });
 
-const profileSetupSchema = z.object({
-  accountType: z.enum(["learner", "mentor"]),
-  primaryTechnicalField: z.string().min(1),
-  roleOrStatus: z.string().min(1),
-  yearsOfExperience: z.string().min(1),
-  devicesUsed: z.array(z.string().min(1)).min(1),
-  collaborationGoals: z.string().max(500).optional(),
-  expertise: z
-    .array(
-      z.object({
-        subject: z.string().min(1),
-        proficiency: z.enum(["beginner", "intermediate", "advanced", "expert"]),
-      })
-    )
-    .default([]),
-  skillTags: z.array(z.string().min(1)).default([]),
-  availabilityStatus: z.enum(["online", "busy", "offline", "in_session"]).default("offline"),
-  verificationDocument: verificationDocumentSchema.optional(),
-});
+const profileSetupSchema = z
+  .object({
+    accountType: z.enum(["learner", "mentor"]),
+    primaryTechnicalField: z.string().min(1).optional(),
+    roleOrStatus: z.string().min(1),
+    yearsOfExperience: z.string().min(1),
+    devicesUsed: z.array(z.string().min(1)).min(1),
+    collaborationGoals: z.string().max(500).optional(),
+    expertise: z
+      .array(
+        z.object({
+          subject: z.string().min(1),
+          proficiency: z.enum(["beginner", "intermediate", "advanced", "expert"]),
+        })
+      )
+      .default([]),
+    skillTags: z.array(z.string().min(1)).default([]),
+    availabilityStatus: z.enum(["online", "busy", "offline", "in_session"]).default("offline"),
+    verificationDocument: verificationDocumentSchema.optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.accountType === "learner" && !value.primaryTechnicalField) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["primaryTechnicalField"],
+        message: "Learners must enter a primary technical field",
+      });
+    }
+  });
 
 const reviewCreateSchema = z.object({
   stars: z
@@ -141,6 +157,57 @@ router.get("/me", requireAuth, async (req: AuthRequest, res, next) => {
   }
 });
 
+router.get("/me/community-guidelines", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const user = await User.findById(req.userId)
+      .select("communityGuidelinesEulaVersion communityGuidelinesEulaAcceptedAt")
+      .lean();
+    if (!user) return res.status(404).json({ error: { message: "User not found" } });
+
+    res.json({
+      version: COMMUNITY_GUIDELINES_VERSION,
+      requiresAcceptance: user.communityGuidelinesEulaVersion !== COMMUNITY_GUIDELINES_VERSION,
+      acceptedAt: user.communityGuidelinesEulaAcceptedAt,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/me/community-guidelines/accept", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const parsed = communityGuidelinesAcceptanceSchema.parse(req.body);
+    const acceptedAt = new Date();
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      {
+        $set: {
+          communityGuidelinesEulaVersion: parsed.version,
+          communityGuidelinesEulaAcceptedAt: acceptedAt,
+        },
+      },
+      { new: true }
+    ).select("name email role");
+
+    if (!user) return res.status(404).json({ error: { message: "User not found" } });
+
+    await logAuditEvent({
+      actorId: user.id,
+      actorName: user.name,
+      actorEmail: user.email,
+      actionType: "community_guidelines_accepted",
+      action: `${user.name} accepted community guidelines ${parsed.version}`,
+      targetType: "user",
+      targetId: user.id,
+      status: parsed.version,
+    });
+
+    res.json({ version: parsed.version, acceptedAt });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.put("/me", requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const parsed = profileUpdateSchema.parse(req.body);
@@ -179,7 +246,9 @@ router.post("/me/setup", requireAuth, async (req: AuthRequest, res, next) => {
       {
         $set: {
           role: isMentor ? "expert" : "learner",
-          primaryTechnicalField: parsed.primaryTechnicalField,
+          primaryTechnicalField: isMentor
+            ? parsed.expertise[0].subject
+            : parsed.primaryTechnicalField,
           roleOrStatus: parsed.roleOrStatus,
           yearsOfExperience: parsed.yearsOfExperience,
           devicesUsed: parsed.devicesUsed,

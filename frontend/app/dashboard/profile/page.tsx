@@ -82,12 +82,12 @@ export default function ProfilePage() {
   const [showSetup, setShowSetup] = useState(false);
   const [setupForm, setSetupForm] = useState({
     accountType: "learner" as AccountType,
-    primaryTechnicalField: technicalFields[0],
+    primaryTechnicalField: "",
     roleOrStatus: roleOptions[0],
     yearsOfExperience: experienceOptions[2],
     devicesUsed: ["Desktop/Laptop"],
     collaborationGoals: "",
-    expertiseSubject: "Software Engineering",
+    expertiseSubject: "",
     expertiseLevel: "advanced" as "intermediate" | "advanced" | "expert",
     skillTags: "",
     availabilityStatus: "online" as "online" | "busy" | "offline",
@@ -181,15 +181,25 @@ export default function ProfilePage() {
 
     try {
       const isMentor = setupForm.accountType === "mentor";
+      const primaryTechnicalField = setupForm.primaryTechnicalField.trim();
+      const expertiseSubject = setupForm.expertiseSubject.trim();
+      if (!isMentor && !primaryTechnicalField) {
+        setError(t("auth.technicalFieldRequired"));
+        return;
+      }
+      if (isMentor && !expertiseSubject) {
+        setError(t("auth.expertiseAreaRequired"));
+        return;
+      }
       const res = await apiClient.post("/api/users/me/setup", {
         accountType: setupForm.accountType,
-        primaryTechnicalField: setupForm.primaryTechnicalField,
+        primaryTechnicalField: isMentor ? undefined : primaryTechnicalField,
         roleOrStatus: setupForm.roleOrStatus,
         yearsOfExperience: setupForm.yearsOfExperience,
         devicesUsed: setupForm.devicesUsed,
         collaborationGoals: setupForm.collaborationGoals || undefined,
         expertise: isMentor
-          ? [{ subject: setupForm.expertiseSubject, proficiency: setupForm.expertiseLevel }]
+          ? [{ subject: expertiseSubject, proficiency: setupForm.expertiseLevel }]
           : [],
         skillTags: isMentor
           ? setupForm.skillTags
@@ -572,12 +582,21 @@ export default function ProfilePage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
+              {setupForm.accountType === "learner" && (
               <label className="space-y-1">
               <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.primaryField")}</span>
-                <select className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white" value={setupForm.primaryTechnicalField} onChange={(e) => setSetupForm({ ...setupForm, primaryTechnicalField: e.target.value })}>
-                  {technicalFields.map((field) => <option key={field}>{field}</option>)}
-                </select>
+                <input
+                  className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                  list="profile-primary-technical-field-options"
+                  value={setupForm.primaryTechnicalField}
+                  onChange={(e) => setSetupForm({ ...setupForm, primaryTechnicalField: e.target.value })}
+                  placeholder={t("auth.technicalFieldPlaceholder")}
+                />
+                <datalist id="profile-primary-technical-field-options">
+                  {technicalFields.map((field) => <option key={field} value={field} />)}
+                </datalist>
               </label>
+              )}
               <label className="space-y-1">
               <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.currentRole")}</span>
                 <select className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white" value={setupForm.roleOrStatus} onChange={(e) => setSetupForm({ ...setupForm, roleOrStatus: e.target.value })}>
@@ -590,17 +609,16 @@ export default function ProfilePage() {
                   {experienceOptions.map((years) => <option key={years}>{years}</option>)}
                 </select>
               </label>
-            </div>
-
-            <div>
-              <span className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.devicesUsed")}</span>
-              <div className="flex flex-wrap gap-2">
-                {deviceOptions.map((device) => (
-                  <label key={device} className="flex items-center gap-2 rounded border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800">
-                    <input type="checkbox" checked={setupForm.devicesUsed.includes(device)} onChange={() => toggleSetupDevice(device)} />
-                    {device}
-                  </label>
-                ))}
+              <div>
+                <span className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.devicesUsed")}</span>
+                <div className="flex flex-wrap gap-2">
+                  {deviceOptions.map((device) => (
+                    <label key={device} className="flex items-center gap-2 rounded border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800">
+                      <input type="checkbox" checked={setupForm.devicesUsed.includes(device)} onChange={() => toggleSetupDevice(device)} />
+                      {device}
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -620,9 +638,16 @@ export default function ProfilePage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="space-y-1">
               <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.expertiseArea")}</span>
-                    <select className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white" value={setupForm.expertiseSubject} onChange={(e) => setSetupForm({ ...setupForm, expertiseSubject: e.target.value })}>
-                      {technicalFields.map((field) => <option key={field}>{field}</option>)}
-                    </select>
+                    <input
+                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                      list="profile-mentor-expertise-options"
+                      value={setupForm.expertiseSubject}
+                      onChange={(e) => setSetupForm({ ...setupForm, expertiseSubject: e.target.value })}
+                      placeholder={t("auth.expertiseAreaPlaceholder")}
+                    />
+                    <datalist id="profile-mentor-expertise-options">
+                      {technicalFields.map((field) => <option key={field} value={field} />)}
+                    </datalist>
                   </label>
                   <label className="space-y-1">
               <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.expertiseLevel")}</span>

@@ -1054,12 +1054,12 @@ function MessagesContent() {
         </div>
       )}
 
-      <div className="grid min-h-[calc(100dvh-156px)] min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900 sm:min-h-[calc(100dvh-180px)] lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)]">
-        <aside className={`${activeConversation ? "hidden lg:block" : "block"} border-b border-neutral-200 dark:border-neutral-700 lg:border-b-0 lg:border-r`}>
+      <div className="grid h-[calc(100dvh-156px)] min-h-0 min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900 sm:h-[calc(100dvh-180px)] lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)]">
+        <aside className={`${activeConversation ? "hidden lg:flex" : "flex"} min-h-0 flex-col border-b border-neutral-200 dark:border-neutral-700 lg:border-b-0 lg:border-r`}>
           <div className="border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
             <h2 className="text-sm font-bold text-neutral-900 dark:text-white">{t("Conversations")}</h2>
           </div>
-          <div className="max-h-[calc(100dvh-220px)] overflow-y-auto sm:max-h-[320px] lg:max-h-[calc(100vh-232px)]">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             {loadingConversations ? (
               <div className="p-4 text-sm text-neutral-500">{t("Loading conversations...")}</div>
             ) : conversations.length === 0 ? (
@@ -1099,7 +1099,7 @@ function MessagesContent() {
           </div>
         </aside>
 
-        <section className={`${activeConversation ? "flex" : "hidden lg:flex"} min-h-[calc(100dvh-156px)] min-w-0 flex-col sm:min-h-[calc(100dvh-180px)] lg:min-h-[520px]`}>
+        <section className={`${activeConversation ? "flex" : "hidden lg:flex"} min-h-0 min-w-0 flex-col overflow-hidden`}>
           {activeConversation ? (
             <>
               <div className="flex flex-col gap-3 border-b border-neutral-200 px-4 py-3 dark:border-neutral-700 sm:flex-row sm:items-center sm:justify-between">

@@ -63,6 +63,8 @@ export interface IUser extends Document {
   profileSetupCompleted: boolean;
   communityGuidelinesAcceptedAt?: Date;
   communityGuidelinesVersion?: string;
+  communityGuidelinesEulaAcceptedAt?: Date;
+  communityGuidelinesEulaVersion?: string;
   expertise: ExpertiseArea[];
   skillTags: string[];
   availabilityStatus: "online" | "busy" | "offline" | "in_session";
@@ -168,6 +170,8 @@ const UserSchema = new Schema<IUser>(
     profileSetupCompleted: { type: Boolean, default: false },
     communityGuidelinesAcceptedAt: { type: Date },
     communityGuidelinesVersion: { type: String },
+    communityGuidelinesEulaAcceptedAt: { type: Date },
+    communityGuidelinesEulaVersion: { type: String },
     expertise: { type: [ExpertiseSchema], default: [] },
     skillTags: { type: [String], default: [] },
     availabilityStatus: {
