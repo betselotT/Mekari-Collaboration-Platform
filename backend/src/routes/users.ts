@@ -1,4 +1,5 @@
 import { Router } from "express";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { Types } from "mongoose";
 import { requireAuth, AuthRequest } from "../middleware/auth";
@@ -8,6 +9,7 @@ import { logAuditEvent } from "../services/auditLog";
 import { withAchievementSummaries, withAchievementSummary } from "../services/awardPoints";
 import { notifyAdmins } from "../services/notifications";
 import { COMMUNITY_GUIDELINES_VERSION } from "../config/communityGuidelines";
+import { deleteUserAccount } from "../services/deleteAccount";
 
 const router = Router();
 
@@ -35,6 +37,18 @@ const profileUpdateSchema = z.object({
     .optional(),
   skillTags: z.array(z.string().min(1)).optional(),
   availabilityStatus: z.enum(["online", "busy", "offline", "in_session"]).optional(),
+});
+
+const passwordSchema = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .regex(/[A-Z]/, "Password must include at least 1 uppercase letter")
+  .regex(/[a-z]/, "Password must include at least 1 lowercase letter")
+  .regex(/[0-9]/, "Password must include at least 1 number")
+  .regex(/[^A-Za-z0-9]/, "Password must include at least 1 special character");
+
+const passwordSetupSchema = z.object({
+  password: passwordSchema,
 });
 
 const verificationDocumentSchema = z.object({
@@ -115,6 +129,15 @@ type ReviewStatsAggregate = {
   expertReviewCount: number;
 };
 
+function serializePrivateUser(user: any) {
+  const plain = typeof user?.toObject === "function" ? user.toObject() : { ...user };
+  const hasPassword = Boolean(plain.passwordHash);
+  delete plain.passwordHash;
+  delete plain.pendingPasswordHash;
+  delete plain.pendingPasswordRequestedAt;
+  return { ...plain, hasPassword };
+}
+
 function buildReviewStatsFromAggregate(
   stats?: Pick<ReviewStatsAggregate, "expertRatingAverage" | "expertReviewCount">
 ): ReviewStats {
@@ -145,13 +168,14 @@ async function getReviewStatsForExpert(expertId: string) {
 
 router.get("/me", requireAuth, async (req: AuthRequest, res, next) => {
   try {
-    const user = await User.findById(req.userId).select("-passwordHash").lean();
+    const user = await User.findById(req.userId).lean();
     if (!user) return res.status(404).json({ error: { message: "User not found" } });
 
     // Calculate global rank (count users with more points + 1)
     const rank = await User.countDocuments({ points: { $gt: user.points || 0 } }) + 1;
+    const enriched = await withAchievementSummary(user);
 
-    res.json({ user: { ...(await withAchievementSummary(user)), rank } });
+    res.json({ user: { ...serializePrivateUser(enriched), rank } });
   } catch (err) {
     next(err);
   }
@@ -215,10 +239,56 @@ router.put("/me", requireAuth, async (req: AuthRequest, res, next) => {
       req.userId,
       { $set: parsed },
       { new: true }
-    ).select("-passwordHash");
+    );
     res.json({
-      user: user ? await withAchievementSummary(user.toObject()) : user,
+      user: user ? serializePrivateUser(await withAchievementSummary(user.toObject())) : user,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/me/password", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const parsed = passwordSetupSchema.parse(req.body);
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: { message: "User not found" } });
+
+    if (user.passwordHash) {
+      return res.status(409).json({ error: { message: "Password sign-in is already enabled." } });
+    }
+
+    user.passwordHash = await bcrypt.hash(parsed.password, 10);
+    user.pendingPasswordHash = undefined;
+    user.pendingPasswordRequestedAt = undefined;
+    await user.save();
+
+    await logAuditEvent({
+      actorId: user.id,
+      actorName: user.name,
+      actorEmail: user.email,
+      actionType: "password_enabled",
+      action: `${user.name} enabled password sign-in`,
+      targetType: "user",
+      targetId: user.id,
+      status: "enabled",
+    });
+
+    res.json({
+      user: serializePrivateUser(await withAchievementSummary(user.toObject())),
+      message: "Password sign-in enabled.",
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/me", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const user = await deleteUserAccount(String(req.userId));
+    if (!user) return res.status(404).json({ error: { message: "User not found" } });
+
+    res.json({ message: "Account deleted" });
   } catch (err) {
     next(err);
   }
@@ -270,7 +340,7 @@ router.post("/me/setup", requireAuth, async (req: AuthRequest, res, next) => {
         },
       },
       { new: true }
-    ).select("-passwordHash");
+    );
 
     if (user) {
       await logAuditEvent({
@@ -295,7 +365,7 @@ router.post("/me/setup", requireAuth, async (req: AuthRequest, res, next) => {
       }
     }
 
-    res.json({ user });
+    res.json({ user: user ? serializePrivateUser(user) : user });
   } catch (err) {
     next(err);
   }
@@ -325,7 +395,7 @@ router.post("/me/mentor-verification-document", requireAuth, async (req: AuthReq
         },
       },
       { new: true }
-    ).select("-passwordHash");
+    );
 
     if (!user) {
       return res.status(404).json({ error: { message: "Mentor profile not found." } });
@@ -348,7 +418,7 @@ router.post("/me/mentor-verification-document", requireAuth, async (req: AuthReq
       link: "/admin/mentor-verifications",
     });
 
-    res.json({ user });
+    res.json({ user: serializePrivateUser(user) });
   } catch (err) {
     next(err);
   }
@@ -534,7 +604,7 @@ router.patch("/:id", requireAuth, async (req: AuthRequest, res, next) => {
       req.params.id,
       { $set: parsed },
       { new: true }
-    ).select("-passwordHash");
+    ).select("-passwordHash -pendingPasswordHash -pendingPasswordRequestedAt");
     if (!user) return res.status(404).json({ error: { message: "User not found" } });
     res.json({ user });
   } catch (err) {
@@ -557,7 +627,7 @@ router.patch("/:id/availability", requireAuth, async (req: AuthRequest, res, nex
       req.params.id,
       { $set: { availabilityStatus: status } },
       { new: true }
-    ).select("-passwordHash");
+    ).select("-passwordHash -pendingPasswordHash -pendingPasswordRequestedAt");
     if (!user) return res.status(404).json({ error: { message: "User not found" } });
     res.json({ user });
   } catch (err) {

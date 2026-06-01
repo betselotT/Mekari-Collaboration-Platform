@@ -50,6 +50,8 @@ export interface IUser extends Document {
   emailVerificationOtpHash?: string;
   emailVerificationOtpExpiresAt?: Date;
   passwordHash?: string;
+  pendingPasswordHash?: string;
+  pendingPasswordRequestedAt?: Date;
   googleId?: string;
   githubId?: string;
   oauthProvider?: string;
@@ -157,6 +159,8 @@ const UserSchema = new Schema<IUser>(
     emailVerificationOtpHash: { type: String },
     emailVerificationOtpExpiresAt: { type: Date },
     passwordHash: { type: String },
+    pendingPasswordHash: { type: String },
+    pendingPasswordRequestedAt: { type: Date },
     googleId: { type: String, index: true },
     githubId: { type: String, index: true },
     oauthProvider: { type: String },
