@@ -215,6 +215,28 @@ router.post("/register", async (req, res, next) => {
 
     const existing = await User.findOne({ email });
     if (existing) {
+      if (!existing.passwordHash && existing.oauthProvider) {
+        if (parsed.accountType && !isMatchingAccountType(existing.role, parsed.accountType)) {
+          return res.status(403).json({
+            error: {
+              message: `This account is registered as a ${accountTypeForRole(existing.role)}. Choose the matching sign-in option.`,
+            },
+          });
+        }
+
+        existing.pendingPasswordHash = await bcrypt.hash(parsed.password, 10);
+        existing.pendingPasswordRequestedAt = new Date();
+        await existing.save();
+        await queueVerificationOtp(existing);
+
+        return res.json({
+          user: serializeUser(existing),
+          message:
+            "Account found. Check your email for the 6-digit verification code to enable password sign-in.",
+          passwordLinkPending: true,
+        });
+      }
+
       return res.status(409).json({ error: { message: "Email already in use" } });
     }
 
@@ -362,7 +384,7 @@ router.post("/verify-email", async (req, res, next) => {
       return res.status(400).json({ error: { message: "Invalid or expired OTP code" } });
     }
 
-    if (user.emailVerified) {
+    if (user.emailVerified && !user.pendingPasswordHash) {
       return res.json({ message: "Email already verified. You can sign in now." });
     }
 
@@ -379,6 +401,11 @@ router.post("/verify-email", async (req, res, next) => {
 
     user.emailVerified = true;
     user.emailVerifiedAt = new Date();
+    if (user.pendingPasswordHash) {
+      user.passwordHash = user.pendingPasswordHash;
+      user.pendingPasswordHash = undefined;
+      user.pendingPasswordRequestedAt = undefined;
+    }
     user.emailVerificationOtpHash = undefined;
     user.emailVerificationOtpExpiresAt = undefined;
     await deleteEmailOtpHash(email);
@@ -406,7 +433,7 @@ router.post("/resend-verification", loginRateLimiter, async (req, res, next) => 
     const parsed = resendVerificationOtpSchema.parse(req.body);
     const user = await User.findOne({ email: parsed.email.toLowerCase() });
 
-    if (user && !user.emailVerified && user.passwordHash) {
+    if (user && ((!user.emailVerified && user.passwordHash) || user.pendingPasswordHash)) {
       await queueVerificationOtp(user);
     }
 

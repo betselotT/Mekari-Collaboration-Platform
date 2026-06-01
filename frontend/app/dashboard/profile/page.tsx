@@ -3,7 +3,7 @@
 "use client";
 
 import { ChangeEvent, useState, useEffect } from "react";
-import { apiClient } from "../../../lib/api";
+import { apiClient, clearAuthToken } from "../../../lib/api";
 import { registerForPushNotifications } from "../../../lib/pushNotifications";
 import { DashboardLayout } from "../../../components/layout/DashboardLayout";
 import { Card } from "../../../components/ui/Card";
@@ -11,7 +11,7 @@ import { Button } from "../../../components/ui/Button";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Badge } from "../../../components/ui/Badge";
 import { Input } from "../../../components/ui/Input";
-import { Edit, Lock, Globe, Bell, Save, X, Plus, CheckCircle2, Clock, Moon, Video, Award, Zap, Bot, Trophy, Star, TrendingUp, FileText } from "lucide-react";
+import { Edit, Lock, Globe, Bell, Save, X, Plus, CheckCircle2, Clock, Moon, Video, Award, Zap, Bot, Trophy, Star, TrendingUp, FileText, Trash2 } from "lucide-react";
 import { useLanguage } from "../../../lib/i18n";
 
 type AccountType = "learner" | "mentor";
@@ -55,6 +55,16 @@ const experienceOptions = ["None", "<1 year", "1-3 years", "4-7 years", "8-10 ye
 const roleOptions = ["Student", "Professional", "Educator", "Researcher", "Other"];
 const deviceOptions = ["Desktop/Laptop", "Smartphone", "Tablet"];
 
+function passwordErrors(value: string) {
+  const errors: string[] = [];
+  if (value.length < 8) errors.push("Password must be at least 8 characters.");
+  if (!/[A-Z]/.test(value)) errors.push("Password must include at least 1 uppercase letter.");
+  if (!/[a-z]/.test(value)) errors.push("Password must include at least 1 lowercase letter.");
+  if (!/[0-9]/.test(value)) errors.push("Password must include at least 1 number.");
+  if (!/[^A-Za-z0-9]/.test(value)) errors.push("Password must include at least 1 special character.");
+  return errors;
+}
+
 export default function ProfilePage() {
   const { t } = useLanguage();
   const [user, setUser] = useState<any>(null);
@@ -79,6 +89,7 @@ export default function ProfilePage() {
     defaultNotificationPreferences
   );
   const [savingPreferences, setSavingPreferences] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const [setupForm, setSetupForm] = useState({
     accountType: "learner" as AccountType,
@@ -92,6 +103,11 @@ export default function ProfilePage() {
     skillTags: "",
     availabilityStatus: "online" as "online" | "busy" | "offline",
   });
+  const [passwordForm, setPasswordForm] = useState({
+    password: "",
+    confirmPassword: "",
+  });
+  const [settingPassword, setSettingPassword] = useState(false);
   const [verificationDocument, setVerificationDocument] = useState<VerificationDocument | null>(null);
 
   const availabilityConfig: Record<string, {
@@ -130,12 +146,14 @@ export default function ProfilePage() {
     availabilityConfig[user?.availabilityStatus || formData.availabilityStatus] ||
     availabilityConfig.offline;
   const AvailabilityIcon = currentAvailability.Icon;
+  const needsPasswordSetup = user?.hasPassword === false;
   const needsSetup =
     !user?.profileSetupCompleted ||
     !user?.primaryTechnicalField ||
     !user?.roleOrStatus ||
     !user?.yearsOfExperience ||
-    !user?.devicesUsed?.length;
+    !user?.devicesUsed?.length ||
+    needsPasswordSetup;
   const isMentor = user?.role === "expert";
   const verificationStatus = user?.expertVerification?.status;
 
@@ -422,6 +440,55 @@ export default function ProfilePage() {
     setIsEditing(false);
   };
 
+  async function handleDeleteAccount() {
+    const confirmed = window.confirm(
+      "Delete your Mekari account permanently? Your profile and related records will be removed. This cannot be undone."
+    );
+    if (!confirmed) return;
+
+    setDeletingAccount(true);
+    setError("");
+    setMessage("");
+    try {
+      await apiClient.delete("/api/users/me");
+      clearAuthToken();
+      window.location.href = "/";
+    } catch (err: any) {
+      setError(err.response?.data?.error?.message || "Failed to delete account.");
+      setDeletingAccount(false);
+    }
+  }
+
+  async function handleSetPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setMessage("");
+
+    const nextPasswordErrors = passwordErrors(passwordForm.password);
+    if (nextPasswordErrors.length > 0) {
+      setError(nextPasswordErrors[0]);
+      return;
+    }
+    if (passwordForm.password !== passwordForm.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setSettingPassword(true);
+    try {
+      const res = await apiClient.post("/api/users/me/password", {
+        password: passwordForm.password,
+      });
+      setUser(res.data.user);
+      setPasswordForm({ password: "", confirmPassword: "" });
+      setMessage(res.data.message || "Password sign-in enabled.");
+    } catch (err: any) {
+      setError(err.response?.data?.error?.message || "Failed to set password.");
+    } finally {
+      setSettingPassword(false);
+    }
+  }
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -562,6 +629,55 @@ export default function ProfilePage() {
               Complete your learner or mentor profile so Mekari can personalize matching and verification.
             </p>
           </div>
+
+          {needsPasswordSetup && (
+            <form
+              onSubmit={handleSetPassword}
+              className="mb-6 rounded-lg border border-primary-100 bg-primary-50/60 p-4 dark:border-primary-900 dark:bg-primary-950/20"
+            >
+              <div className="mb-4 flex items-start gap-3">
+                <div className="rounded-lg bg-white p-2 text-primary-600 dark:bg-neutral-950 dark:text-primary-300">
+                  <Lock className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-neutral-900 dark:text-white">Set a password</h4>
+                  <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                    Add a password so you can sign in with your email as well as Google or GitHub.
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-1">
+                  <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t("auth.password")}</span>
+                  <input
+                    type="password"
+                    className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                    value={passwordForm.password}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, password: e.target.value })}
+                    autoComplete="new-password"
+                    required
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Confirm password</span>
+                  <input
+                    type="password"
+                    className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                    autoComplete="new-password"
+                    required
+                  />
+                </label>
+              </div>
+              <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">
+                Use at least 8 characters with uppercase, lowercase, number, and special character.
+              </p>
+              <Button type="submit" variant="primary" size="sm" className="mt-4" isLoading={settingPassword}>
+                Enable password sign-in
+              </Button>
+            </form>
+          )}
 
           <form onSubmit={handleFinishSetup} className="space-y-5">
             <div className="grid grid-cols-2 gap-2 rounded bg-neutral-100 p-1 dark:bg-neutral-900">
@@ -1227,6 +1343,28 @@ export default function ProfilePage() {
           </Card>
         </div>
       </div>
+
+      <Card className="mt-8 border border-red-200 bg-red-50/60 dark:border-red-900 dark:bg-red-950/20">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="font-bold text-red-900 dark:text-red-100">{t("Delete account")}</h3>
+            <p className="mt-1 text-sm text-red-800 dark:text-red-200">
+              Permanently remove your profile and related records. This action cannot be undone.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="md"
+            className="shrink-0 border-red-300 text-red-700 hover:bg-red-100 dark:border-red-800 dark:text-red-200 dark:hover:bg-red-950"
+            onClick={handleDeleteAccount}
+            isLoading={deletingAccount}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete account
+          </Button>
+        </div>
+      </Card>
     </DashboardLayout>
   );
 }
