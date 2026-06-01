@@ -11,6 +11,30 @@ type Summary = {
   totalUsers: number;
 };
 
+type Analytics = {
+  metrics: {
+    totalUsers: number;
+    totalThreads: number;
+    totalMessages: number;
+    pendingReports: number;
+    solvedThreads: number;
+    aiResolvedThreads: number;
+    announcementsSent: number;
+  };
+  userRoles: Array<{ label: string; value: number }>;
+  threadStatuses: Array<{ label: string; value: number }>;
+};
+
+type Announcement = {
+  id: string;
+  title: string;
+  message: string;
+  audience: string;
+  recipientCount: number;
+  link?: string;
+  createdAt: string;
+};
+
 type Verification = {
   _id: string;
   name: string;
@@ -133,7 +157,7 @@ type Pagination = {
 
 type StatusFilter = "all" | "pending" | "approved" | "rejected";
 type ReportFilter = "all" | "pending" | "struck" | "dismissed";
-type AdminSection = "verifications" | "users" | "reports" | "logs";
+type AdminSection = "analytics" | "announcements" | "verifications" | "users" | "reports" | "logs";
 const PAGE_SIZE = 10;
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
@@ -168,6 +192,8 @@ function targetLabel(report: ReportItem) {
 
 export default function AdminDashboard() {
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [verifications, setVerifications] = useState<Verification[]>([]);
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [reportedUsers, setReportedUsers] = useState<ReportedUser[]>([]);
@@ -201,6 +227,12 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [pushStatus, setPushStatus] = useState<string | null>(null);
   const [enablingPush, setEnablingPush] = useState(false);
+  const [announcementTitle, setAnnouncementTitle] = useState("");
+  const [announcementMessage, setAnnouncementMessage] = useState("");
+  const [announcementAudience, setAnnouncementAudience] = useState("all");
+  const [announcementLink, setAnnouncementLink] = useState("/dashboard");
+  const [sendingAnnouncement, setSendingAnnouncement] = useState(false);
+  const [announcementStatus, setAnnouncementStatus] = useState<string | null>(null);
 
   const metrics = useMemo(
     () => [
@@ -271,8 +303,10 @@ export default function AdminDashboard() {
         limit: String(PAGE_SIZE),
       });
 
-      const [summaryRes, verificationRes, mentorRes, learnerRes, reportRes, reportedUsersRes, logRes, notificationRes] = await Promise.all([
+      const [summaryRes, analyticsRes, announcementRes, verificationRes, mentorRes, learnerRes, reportRes, reportedUsersRes, logRes, notificationRes] = await Promise.all([
         adminFetch<{ summary: Summary }>("/api/admin/summary"),
+        adminFetch<{ analytics: Analytics }>("/api/admin/analytics"),
+        adminFetch<{ announcements: Announcement[] }>("/api/admin/announcements"),
         adminFetch<{ verifications: Verification[]; pagination: Pagination }>(
           `/api/admin/mentor-verifications?${verificationParams.toString()}`
         ),
@@ -293,6 +327,8 @@ export default function AdminDashboard() {
       ]);
 
       setSummary(summaryRes.summary);
+      setAnalytics(analyticsRes.analytics);
+      setAnnouncements(announcementRes.announcements || []);
       setVerifications(verificationRes.verifications);
       setMentors(mentorRes.users);
       setLearners(learnerRes.users);
@@ -421,6 +457,32 @@ export default function AdminDashboard() {
     }
   }
 
+  async function sendAnnouncement(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSendingAnnouncement(true);
+    setError(null);
+    setAnnouncementStatus(null);
+    try {
+      const res = await adminFetch<{ announcement: Announcement }>("/api/admin/announcements", {
+        method: "POST",
+        body: JSON.stringify({
+          title: announcementTitle,
+          message: announcementMessage,
+          audience: announcementAudience,
+          link: announcementLink || undefined,
+        }),
+      });
+      setAnnouncementTitle("");
+      setAnnouncementMessage("");
+      setAnnouncementStatus(`Announcement sent to ${res.announcement.recipientCount} user(s).`);
+      await loadDashboard();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send announcement");
+    } finally {
+      setSendingAnnouncement(false);
+    }
+  }
+
   return (
     <main className="page">
       <header className="topbar">
@@ -472,6 +534,7 @@ export default function AdminDashboard() {
       <div className="content">
         {error && <div className="panel error">{error}</div>}
         {pushStatus && <div className="panel success-message">{pushStatus}</div>}
+        {announcementStatus && <div className="panel success-message">{announcementStatus}</div>}
         {selectedUser && (
           <UserProfileModal user={selectedUser} onClose={() => setSelectedUser(null)} />
         )}
@@ -491,6 +554,20 @@ export default function AdminDashboard() {
 
         <div className="admin-layout">
           <aside className="admin-sidebar">
+            <button
+              className={`nav-button ${activeSection === "analytics" ? "active" : ""}`}
+              onClick={() => setActiveSection("analytics")}
+            >
+              <span>Analytics</span>
+              <strong>{analytics?.metrics.totalThreads ?? 0}</strong>
+            </button>
+            <button
+              className={`nav-button ${activeSection === "announcements" ? "active" : ""}`}
+              onClick={() => setActiveSection("announcements")}
+            >
+              <span>Announcements</span>
+              <strong>{analytics?.metrics.announcementsSent ?? 0}</strong>
+            </button>
             <button
               className={`nav-button ${activeSection === "verifications" ? "active" : ""}`}
               onClick={() => setActiveSection("verifications")}
@@ -535,6 +612,122 @@ export default function AdminDashboard() {
                 </button>
               ))}
             </section>
+
+        {activeSection === "analytics" && (
+          <>
+          <section className="panel">
+            <div className="panel-header">
+              <div>
+                <h2>Analytics Dashboard</h2>
+                <p>Platform activity and community health at a glance.</p>
+              </div>
+              <button className="button secondary" onClick={loadDashboard}>Refresh</button>
+            </div>
+            <div className="analytics-grid">
+              <AnalyticsCard label="Platform users" value={analytics?.metrics.totalUsers ?? 0} />
+              <AnalyticsCard label="Discussion threads" value={analytics?.metrics.totalThreads ?? 0} />
+              <AnalyticsCard label="Messages posted" value={analytics?.metrics.totalMessages ?? 0} />
+              <AnalyticsCard label="Pending reports" value={analytics?.metrics.pendingReports ?? 0} />
+              <AnalyticsCard label="Solved threads" value={analytics?.metrics.solvedThreads ?? 0} />
+              <AnalyticsCard label="AI-resolved threads" value={analytics?.metrics.aiResolvedThreads ?? 0} />
+              <AnalyticsCard label="Announcements sent" value={analytics?.metrics.announcementsSent ?? 0} />
+            </div>
+          </section>
+          <section className="analytics-columns">
+            <DistributionPanel title="User Roles" items={analytics?.userRoles ?? []} />
+            <DistributionPanel title="Thread Statuses" items={analytics?.threadStatuses ?? []} />
+          </section>
+          </>
+        )}
+
+        {activeSection === "announcements" && (
+          <>
+          <section className="panel">
+            <div className="panel-header">
+              <div>
+                <h2>Send Announcement</h2>
+                <p>Publish a notification about updates, downtime, or new features.</p>
+              </div>
+            </div>
+            <form className="announcement-form" onSubmit={sendAnnouncement}>
+              <label>
+                <strong>Title</strong>
+                <input
+                  className="input"
+                  maxLength={120}
+                  placeholder="Scheduled maintenance"
+                  required
+                  value={announcementTitle}
+                  onChange={(event) => setAnnouncementTitle(event.target.value)}
+                />
+              </label>
+              <label>
+                <strong>Audience</strong>
+                <select
+                  className="select"
+                  value={announcementAudience}
+                  onChange={(event) => setAnnouncementAudience(event.target.value)}
+                >
+                  <option value="all">All platform users</option>
+                  <option value="learners">Learners</option>
+                  <option value="mentors">Mentors</option>
+                </select>
+              </label>
+              <label className="form-wide">
+                <strong>Message</strong>
+                <textarea
+                  className="input"
+                  maxLength={1000}
+                  placeholder="Tell users what is changing and when."
+                  required
+                  rows={5}
+                  value={announcementMessage}
+                  onChange={(event) => setAnnouncementMessage(event.target.value)}
+                />
+              </label>
+              <label className="form-wide">
+                <strong>Notification link</strong>
+                <input
+                  className="input"
+                  maxLength={300}
+                  placeholder="/dashboard"
+                  value={announcementLink}
+                  onChange={(event) => setAnnouncementLink(event.target.value)}
+                />
+              </label>
+              <div className="form-wide">
+                <button className="button" disabled={sendingAnnouncement} type="submit">
+                  {sendingAnnouncement ? "Sending..." : "Send notification"}
+                </button>
+              </div>
+            </form>
+          </section>
+          <section className="panel">
+            <div className="panel-header">
+              <div>
+                <h2>Recent Announcements</h2>
+                <p>A record of notifications published by administrators.</p>
+              </div>
+            </div>
+            <div className="list">
+              {announcements.map((announcement) => (
+                <article className="announcement-item" key={announcement.id}>
+                  <div>
+                    <p className="item-title">{announcement.title}</p>
+                    <p className="muted">{announcement.message}</p>
+                  </div>
+                  <div className="meta">
+                    <span>{announcement.audience}</span>
+                    <span>{announcement.recipientCount} recipient(s)</span>
+                    <span>{formatDate(announcement.createdAt)}</span>
+                  </div>
+                </article>
+              ))}
+              {announcements.length === 0 && <div className="empty">No announcements have been sent yet.</div>}
+            </div>
+          </section>
+          </>
+        )}
 
         {activeSection === "verifications" && (
           <section className="panel">
@@ -892,6 +1085,47 @@ export default function AdminDashboard() {
         </div>
       </div>
     </main>
+  );
+}
+
+function AnalyticsCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="analytics-card">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function DistributionPanel({ title, items }: { title: string; items: Array<{ label: string; value: number }> }) {
+  const total = items.reduce((sum, item) => sum + item.value, 0);
+
+  return (
+    <section className="panel distribution-panel">
+      <div className="panel-header">
+        <div>
+          <h2>{title}</h2>
+          <p>{total} record(s) across {items.length} categor{items.length === 1 ? "y" : "ies"}.</p>
+        </div>
+      </div>
+      <div className="distribution-list">
+        {items.map((item) => {
+          const percentage = total ? Math.round((item.value / total) * 100) : 0;
+          return (
+            <div className="distribution-row" key={item.label}>
+              <div>
+                <strong>{item.label}</strong>
+                <span>{item.value} ({percentage}%)</span>
+              </div>
+              <div className="distribution-track">
+                <span style={{ width: `${percentage}%` }} />
+              </div>
+            </div>
+          );
+        })}
+        {items.length === 0 && <div className="empty">No analytics records are available yet.</div>}
+      </div>
+    </section>
   );
 }
 

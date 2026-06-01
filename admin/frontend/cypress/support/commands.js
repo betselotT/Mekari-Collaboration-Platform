@@ -8,6 +8,14 @@ Cypress.Commands.add("mockAdminDashboard", () => {
       statusCode: 200,
       body: { summary: data.summary },
     }).as("adminSummary");
+    cy.intercept("GET", "/api/admin/analytics", {
+      statusCode: 200,
+      body: { analytics: data.analytics },
+    }).as("adminAnalytics");
+    cy.intercept("GET", "/api/admin/announcements", {
+      statusCode: 200,
+      body: { announcements: data.announcements },
+    }).as("adminAnnouncements");
     cy.intercept("GET", "/api/admin/mentor-verifications*", {
       statusCode: 200,
       body: { verifications: data.verifications, pagination: data.pagination },

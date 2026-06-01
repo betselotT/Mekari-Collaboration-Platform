@@ -5,6 +5,37 @@
     "approvedMentors": 3,
     "totalUsers": 7
   },
+  "analytics": {
+    "metrics": {
+      "totalUsers": 7,
+      "totalThreads": 12,
+      "totalMessages": 46,
+      "pendingReports": 2,
+      "solvedThreads": 6,
+      "aiResolvedThreads": 2,
+      "announcementsSent": 1
+    },
+    "userRoles": [
+      { "label": "Learners", "value": 4 },
+      { "label": "Mentors", "value": 3 }
+    ],
+    "threadStatuses": [
+      { "label": "SOLVED", "value": 6 },
+      { "label": "OPEN", "value": 4 },
+      { "label": "AI RESOLVED", "value": 2 }
+    ]
+  },
+  "announcements": [
+    {
+      "id": "announcement-1",
+      "title": "New mentor matching",
+      "message": "The improved mentor matching experience is now available.",
+      "audience": "all",
+      "recipientCount": 7,
+      "link": "/dashboard/match",
+      "createdAt": "2026-05-28T09:00:00.000Z"
+    }
+  ],
   "verifications": [
     {
       "_id": "mentor-1",

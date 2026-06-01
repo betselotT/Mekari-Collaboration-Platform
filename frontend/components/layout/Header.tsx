@@ -124,7 +124,7 @@ export function Header({ title = "Dashboard", onMenuClick }: HeaderProps) {
       // JWT auth is client-held, so local cleanup is enough even if the network call fails.
     } finally {
       clearAuthToken();
-      window.location.href = "/login";
+      window.location.href = "/";
     }
   }
 

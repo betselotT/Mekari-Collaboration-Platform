@@ -772,6 +772,105 @@ th {
   padding: 14px 18px;
 }
 
+.analytics-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 18px;
+}
+
+.analytics-card {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.analytics-card span {
+  color: var(--muted);
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.analytics-card strong {
+  display: block;
+  font-size: 30px;
+  margin-top: 8px;
+}
+
+.analytics-columns {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.distribution-list {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.distribution-row {
+  display: grid;
+  gap: 8px;
+}
+
+.distribution-row div:first-child {
+  display: flex;
+  justify-content: space-between;
+}
+
+.distribution-row span {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.distribution-track {
+  background: var(--surface-soft);
+  border-radius: 999px;
+  height: 9px;
+  overflow: hidden;
+}
+
+.distribution-track span {
+  background: var(--primary);
+  display: block;
+  height: 100%;
+}
+
+.announcement-form {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr);
+  padding: 20px;
+}
+
+.announcement-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.announcement-form textarea {
+  resize: vertical;
+}
+
+.form-wide {
+  grid-column: 1 / -1;
+}
+
+.announcement-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.announcement-item p {
+  margin: 0;
+}
+
 .login-page {
   align-items: center;
   display: flex;
@@ -919,6 +1018,12 @@ th {
     grid-template-columns: 1fr;
   }
 
+  .analytics-grid,
+  .analytics-columns,
+  .announcement-form {
+    grid-template-columns: 1fr;
+  }
+
   .document-box {
     align-items: stretch;
     flex-direction: column;
@@ -941,6 +1046,10 @@ th {
   }
 
   .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-grid {
     grid-template-columns: 1fr;
   }
 

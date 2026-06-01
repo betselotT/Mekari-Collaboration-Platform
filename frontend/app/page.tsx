@@ -139,15 +139,15 @@ export default function LandingPage() {
           </div>
 
           <div className="hidden items-center gap-8 md:flex">
-            <a href="#solutions" className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">
-              {t("landing.solutions")}
-            </a>
             <a href="#community" className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">
               {t("landing.community")}
             </a>
-            <a href="#pricing" className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">
-              {t("landing.pricing")}
+            <a href="#solutions" className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">
+              {t("landing.solutions")}
             </a>
+            {/* <a href="#pricing" className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">
+              {t("landing.pricing")}
+            </a> */}
           </div>
 
           <div className="flex items-center gap-4">
@@ -186,7 +186,7 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          <div className="mt-16 overflow-hidden rounded-2xl border border-neutral-200 bg-white text-left shadow-xl shadow-primary-100/50 dark:border-neutral-700 dark:bg-neutral-900 dark:shadow-none">
+          <div id="community" className="mt-16 scroll-mt-24 overflow-hidden rounded-2xl border border-neutral-200 bg-white text-left shadow-xl shadow-primary-100/50 dark:border-neutral-700 dark:bg-neutral-900 dark:shadow-none">
             <div className="grid min-h-[360px] md:grid-cols-[1.05fr_0.95fr]">
               <div className="flex flex-col justify-between gap-6 bg-gradient-to-br from-primary-600 via-violet-600 to-indigo-700 p-6 text-white sm:p-8">
                 <div>
