@@ -216,6 +216,38 @@ export function createOpenApiSpec() {
             responses: { "201": { description: "Created" }, "401": { description: "Unauthorized" } },
           },
         },
+        "/api/search": {
+          get: {
+            tags: ["Search"],
+            summary: "Search knowledge documents and active threads by full text and tags",
+            parameters: [
+              {
+                name: "q",
+                in: "query",
+                required: false,
+                schema: { type: "string" },
+                description: "Full-text query applied to repository documents, active threads, and thread replies",
+              },
+              {
+                name: "tags",
+                in: "query",
+                required: false,
+                schema: { type: "string" },
+                description: "Comma-separated tags",
+              },
+              {
+                name: "page",
+                in: "query",
+                required: false,
+                schema: { type: "integer", minimum: 1, default: 1 },
+              },
+            ],
+            responses: {
+              "200": { description: "Matching repository documents and active threads" },
+              "401": { description: "Unauthorized" },
+            },
+          },
+        },
         "/api/matching/request": {
           post: {
             tags: ["Matching"],
