@@ -11,6 +11,7 @@ import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Avatar } from "../../../components/ui/Avatar";
 import { useLanguage } from "../../../lib/i18n";
+import { ContourField } from "../../../components/visual/ContourField";
 
 interface Sender {
   _id: string;
@@ -113,8 +114,11 @@ export default function PublicThreadDetailPage() {
   }, [threadId]);
 
   return (
-    <main className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-white">
-      <header className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+    <main className="relative isolate min-h-screen overflow-hidden bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-white">
+      <div className="pointer-events-none fixed inset-0 -z-20 opacity-45 [background-image:linear-gradient(rgba(109,40,217,.04)_1px,transparent_1px),linear-gradient(90deg,rgba(109,40,217,.04)_1px,transparent_1px)] [background-size:52px_52px] dark:opacity-20 dark:[background-image:linear-gradient(rgba(255,255,255,.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.035)_1px,transparent_1px)]" />
+      <ContourField className="pointer-events-none fixed -right-36 top-24 -z-10 h-72 w-[480px] rotate-[-8deg] opacity-[0.16] dark:opacity-[0.26]" />
+      <ContourField className="pointer-events-none fixed -bottom-28 -left-36 -z-10 h-64 w-[440px] rotate-[165deg] opacity-[0.08] dark:opacity-[0.16]" />
+      <header className="border-b border-neutral-200/80 bg-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/75">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <Link href="/threads" className="inline-flex items-center gap-2 text-sm font-medium">
             <ArrowLeft className="h-4 w-4" />
@@ -150,7 +154,7 @@ export default function PublicThreadDetailPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            <article className="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+            <article className="rounded-2xl border border-primary-100 bg-white/85 p-5 shadow-xl shadow-primary-100/30 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/80 dark:shadow-primary-950/20">
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <Badge variant="info">{thread.subject}</Badge>
                 <Badge variant="default">{t(thread.status)}</Badge>
@@ -185,7 +189,7 @@ export default function PublicThreadDetailPage() {
               </div>
             </article>
 
-            <section className="rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+            <section className="rounded-2xl border border-primary-100 bg-white/85 shadow-xl shadow-primary-100/30 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/80 dark:shadow-primary-950/20">
               <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   <MessageCircle className="h-4 w-4 text-primary-500" />

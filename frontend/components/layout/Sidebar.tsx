@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { TranslationKey, useLanguage } from "../../lib/i18n";
+import { ContourField } from "../visual/ContourField";
 
 export interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
@@ -142,6 +143,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   return (
     <>
       <aside className="fixed left-0 top-0 z-40 hidden h-screen w-60 flex-col overflow-y-auto border-r border-neutral-200 bg-white px-6 py-6 dark:border-neutral-700 dark:bg-neutral-900 lg:flex">
+        <ContourField className="pointer-events-none absolute -bottom-12 -left-24 h-52 w-[350px] rotate-[155deg] opacity-[0.09] dark:opacity-[0.16]" />
         <SidebarContent />
       </aside>
 
@@ -154,6 +156,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             aria-label={t("header.closeNavigation")}
           />
           <aside className="relative flex h-dvh w-72 max-w-[85vw] flex-col overflow-y-auto border-r border-neutral-200 bg-white px-6 py-6 shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
+            <ContourField className="pointer-events-none absolute -bottom-12 -left-24 h-52 w-[350px] rotate-[155deg] opacity-[0.09] dark:opacity-[0.16]" />
             <SidebarContent onNavigate={onClose} showClose />
           </aside>
         </div>

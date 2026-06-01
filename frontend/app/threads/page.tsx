@@ -20,6 +20,7 @@ import { LanguageToggle } from "../../components/i18n/LanguageToggle";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { useLanguage } from "../../lib/i18n";
+import { ContourField } from "../../components/visual/ContourField";
 
 interface PublicThread {
   _id: string;
@@ -102,8 +103,11 @@ export default function PublicThreadsPage() {
   );
 
   return (
-    <main className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-white">
-      <header className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+    <main className="relative isolate min-h-screen overflow-hidden bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-white">
+      <div className="pointer-events-none fixed inset-0 -z-20 opacity-45 [background-image:linear-gradient(rgba(109,40,217,.04)_1px,transparent_1px),linear-gradient(90deg,rgba(109,40,217,.04)_1px,transparent_1px)] [background-size:52px_52px] dark:opacity-20 dark:[background-image:linear-gradient(rgba(255,255,255,.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.035)_1px,transparent_1px)]" />
+      <ContourField className="pointer-events-none fixed -right-36 top-24 -z-10 h-72 w-[480px] rotate-[-8deg] opacity-[0.18] dark:opacity-[0.28]" />
+      <ContourField className="pointer-events-none fixed -bottom-28 -left-36 -z-10 h-64 w-[440px] rotate-[165deg] opacity-[0.1] dark:opacity-[0.18]" />
+      <header className="border-b border-neutral-200/80 bg-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/75">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link
             href="/"
@@ -132,8 +136,8 @@ export default function PublicThreadsPage() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-8 grid gap-6 lg:grid-cols-[1fr_320px]">
+      <section className="relative mx-auto max-w-6xl px-6 py-10">
+        <div className="mb-8 grid gap-6 rounded-3xl border border-primary-100 bg-white/75 p-6 shadow-xl shadow-primary-100/40 backdrop-blur-xl dark:border-primary-800/40 dark:bg-neutral-900/75 dark:shadow-primary-950/20 lg:grid-cols-[1fr_320px]">
           <div>
             <Badge variant="info">
               {t("Public threads")}
@@ -173,7 +177,7 @@ export default function PublicThreadsPage() {
           </div>
         )}
 
-        <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="overflow-hidden rounded-2xl border border-primary-100 bg-white/85 shadow-xl shadow-primary-100/30 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/80 dark:shadow-primary-950/20">
           <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
             <div className="flex items-center gap-2 text-sm font-semibold">
               <Sparkles className="h-4 w-4 text-primary-500" />

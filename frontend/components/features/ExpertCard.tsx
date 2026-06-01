@@ -4,6 +4,7 @@ import { Star, StarHalf, MessageSquare, Sparkles } from "lucide-react";
 import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
 import { useLanguage } from "../../lib/i18n";
+import { ContourField } from "../visual/ContourField";
 
 export interface ExpertCardProps {
   name: string;
@@ -67,9 +68,9 @@ export function ExpertCard(props: ExpertCardProps) {
       {/* Background glow on hover */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary-500/[0.02] to-cyan-500/[0.02] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
-      {/* Header section with clean, modern purple gradient */}
-      <div className="relative h-28 bg-gradient-to-br from-primary-600 to-indigo-600 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.15),transparent_40%)]" />
+      {/* Restrained artwork header */}
+      <div className="relative h-28 overflow-hidden bg-gradient-to-br from-neutral-50 via-white to-cyan-50/60 dark:from-neutral-900 dark:via-neutral-900 dark:to-cyan-950/20">
+        <ContourField className="pointer-events-none absolute -right-20 -top-12 h-44 w-[300px] rotate-[-8deg] opacity-[0.2] dark:opacity-[0.34]" />
         <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-white to-transparent dark:from-neutral-900" />
         
         {/* Status Badge in Header */}

@@ -970,30 +970,32 @@ export default function ThreadDetailPage() {
 
       {/* Thread header */}
       <div className="mb-6 min-w-0">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <Badge variant="info">{thread.subject.toUpperCase()}</Badge>
-          <Badge variant={statusVariant}>
-            {t(thread.status === "SOLVED" ? "threads.solved" : thread.status.replace("_", " "))}
-          </Badge>
-          {thread.tags.map((tag) => (
-            <Badge key={tag} variant="default" className="text-xs">
-              {tag}
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <Badge variant="info">{thread.subject.toUpperCase()}</Badge>
+            <Badge variant={statusVariant}>
+              {t(thread.status === "SOLVED" ? "threads.solved" : thread.status.replace("_", " "))}
             </Badge>
-          ))}
-          {isAuthor && (
-            <button
-              type="button"
-              onClick={startTagEdit}
-              className="min-h-[30px] rounded border border-neutral-300 px-2 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
-            >
-              {t("Edit tags")}
-            </button>
-          )}
+            {thread.tags.map((tag) => (
+              <Badge key={tag} variant="default" className="text-xs">
+                {tag}
+              </Badge>
+            ))}
+            {isAuthor && (
+              <button
+                type="button"
+                onClick={startTagEdit}
+                className="min-h-[30px] rounded-lg border border-neutral-300 px-3 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              >
+                {t("Edit tags")}
+              </button>
+            )}
+          </div>
           {isAuthor && threadDeleteCountdown === null && (
             <button
               type="button"
               onClick={() => setThreadDeleteTarget(true)}
-              className="min-h-[30px] rounded border border-rose-300 px-2 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/40"
+              className="min-h-[30px] shrink-0 rounded-lg border border-rose-300 px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/40"
             >
               {t("threads.deleteThread")}
             </button>
