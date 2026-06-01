@@ -147,8 +147,8 @@ function getMessageId(message: ChatMessage): string {
   return message._id || message.id || "";
 }
 
-function attachmentLabel(message: ChatMessage) {
-  return message.body || (message.type === "IMAGE" ? "Shared image" : "Attached file");
+function attachmentLabel(message: ChatMessage, imageFallback: string, fileFallback: string) {
+  return message.body || (message.type === "IMAGE" ? imageFallback : fileFallback);
 }
 
 function readReceiptUserId(receipt: NonNullable<ChatMessage["readBy"]>[number]) {
@@ -212,11 +212,11 @@ function MessageContent({ message }: { message: ChatMessage }) {
         <a href={message.attachmentUrl} target="_blank" rel="noopener noreferrer">
           <img
             src={message.attachmentUrl}
-            alt={attachmentLabel(message)}
+            alt={attachmentLabel(message, t("Shared image"), t("Attached file"))}
             className="max-h-72 max-w-full rounded-lg border border-black/10 object-contain dark:border-white/10"
           />
         </a>
-        <figcaption className="text-xs opacity-80">{attachmentLabel(message)}</figcaption>
+        <figcaption className="text-xs opacity-80">{attachmentLabel(message, t("Shared image"), t("Attached file"))}</figcaption>
       </figure>
     );
   }
@@ -225,12 +225,12 @@ function MessageContent({ message }: { message: ChatMessage }) {
     return (
       <a
         href={message.attachmentUrl}
-        download={attachmentLabel(message)}
+        download={attachmentLabel(message, t("Shared image"), t("Attached file"))}
         className="flex items-center gap-3 rounded-lg border border-current/15 bg-white/10 px-3 py-2 text-left hover:bg-white/15"
       >
         <FileText className="h-5 w-5 shrink-0" />
         <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold">{attachmentLabel(message)}</span>
+          <span className="block truncate text-sm font-semibold">{attachmentLabel(message, t("Shared image"), t("Attached file"))}</span>
           <span className="block text-xs opacity-70">{t("Open or download attachment")}</span>
         </span>
       </a>
@@ -835,7 +835,7 @@ export default function ThreadDetailPage() {
     return (
       <DashboardLayout title={t("Thread unavailable")} searchPlaceholder={t("Search...")}>
         <div className="flex h-64 items-center justify-center text-center text-neutral-500">
-          {loadError || "This thread could not be loaded."}
+          {loadError || t("This thread could not be loaded.")}
         </div>
       </DashboardLayout>
     );
@@ -925,7 +925,7 @@ export default function ThreadDetailPage() {
             <input
               value={tagDraft}
               onChange={(event) => setTagDraft(event.target.value)}
-              placeholder="mongodb, indexing, performance"
+              placeholder={t("mongodb, indexing, performance")}
               className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
             />
             {tagError && <p className="mt-2 text-xs text-rose-600 dark:text-rose-300">{tagError}</p>}
@@ -961,7 +961,7 @@ export default function ThreadDetailPage() {
                         onClick={() => scrollToPinnedMessage(initialPinnedMessage)}
                         className="rounded-md border border-purple-200 bg-white px-2.5 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-200 dark:hover:bg-purple-900/50"
                       >
-                        Initial question
+                        {t("Initial question")}
                       </button>
                     )}
                     {pinnedSolutionMessage && (
@@ -1120,7 +1120,7 @@ export default function ThreadDetailPage() {
   {isMe && msgId === latestOwnReadMessageId && (
     <div className="mt-1 flex items-center justify-end gap-1 text-[11px] font-medium text-primary-600 dark:text-primary-300">
       <CheckCheck className="h-3.5 w-3.5" />
-      Seen
+      {t("Seen")}
     </div>
   )}
 
@@ -1135,7 +1135,7 @@ export default function ThreadDetailPage() {
         className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-primary-500 hover:underline"
       >
         <Reply className="h-3 w-3" />
-        Reply
+        {t("Reply")}
       </button>
 
       <button
@@ -1158,7 +1158,7 @@ export default function ThreadDetailPage() {
           type="button"
           onClick={() => startEdit(msg)}
           className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-primary-500 hover:underline"
-          title="Edit message"
+          title={t("Edit message")}
         >
           <PenLine className="h-3 w-3" />
           {t("Edit")}
@@ -1216,8 +1216,8 @@ export default function ThreadDetailPage() {
                   <span className="animate-bounce [animation-delay:0.2s]">•</span>
                 </div>
                 {typingUsers.length === 1
-                  ? `${typingUsers[0].name} is typing…`
-                  : `${typingUsers.map((typingUser) => typingUser.name).join(", ")} are typing…`}
+                  ? t("{name} is typing...", { name: typingUsers[0].name })
+                  : t("{names} are typing...", { names: typingUsers.map((typingUser) => typingUser.name).join(", ") })}
               </div>
             )}
 
@@ -1247,7 +1247,7 @@ export default function ThreadDetailPage() {
                     type="button"
                     onClick={() => setReplyTo(null)}
                     className="rounded p-1 text-neutral-500 hover:bg-white hover:text-neutral-800 dark:hover:bg-neutral-900 dark:hover:text-neutral-100"
-                    aria-label="Cancel reply"
+                    aria-label={t("Cancel reply")}
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -1263,38 +1263,38 @@ export default function ThreadDetailPage() {
                         ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-950"
                         : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
                     }`}
-                    title="Send as code snippet"
+                    title={t("Send as code snippet")}
                   >
                     <Code2 className="h-4 w-4" />
-                    <span className="hidden sm:inline">Code</span>
+                    <span className="hidden sm:inline">{t("Code")}</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => imageInputRef.current?.click()}
                     className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 sm:px-3"
-                    title="Attach image"
+                    title={t("Attach image")}
                   >
                     <ImageIcon className="h-4 w-4" />
-                    <span className="hidden sm:inline">Image</span>
+                    <span className="hidden sm:inline">{t("Image")}</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 sm:px-3"
-                    title="Attach file"
+                    title={t("Attach file")}
                   >
                     <Paperclip className="h-4 w-4" />
-                    <span className="hidden sm:inline">File</span>
+                    <span className="hidden sm:inline">{t("File")}</span>
                   </button>
                   <div className="relative">
                     <button
                       type="button"
                       onClick={() => setShowEmojiPicker((value) => !value)}
                       className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 sm:px-3"
-                      title="Add emoji"
+                      title={t("Add emoji")}
                     >
                       <Smile className="h-4 w-4" />
-                      <span className="hidden sm:inline">Emoji</span>
+                      <span className="hidden sm:inline">{t("Emoji")}</span>
                     </button>
                     {showEmojiPicker && (
                       <div className="absolute bottom-11 left-0 z-20 grid grid-cols-4 gap-1 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
@@ -1341,7 +1341,7 @@ export default function ThreadDetailPage() {
                       type="button"
                       onClick={resetAttachment}
                       className="rounded p-1 text-primary-700 hover:bg-white dark:text-primary-200 dark:hover:bg-neutral-900"
-                      aria-label="Remove attachment"
+                      aria-label={t("Remove attachment")}
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -1469,7 +1469,7 @@ export default function ThreadDetailPage() {
                           <div className="mt-2 flex flex-wrap gap-1">
                             {problem.source === "knowledge" && (
                               <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
-                                Knowledge
+                                {t("Knowledge")}
                               </span>
                             )}
                             {problem.tags.slice(0, 4).map((tag) => (
@@ -1577,7 +1577,7 @@ export default function ThreadDetailPage() {
                 <div className="border-t border-neutral-200 dark:border-neutral-700">
                   {thread.matchedExperts.map((expert, i) => {
                     const id = (expert as any)._id || expert.expertId || String(i);
-                    const name = (expert as any).name || "Expert";
+                    const name = (expert as any).name || t("Expert");
                     const score = expert.score;
                     const reasons = expert.reasons || [];
 
@@ -1589,7 +1589,7 @@ export default function ThreadDetailPage() {
                         <Link
                           href={`/dashboard/profile/${id}`}
                           className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500/30"
-                          aria-label={`Open ${name}'s profile`}
+                          aria-label={t("Open {name}'s profile", { name })}
                         >
                           <Avatar size="sm" initials={name.slice(0, 2).toUpperCase()} />
                         </Link>
@@ -1618,7 +1618,7 @@ export default function ThreadDetailPage() {
                           className="inline-flex min-h-[34px] shrink-0 items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-2.5 py-1.5 text-xs font-semibold text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-wait disabled:opacity-60 dark:border-primary-900/50 dark:bg-primary-950/30 dark:text-primary-200 dark:hover:bg-primary-950/50"
                         >
                           <MessageSquare className="h-3.5 w-3.5" />
-                          {dmLoadingId === id ? t("Opening...") : "DM"}
+                          {dmLoadingId === id ? t("Opening...") : t("DM")}
                         </button>
                       </div>
                     );
@@ -1669,6 +1669,8 @@ function ConfirmDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const { t } = useLanguage();
+
   if (!open) return null;
 
   const accent =
@@ -1703,7 +1705,7 @@ function ConfirmDialog({
             onClick={onCancel}
             disabled={isLoading}
             className="rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-            aria-label="Close dialog"
+            aria-label={t("Close dialog")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -1729,7 +1731,7 @@ function ConfirmDialog({
             ) : (
               icon
             )}
-            {isLoading ? "Working..." : confirmLabel}
+            {isLoading ? t("Working...") : confirmLabel}
           </button>
         </div>
       </div>

@@ -11,6 +11,7 @@ import { Button } from "../../../../components/ui/Button";
 import { Avatar } from "../../../../components/ui/Avatar";
 import { Badge } from "../../../../components/ui/Badge";
 import { apiClient } from "../../../../lib/api";
+import { useLanguage } from "../../../../lib/i18n";
 
 type SubjectSummary = {
   subject: string;
@@ -99,6 +100,7 @@ function dataUrlToBlob(dataUrl: string) {
 }
 
 export default function SubjectPage() {
+  const { t } = useLanguage();
   const params = useParams<{ slug: string }>();
   const slug = params?.slug || "";
   const [summary, setSummary] = useState<SubjectSummary | null>(null);
@@ -210,7 +212,7 @@ export default function SubjectPage() {
   }
 
   return (
-    <DashboardLayout title={title} searchPlaceholder="Search threads, experts...">
+    <DashboardLayout title={title} searchPlaceholder={t("Search threads, experts...")}>
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-neutral-600 dark:text-neutral-400">

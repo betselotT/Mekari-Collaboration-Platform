@@ -17,6 +17,7 @@ import {
 
 const router = Router();
 const googleClient = new OAuth2Client();
+const COMMUNITY_GUIDELINES_VERSION = "2026-06-01";
 
 const accountTypeSchema = z.enum(["learner", "mentor"]);
 const expertiseSchema = z.object({
@@ -65,6 +66,9 @@ const registerSchema = z.object({
     .enum(["online", "busy", "offline", "in_session"])
     .default("offline"),
   verificationDocument: verificationDocumentSchema.optional(),
+  communityGuidelinesAccepted: z.literal(true, {
+    errorMap: () => ({ message: "Community guidelines must be accepted before registering" }),
+  }),
 });
 
 const loginSchema = z.object({
@@ -85,16 +89,19 @@ const resendVerificationOtpSchema = z.object({
 const googleAuthSchema = z.object({
   credential: z.string().min(10),
   accountType: accountTypeSchema.optional(),
+  communityGuidelinesAccepted: z.boolean().optional(),
 });
 
 const githubStartSchema = z.object({
   accountType: accountTypeSchema.optional(),
   mode: z.enum(["login", "register"]).default("login"),
+  communityGuidelinesAccepted: z.enum(["true", "false"]).optional(),
 });
 
 type OAuthState = {
   accountType?: z.infer<typeof accountTypeSchema>;
   mode: "login" | "register";
+  communityGuidelinesAccepted?: boolean;
 };
 
 function signAuthToken(userId: string, role: string) {
@@ -154,6 +161,7 @@ function verifyOAuthState(state: string): OAuthState {
   return {
     accountType: decoded.accountType ? accountTypeSchema.parse(decoded.accountType) : undefined,
     mode: z.enum(["login", "register"]).parse(decoded.mode),
+    communityGuidelinesAccepted: decoded.communityGuidelinesAccepted === true,
   };
 }
 
@@ -248,6 +256,8 @@ router.post("/register", async (req, res, next) => {
           }
         : { status: "not_required" },
       profileSetupCompleted: true,
+      communityGuidelinesAcceptedAt: new Date(),
+      communityGuidelinesVersion: COMMUNITY_GUIDELINES_VERSION,
     });
 
     await queueVerificationOtp(user);
@@ -435,6 +445,11 @@ router.post("/google", loginRateLimiter, async (req, res, next) => {
     let isNewUser = false;
     if (!user) {
       const accountType = parsed.accountType || "learner";
+      if (parsed.communityGuidelinesAccepted !== true) {
+        return res.status(400).json({
+          error: { message: "Community guidelines must be accepted before registering" },
+        });
+      }
       if (accountType === "mentor") {
         return res.status(400).json({
           error: {
@@ -453,6 +468,8 @@ router.post("/google", loginRateLimiter, async (req, res, next) => {
         role: roleForAccountType(accountType),
         expertVerification: { status: "not_required" },
         profileSetupCompleted: false,
+        communityGuidelinesAcceptedAt: new Date(),
+        communityGuidelinesVersion: COMMUNITY_GUIDELINES_VERSION,
       });
       isNewUser = true;
     } else {
@@ -510,6 +527,13 @@ router.get("/github/start", loginRateLimiter, (req, res, next) => {
   try {
     const parsed = githubStartSchema.parse(req.query);
     const accountType = parsed.accountType || "learner";
+    if (parsed.mode === "register" && parsed.communityGuidelinesAccepted !== "true") {
+      return res.redirect(
+        frontendUrl("/register", {
+          error: "Community guidelines must be accepted before registering.",
+        })
+      );
+    }
     if (parsed.accountType === "mentor" && parsed.mode === "register") {
       return res.redirect(
         frontendUrl("/register", {
@@ -533,6 +557,8 @@ router.get("/github/start", loginRateLimiter, (req, res, next) => {
       signOAuthState({
         mode: parsed.mode,
         accountType: parsed.mode === "register" ? accountType : parsed.accountType,
+        communityGuidelinesAccepted:
+          parsed.mode === "register" ? parsed.communityGuidelinesAccepted === "true" : undefined,
       })
     );
 
@@ -618,6 +644,13 @@ router.get("/github/callback", async (req, res, next) => {
 
     if (!user) {
       const accountType = state.accountType || "learner";
+      if (state.communityGuidelinesAccepted !== true) {
+        return res.redirect(
+          frontendUrl("/register", {
+            error: "Community guidelines must be accepted before registering.",
+          })
+        );
+      }
       if (accountType === "mentor") {
         return res.redirect(
           frontendUrl("/register", {
@@ -636,6 +669,8 @@ router.get("/github/callback", async (req, res, next) => {
         role: roleForAccountType(accountType),
         expertVerification: { status: "not_required" },
         profileSetupCompleted: false,
+        communityGuidelinesAcceptedAt: new Date(),
+        communityGuidelinesVersion: COMMUNITY_GUIDELINES_VERSION,
       });
       isNewUser = true;
     } else {

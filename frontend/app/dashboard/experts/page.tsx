@@ -8,6 +8,7 @@ import { Avatar } from "../../../components/ui/Avatar";
 import { Button } from "../../../components/ui/Button";
 import { ArrowRight, CheckCircle2, Star, StarHalf, Users, X } from "lucide-react";
 import { apiClient } from "../../../lib/api";
+import { useLanguage } from "../../../lib/i18n";
 
 interface DBExpert {
   _id: string;
@@ -163,6 +164,7 @@ function StarRatingInput({
 }
 
 export default function ExpertsPage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [experts, setExperts] = useState<DBExpert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -311,7 +313,7 @@ export default function ExpertsPage() {
   }
 
   return (
-    <DashboardLayout title="Expert Network" searchPlaceholder="Search experts by name or skills...">
+    <DashboardLayout title={t("Expert Network")} searchPlaceholder={t("Search experts by name or skills...")}>
       {availabilityModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/50 px-4 py-6 backdrop-blur-sm">
           <div
@@ -336,7 +338,7 @@ export default function ExpertsPage() {
                 type="button"
                 onClick={() => setAvailabilityModalOpen(false)}
                 className="rounded-full p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-white/10 dark:hover:text-neutral-200"
-                aria-label="Close dialog"
+              aria-label={t("Close dialog")}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -398,7 +400,7 @@ export default function ExpertsPage() {
                 type="button"
                 onClick={() => setReviewsOpen(false)}
                 className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100/80 text-neutral-400 backdrop-blur transition-all hover:bg-neutral-200 hover:text-neutral-700 dark:bg-neutral-800/80 dark:hover:bg-neutral-700 dark:hover:text-neutral-200"
-                aria-label="Close reviews"
+                    aria-label={t("Close reviews")}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -474,8 +476,8 @@ export default function ExpertsPage() {
                       <Star className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">No ratings yet</p>
-                      <p className="text-[11px] text-neutral-400 dark:text-neutral-500">Be the first to share your experience.</p>
+                      <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">{t("No ratings yet")}</p>
+                      <p className="text-[11px] text-neutral-400 dark:text-neutral-500">{t("Be the first to share your experience.")}</p>
                     </div>
                   </div>
                 )}
@@ -552,7 +554,7 @@ export default function ExpertsPage() {
                           maxLength={1000}
                           rows={3}
                           disabled={reviewSubmitting}
-                          placeholder="What stood out about this expert's guidance?"
+                  placeholder={t("What stood out about this expert's guidance?")}
                           className="w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50/50 px-4 py-3 text-[13px] leading-relaxed text-neutral-900 placeholder:text-neutral-400 transition-colors focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/10 dark:border-neutral-700 dark:bg-neutral-800/50 dark:text-white dark:placeholder:text-neutral-600 dark:focus:border-primary-500"
                         />
                       </label>
@@ -622,7 +624,7 @@ export default function ExpertsPage() {
                     <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-400 dark:bg-amber-500/10 dark:text-amber-300">
                       <Star className="h-5 w-5" />
                     </div>
-                    <p className="text-sm font-bold text-neutral-900 dark:text-white">No reviews yet</p>
+                    <p className="text-sm font-bold text-neutral-900 dark:text-white">{t("No reviews yet")}</p>
                     <p className="mt-1 max-w-[240px] text-xs text-neutral-400 dark:text-neutral-500">
                       Ratings will appear here after learners review this expert.
                     </p>

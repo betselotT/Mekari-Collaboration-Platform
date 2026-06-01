@@ -216,7 +216,7 @@ export function Header({ title = "Dashboard", onMenuClick }: HeaderProps) {
         <Link
           href="/dashboard/messages"
           className="relative p-2 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors dark:text-neutral-400 dark:hover:bg-neutral-800"
-          aria-label="Messages"
+          aria-label={t("header.messages")}
           title={t("header.messages")}
         >
           <MessageCircle className="h-5 w-5" />

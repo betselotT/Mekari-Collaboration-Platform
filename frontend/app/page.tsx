@@ -246,7 +246,7 @@ export default function LandingPage() {
                         </span>
                       ))}
                       {landingPreview && landingPreview.tags.length === 0 && (
-                        <span className="text-xs text-neutral-500 dark:text-neutral-400">No tags saved yet</span>
+                        <span className="text-xs text-neutral-500 dark:text-neutral-400">{t("No tags saved yet")}</span>
                       )}
                     </div>
                   </div>
@@ -304,7 +304,7 @@ export default function LandingPage() {
       <section id="solutions" className="bg-neutral-50 py-20 px-6 dark:bg-neutral-900">
         <div className="mx-auto max-w-6xl">
           <div className="mb-16 text-center">
-            <h2 className="mb-4 text-4xl font-bold text-neutral-900 dark:text-white">Why Mekari?</h2>
+            <h2 className="mb-4 text-4xl font-bold text-neutral-900 dark:text-white">{t("Why Mekari?")}</h2>
             <p className="text-lg text-neutral-600 dark:text-neutral-400">
               Empowering developers through real-time support.
             </p>
@@ -373,7 +373,7 @@ export default function LandingPage() {
 
             <div className="relative mb-6 flex items-center gap-4">
               <div className="flex-1 border-t border-neutral-200 dark:border-neutral-700" />
-              <span className="text-xs text-neutral-500">OR</span>
+              <span className="text-xs text-neutral-500">{t("OR")}</span>
               <div className="flex-1 border-t border-neutral-200 dark:border-neutral-700" />
             </div>
 

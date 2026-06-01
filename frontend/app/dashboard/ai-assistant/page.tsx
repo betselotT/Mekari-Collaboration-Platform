@@ -332,7 +332,7 @@ export default function AIAssistantPage() {
         <div className="mb-6 flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
           <span>MEKARI</span>
           <span>/</span>
-          <span>AI ASSISTANT</span>
+          <span>{t("AI Assistant")}</span>
         </div>
 
         <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">

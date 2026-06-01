@@ -9,6 +9,7 @@ import { Badge } from "../../../../components/ui/Badge";
 import { Button } from "../../../../components/ui/Button";
 import { apiClient } from "../../../../lib/api";
 import { useAuth } from "../../../../lib/useAuth";
+import { useLanguage } from "../../../../lib/i18n";
 
 type PublicUser = {
   _id: string;
@@ -73,6 +74,7 @@ function ReviewStars({ rating }: { rating: number }) {
 }
 
 export default function PublicProfilePage() {
+  const { t } = useLanguage();
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { user: currentUser } = useAuth();
@@ -154,24 +156,24 @@ export default function PublicProfilePage() {
 
   if (loading) {
     return (
-      <DashboardLayout title="Profile">
-        <div className="flex h-64 items-center justify-center text-neutral-500">Loading profile...</div>
+      <DashboardLayout title={t("Profile")}>
+        <div className="flex h-64 items-center justify-center text-neutral-500">{t("Loading profile...")}</div>
       </DashboardLayout>
     );
   }
 
   if (!profile) {
     return (
-      <DashboardLayout title="Profile">
+      <DashboardLayout title={t("Profile")}>
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200">
-          {error || "Profile not found."}
+          {error || t("Profile not found.")}
         </div>
       </DashboardLayout>
     );
   }
 
   return (
-    <DashboardLayout title={`${profile.name}'s Profile`} searchPlaceholder="Search experts, topics...">
+    <DashboardLayout title={t("{name}'s Profile", { name: profile.name })} searchPlaceholder={t("Search experts, topics...")}>
       {error && (
         <div className="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200">
           {error}
@@ -214,7 +216,7 @@ export default function PublicProfilePage() {
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <section className="space-y-6">
           <div className="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
-            <h3 className="mb-4 text-lg font-bold text-neutral-950 dark:text-white">Expertise</h3>
+            <h3 className="mb-4 text-lg font-bold text-neutral-950 dark:text-white">{t("Expertise")}</h3>
             <div className="flex flex-wrap gap-2">
               {(profile.expertise || []).length > 0 ? (
                 profile.expertise!.map((item) => (
@@ -223,17 +225,17 @@ export default function PublicProfilePage() {
                   </Badge>
                 ))
               ) : (
-                <span className="text-sm text-neutral-500">No expertise areas listed.</span>
+                <span className="text-sm text-neutral-500">{t("No expertise areas listed.")}</span>
               )}
             </div>
           </div>
 
           <div className="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800">
-            <h3 className="mb-4 text-lg font-bold text-neutral-950 dark:text-white">Reviews</h3>
+            <h3 className="mb-4 text-lg font-bold text-neutral-950 dark:text-white">{t("Reviews")}</h3>
             {!isExpert ? (
-              <p className="text-sm text-neutral-500">Reviews are available for mentors.</p>
+              <p className="text-sm text-neutral-500">{t("Reviews are available for mentors.")}</p>
             ) : reviews.length === 0 ? (
-              <p className="text-sm text-neutral-500">No reviews yet.</p>
+              <p className="text-sm text-neutral-500">{t("No reviews yet.")}</p>
             ) : (
               <div className="space-y-4">
                 {reviews.map((review) => (
@@ -278,14 +280,14 @@ export default function PublicProfilePage() {
             </h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between gap-3">
-                <span className="text-neutral-500">Points</span>
+                <span className="text-neutral-500">{t("Points")}</span>
                 <span className="font-bold text-neutral-950 dark:text-white">
                   {(profile.points || 0).toLocaleString()}
                 </span>
               </div>
               {isExpert && (
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-neutral-500">Rating</span>
+                <span className="text-neutral-500">{t("Rating")}</span>
                   <span className="flex items-center gap-2 font-bold text-neutral-950 dark:text-white">
                     <ReviewStars rating={profile.expertRatingAverage || 0} />
                     {profile.expertRatingAverage?.toFixed(1) || "New"}
@@ -293,7 +295,7 @@ export default function PublicProfilePage() {
                 </div>
               )}
               <div className="flex justify-between gap-3">
-                <span className="text-neutral-500">Reviews</span>
+                <span className="text-neutral-500">{t("Reviews")}</span>
                 <span className="font-bold text-neutral-950 dark:text-white">
                   {profile.expertReviewCount || 0}
                 </span>

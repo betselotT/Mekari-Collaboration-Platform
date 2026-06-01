@@ -29,6 +29,7 @@ import { Button } from "../../../components/ui/Button";
 import { apiClient } from "../../../lib/api";
 import { useAuth } from "../../../lib/useAuth";
 import { ensureSocket } from "../../../lib/useSocket";
+import { useLanguage } from "../../../lib/i18n";
 
 interface DmUser {
   _id: string;
@@ -116,8 +117,8 @@ function senderInitials(sender?: DmUser) {
     .slice(0, 2);
 }
 
-function attachmentLabel(message: DmMessage) {
-  return message.body || (message.type === "IMAGE" ? "Shared image" : "Attached file");
+function attachmentLabel(message: DmMessage, imageFallback: string, fileFallback: string) {
+  return message.body || (message.type === "IMAGE" ? imageFallback : fileFallback);
 }
 
 function readReceiptUserId(receipt: NonNullable<DmMessage["readBy"]>[number]) {
@@ -159,12 +160,14 @@ function renderHighlightedCode(code: string) {
 }
 
 function MessageContent({ message }: { message: DmMessage }) {
+  const { t } = useLanguage();
+
   if (message.type === "CODE") {
     return (
       <div className="max-w-full overflow-hidden rounded-lg border border-neutral-700 bg-neutral-950 text-left">
         <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-1.5">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-            Code snippet
+            {t("Code snippet")}
           </span>
           <Code2 className="h-3.5 w-3.5 text-neutral-500" />
         </div>
@@ -181,11 +184,11 @@ function MessageContent({ message }: { message: DmMessage }) {
         <a href={message.attachmentUrl} target="_blank" rel="noopener noreferrer">
           <img
             src={message.attachmentUrl}
-            alt={attachmentLabel(message)}
+            alt={attachmentLabel(message, t("Shared image"), t("Attached file"))}
             className="max-h-72 max-w-full rounded-lg border border-black/10 object-contain dark:border-white/10"
           />
         </a>
-        <figcaption className="text-xs opacity-80">{attachmentLabel(message)}</figcaption>
+        <figcaption className="text-xs opacity-80">{attachmentLabel(message, t("Shared image"), t("Attached file"))}</figcaption>
       </figure>
     );
   }
@@ -194,13 +197,13 @@ function MessageContent({ message }: { message: DmMessage }) {
     return (
       <a
         href={message.attachmentUrl}
-        download={attachmentLabel(message)}
+        download={attachmentLabel(message, t("Shared image"), t("Attached file"))}
         className="flex items-center gap-3 rounded-lg border border-current/15 bg-white/10 px-3 py-2 text-left hover:bg-white/15"
       >
         <FileText className="h-5 w-5 shrink-0" />
         <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold">{attachmentLabel(message)}</span>
-          <span className="block text-xs opacity-70">Open or download attachment</span>
+          <span className="block truncate text-sm font-semibold">{attachmentLabel(message, t("Shared image"), t("Attached file"))}</span>
+          <span className="block text-xs opacity-70">{t("Open or download attachment")}</span>
         </span>
       </a>
     );
@@ -240,6 +243,8 @@ function ConfirmDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const { t } = useLanguage();
+
   if (!open) return null;
 
   const accent =
@@ -274,7 +279,7 @@ function ConfirmDialog({
             onClick={onCancel}
             disabled={isLoading}
             className="rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-            aria-label="Close dialog"
+            aria-label={t("Close dialog")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -300,7 +305,7 @@ function ConfirmDialog({
             ) : (
               icon
             )}
-            {isLoading ? "Working..." : confirmLabel}
+            {isLoading ? t("Working...") : confirmLabel}
           </button>
         </div>
       </div>
@@ -321,6 +326,8 @@ function EndSessionDialog({
   onCancel: () => void;
   onEnd: (helpDelivered: boolean) => void;
 }) {
+  const { t } = useLanguage();
+
   if (!open) return null;
 
   return (
@@ -348,7 +355,7 @@ function EndSessionDialog({
             onClick={onCancel}
             disabled={isLoading}
             className="rounded p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-            aria-label="Close dialog"
+            aria-label={t("Close dialog")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -386,10 +393,10 @@ function EndSessionDialog({
               ) : (
                 <AlertTriangle className="h-4 w-4" />
               )}
-              End without reward
+              {t("End without reward")}
             </span>
             <span className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
-              End session without confirming mentor help.
+              {t("End session without confirming mentor help.")}
             </span>
           </button>
         </div>
@@ -401,7 +408,7 @@ function EndSessionDialog({
             disabled={isLoading}
             className="inline-flex min-h-[38px] items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60 dark:text-neutral-300 dark:hover:bg-neutral-800"
           >
-            Cancel
+            {t("threads.cancel")}
           </button>
         </div>
       </div>
@@ -410,6 +417,7 @@ function EndSessionDialog({
 }
 
 function MessagesContent() {
+  const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedConversation = searchParams?.get("conversation") || "";
@@ -996,10 +1004,10 @@ function MessagesContent() {
   }
 
   return (
-    <DashboardLayout title="Messages" searchPlaceholder="Search messages...">
+    <DashboardLayout title={t("Messages")} searchPlaceholder={t("Search messages...")}>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
-        title="Delete Message"
+        title={t("Delete Message")}
         description="This message will be removed from the conversation."
         tone="danger"
         confirmLabel="Delete"
@@ -1014,7 +1022,7 @@ function MessagesContent() {
 
       <ConfirmDialog
         open={availabilityModalOpen}
-        title="Mentor unavailable"
+        title={t("Mentor unavailable")}
         description="Mentor isn't available right now. Try again later."
         confirmLabel="OK"
         cancelLabel="Close"
@@ -1049,13 +1057,13 @@ function MessagesContent() {
       <div className="grid min-h-[calc(100dvh-156px)] min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900 sm:min-h-[calc(100dvh-180px)] lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)]">
         <aside className={`${activeConversation ? "hidden lg:block" : "block"} border-b border-neutral-200 dark:border-neutral-700 lg:border-b-0 lg:border-r`}>
           <div className="border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
-            <h2 className="text-sm font-bold text-neutral-900 dark:text-white">Conversations</h2>
+            <h2 className="text-sm font-bold text-neutral-900 dark:text-white">{t("Conversations")}</h2>
           </div>
           <div className="max-h-[calc(100dvh-220px)] overflow-y-auto sm:max-h-[320px] lg:max-h-[calc(100vh-232px)]">
             {loadingConversations ? (
-              <div className="p-4 text-sm text-neutral-500">Loading conversations...</div>
+              <div className="p-4 text-sm text-neutral-500">{t("Loading conversations...")}</div>
             ) : conversations.length === 0 ? (
-              <div className="p-4 text-sm text-neutral-500">No private conversations yet.</div>
+              <div className="p-4 text-sm text-neutral-500">{t("No private conversations yet.")}</div>
             ) : (
               conversations.map((conversation) => {
                 const other = otherParticipant(conversation);
@@ -1100,8 +1108,8 @@ function MessagesContent() {
                     type="button"
                     onClick={showConversationList}
                     className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 lg:hidden"
-                    aria-label="Back to conversations"
-                    title="Back to conversations"
+                    aria-label={t("Back to conversations")}
+                    title={t("Back to conversations")}
                   >
                     <ArrowLeft className="h-5 w-5" />
                   </button>
@@ -1193,7 +1201,7 @@ function MessagesContent() {
 
               <div className="min-w-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden bg-neutral-50 p-3 dark:bg-neutral-950 sm:p-4">
                 {loadingMessages ? (
-                  <div className="text-sm text-neutral-500">Loading messages...</div>
+                  <div className="text-sm text-neutral-500">{t("Loading messages...")}</div>
                 ) : messages.length === 0 ? (
                   <div className="text-sm text-neutral-500">
                     Start the conversation with a private message.
@@ -1288,7 +1296,7 @@ function MessagesContent() {
                                 <MessageContent message={message} />
                               )}
                               {message.editedAt && !isEditingThisMessage && (
-                                <div className="mt-1 text-[11px] font-medium opacity-70">edited</div>
+                      <div className="mt-1 text-[11px] font-medium opacity-70">{t("edited")}</div>
                               )}
                             </div>
                             {isLatestSeenOwnMessage && (
@@ -1366,7 +1374,7 @@ function MessagesContent() {
                       type="button"
                       onClick={() => setReplyTo(null)}
                       className="rounded p-1 text-neutral-500 hover:bg-white hover:text-neutral-800 dark:hover:bg-neutral-900 dark:hover:text-neutral-100"
-                      aria-label="Cancel reply"
+                    aria-label={t("Cancel reply")}
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -1382,38 +1390,38 @@ function MessagesContent() {
                           ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-950"
                           : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
                       }`}
-                      title="Send as code snippet"
+                    title={t("Send as code snippet")}
                     >
                       <Code2 className="h-4 w-4" />
-                      <span className="hidden sm:inline">Code</span>
+                    <span className="hidden sm:inline">{t("Code")}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => imageInputRef.current?.click()}
                       className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 sm:px-3"
-                      title="Attach image"
+                    title={t("Attach image")}
                     >
                       <ImageIcon className="h-4 w-4" />
-                      <span className="hidden sm:inline">Image</span>
+                    <span className="hidden sm:inline">{t("Image")}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 sm:px-3"
-                      title="Attach file"
+                    title={t("Attach file")}
                     >
                       <Paperclip className="h-4 w-4" />
-                      <span className="hidden sm:inline">File</span>
+                    <span className="hidden sm:inline">{t("File")}</span>
                     </button>
                     <div className="relative">
                       <button
                         type="button"
                         onClick={() => setShowEmojiPicker((value) => !value)}
                         className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 sm:px-3"
-                        title="Add emoji"
+                      title={t("Add emoji")}
                       >
                         <Smile className="h-4 w-4" />
-                        <span className="hidden sm:inline">Emoji</span>
+                      <span className="hidden sm:inline">{t("Emoji")}</span>
                       </button>
                       {showEmojiPicker && (
                         <div className="absolute bottom-11 left-0 z-30 w-52 rounded-lg border border-neutral-200 bg-white p-2 shadow-xl dark:border-neutral-700 dark:bg-neutral-900 sm:w-60">
@@ -1462,7 +1470,7 @@ function MessagesContent() {
                         type="button"
                         onClick={resetAttachment}
                         className="rounded p-1 text-primary-700 hover:bg-white dark:text-primary-200 dark:hover:bg-neutral-900"
-                        aria-label="Remove attachment"
+                      aria-label={t("Remove attachment")}
                       >
                         <X className="h-4 w-4" />
                       </button>
