@@ -3,12 +3,11 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Archive, ArrowLeft, ArrowRight, MessageSquareText, Search, X } from "lucide-react";
+import { Archive, ArrowLeft, ArrowRight, MessageSquareText, Search, Tag, X } from "lucide-react";
 import { apiClient } from "../../lib/api";
 import { formatTechnicalTag, useLanguage } from "../../lib/i18n";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
-import { Input } from "../ui/Input";
 import { ThreadCard } from "./ThreadCard";
 
 type SearchThread = {
@@ -153,37 +152,37 @@ export function ThreadRepositorySearch({
   }, [activePage, activeQuery, activeTags, hasSearch, t]);
 
   return (
-    <section className="mb-6 rounded-2xl border border-primary-100 bg-white p-4 shadow-sm dark:border-primary-900/50 dark:bg-neutral-900 sm:p-5">
-      <div className="mb-4">
-        <h2 className="text-lg font-bold text-neutral-950 dark:text-white">
-          {t("Search knowledge and active threads")}
-        </h2>
-        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-          {t("Find repository solutions and current discussions by full text, tags, or both.")}
-        </p>
-      </div>
-
-      <form onSubmit={submitSearch} className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.55fr)_auto] lg:items-end">
-        <Input
-          icon={Search}
-          label={t("Full-text query")}
+    <section className="mb-6">
+      <form
+        onSubmit={submitSearch}
+        className="flex flex-col gap-2 rounded-xl border border-neutral-200 bg-white p-2 shadow-sm dark:border-neutral-700 dark:bg-neutral-900 sm:flex-row sm:items-center"
+      >
+        <label className="relative min-w-0 flex-1">
+          <span className="sr-only">{t("Search threads and solved answers")}</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+          <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder={t("e.g., MongoDB aggregation latency")}
-        />
-        <Input
-          label={t("Tags")}
-          value={tagInput}
-          onChange={(event) => setTagInput(event.target.value)}
-          placeholder={t("e.g., mongodb, indexing")}
-        />
+            placeholder={t("Search threads and solved answers")}
+            className="w-full rounded-lg border-0 bg-transparent py-2.5 pl-9 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:bg-neutral-50 dark:text-neutral-100 dark:focus:bg-neutral-800"
+          />
+        </label>
+        <label className="relative min-w-0 sm:w-64">
+          <span className="sr-only">{t("Filter by tags")}</span>
+          <Tag className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+          <input
+            value={tagInput}
+            onChange={(event) => setTagInput(event.target.value)}
+            placeholder={t("Filter by tags")}
+            className="w-full rounded-lg border border-neutral-200 bg-neutral-50 py-2.5 pl-9 pr-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-primary-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+          />
+        </label>
         <div className="flex gap-2">
-          <Button type="submit" className="flex-1 lg:flex-none">
-            <Search className="mr-2 h-4 w-4" />
+          <Button type="submit" size="sm" className="flex-1 sm:flex-none">
             {t("Search")}
           </Button>
           {hasSearch && (
-            <Button type="button" variant="outline" onClick={clearSearch} title={t("Clear search")}>
+            <Button type="button" variant="outline" size="sm" onClick={clearSearch} title={t("Clear search")}>
               <X className="h-4 w-4" />
             </Button>
           )}
@@ -208,15 +207,18 @@ export function ThreadRepositorySearch({
       )}
 
       {hasSearch && (
-        <div className="mt-6 border-t border-neutral-200 pt-5 dark:border-neutral-700">
+        <div className="mt-5">
           {loading ? (
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">{t("Searching repository...")}</p>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">{t("Searching...")}</p>
           ) : results.totalResults === 0 ? (
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              {t("No repository documents or active threads matched your search.")}
+              {t("No threads or solved answers matched your search.")}
             </p>
           ) : (
             <div className="space-y-7">
+              <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                {t("{count} search results", { count: results.totalResults })}
+              </p>
               <section>
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">

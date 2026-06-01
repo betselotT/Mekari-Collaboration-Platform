@@ -300,8 +300,8 @@ describe("Capstone functional acceptance tests", () => {
     ).as("repositorySearch");
 
     cy.visitAsUser("/dashboard/threads");
-    cy.get('input[placeholder="e.g., MongoDB aggregation latency"]').type("aggregation");
-    cy.get('input[placeholder="e.g., mongodb, indexing"]').type("mongodb, indexing");
+    cy.get('input[placeholder="Search threads and solved answers"]').type("aggregation");
+    cy.get('input[placeholder="Filter by tags"]').type("mongodb, indexing");
     cy.contains("button", /^Search$/).click();
 
     cy.wait("@repositorySearch");

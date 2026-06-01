@@ -1,6 +1,37 @@
 import { Thread } from "../models/Thread";
 import { Message } from "../models/Message";
+import { KnowledgeDoc } from "../models/KnowledgeDoc";
 import * as intelligence from "../intelligence/client";
+
+const FALLBACK_SUMMARY =
+  "A technical question was raised on this thread. The community investigated the issue and identified the root cause. A solution was marked and the thread was resolved.";
+
+async function captureKnowledgeLocally(input: {
+  threadId: string;
+  title: string;
+  body: string;
+  tags: string[];
+  solution: string;
+  aiResponse: Record<string, unknown>;
+}) {
+  if (!input.solution.trim()) return;
+
+  await KnowledgeDoc.updateOne(
+    { questionId: input.threadId },
+    {
+      $setOnInsert: {
+        questionId: input.threadId,
+        title: input.title,
+        body: input.body,
+        tags: input.tags,
+        solution: input.solution,
+        aiResponse: input.aiResponse,
+        threadSummary: FALLBACK_SUMMARY,
+      },
+    },
+    { upsert: true }
+  );
+}
 
 export async function captureKnowledge(threadId: string): Promise<void> {
   try {
@@ -9,7 +40,6 @@ export async function captureKnowledge(threadId: string): Promise<void> {
 
     const messages = await Message.find({ thread: threadId })
       .sort({ createdAt: 1 })
-      .populate("sender", "name")
       .lean();
 
     const solutionMsg = thread.solutionMsgId
@@ -26,15 +56,29 @@ export async function captureKnowledge(threadId: string): Promise<void> {
         }
       : {};
 
-    await intelligence.captureKnowledge({
-      thread_id: threadId,
+    const input = {
+      threadId,
       title: thread.title,
       body: thread.body ?? "",
-      subject: thread.subject,
       tags: [...new Set([thread.subject, ...thread.tags].filter(Boolean))],
       solution: solutionMsg?.body ?? "",
-      ai_response_dict: aiResponseDict,
-    });
+      aiResponse: aiResponseDict,
+    };
+
+    try {
+      await intelligence.captureKnowledge({
+        thread_id: input.threadId,
+        title: input.title,
+        body: input.body,
+        subject: thread.subject,
+        tags: input.tags,
+        solution: input.solution,
+        ai_response_dict: input.aiResponse,
+      });
+    } catch (err) {
+      console.error("[captureKnowledge] intelligence service unavailable, using local fallback", err);
+      await captureKnowledgeLocally(input);
+    }
   } catch (err) {
     console.error("[captureKnowledge] error for thread", threadId, err);
   }
