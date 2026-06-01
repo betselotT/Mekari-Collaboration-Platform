@@ -72,6 +72,7 @@ type AttachmentDraft = {
 };
 
 const emojiOptions = ["👍", "🙏", "🎉", "💡", "✅", "🔥", "👀", "🚀"];
+const THREAD_DELETE_UNDO_SECONDS = 10;
 
 interface AIResponse {
   explanation: string;
@@ -266,6 +267,9 @@ export default function ThreadDetailPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ChatMessage | null>(null);
+  const [threadDeleteTarget, setThreadDeleteTarget] = useState(false);
+  const [threadDeleteCountdown, setThreadDeleteCountdown] = useState<number | null>(null);
+  const [deletingThread, setDeletingThread] = useState(false);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [upvotingMessageId, setUpvotingMessageId] = useState<string | null>(null);
   const [pinningMessageId, setPinningMessageId] = useState<string | null>(null);
@@ -289,6 +293,36 @@ export default function ThreadDetailPage() {
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
   const readRequestKeyRef = useRef("");
+
+  useEffect(() => {
+    if (threadDeleteCountdown === null) return;
+
+    if (threadDeleteCountdown > 0) {
+      const timer = window.setTimeout(() => {
+        setThreadDeleteCountdown((current) => current === null ? null : current - 1);
+      }, 1000);
+      return () => window.clearTimeout(timer);
+    }
+
+    let active = true;
+    setDeletingThread(true);
+    setDeleteError(null);
+    apiClient
+      .delete(`/api/threads/${threadId}`)
+      .then(() => {
+        if (active) router.replace("/dashboard/threads");
+      })
+      .catch((err: any) => {
+        if (!active) return;
+        setDeleteError(err?.response?.data?.error?.message || t("threads.deleteFailed"));
+        setThreadDeleteCountdown(null);
+        setDeletingThread(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [router, t, threadDeleteCountdown, threadId]);
 
   // ── Load thread + messages ──────────────────────────────────────────────
   useEffect(() => {
@@ -427,6 +461,11 @@ export default function ThreadDetailPage() {
         setThread((prev) => (prev ? { ...prev, tags: data.tags } : prev));
       });
 
+      socket.on("thread_deleted", (data: { threadId: string }) => {
+        if (data.threadId !== threadId) return;
+        router.replace("/dashboard/threads");
+      });
+
       socket.on("message_deleted", (data: { threadId: string; messageId: string }) => {
         if (data.threadId !== threadId) return;
         setMessages((prev) => prev.filter((msg) => getMessageId(msg) !== data.messageId));
@@ -505,6 +544,7 @@ export default function ThreadDetailPage() {
         socket.off("similar_problems_ready");
         socket.off("thread_solved");
         socket.off("thread_tags_updated");
+        socket.off("thread_deleted");
         socket.off("message_deleted");
         socket.off("message_upvoted");
         socket.off("message_edited");
@@ -514,7 +554,7 @@ export default function ThreadDetailPage() {
         socket.off("user_stopped_typing");
       }
     };
-  }, [threadId, user?._id]);
+  }, [router, threadId, user?._id]);
 
   // ── Auto-scroll ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -888,10 +928,43 @@ export default function ThreadDetailPage() {
         }}
         onConfirm={confirmDeleteMessage}
       />
+      <ConfirmDialog
+        open={threadDeleteTarget}
+        title={t("threads.deleteThread")}
+        description={t("threads.deleteDescription")}
+        tone="danger"
+        confirmLabel={t("threads.startDeleteCountdown")}
+        cancelLabel={t("threads.keepThread")}
+        icon={<Trash2 className="h-5 w-5" />}
+        onCancel={() => setThreadDeleteTarget(false)}
+        onConfirm={() => {
+          setThreadDeleteTarget(false);
+          setThreadDeleteCountdown(THREAD_DELETE_UNDO_SECONDS);
+          setDeleteError(null);
+        }}
+      />
 
       {loadError && (
         <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
           {loadError}
+        </div>
+      )}
+      {threadDeleteCountdown !== null && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
+          <span>
+            {deletingThread
+              ? t("threads.deletingThread")
+              : t("threads.deleteCountdown", { seconds: threadDeleteCountdown })}
+          </span>
+          {!deletingThread && (
+            <button
+              type="button"
+              onClick={() => setThreadDeleteCountdown(null)}
+              className="rounded border border-rose-300 bg-white px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-200 dark:hover:bg-rose-900"
+            >
+              {t("Undo")}
+            </button>
+          )}
         </div>
       )}
 
@@ -914,6 +987,15 @@ export default function ThreadDetailPage() {
               className="min-h-[30px] rounded border border-neutral-300 px-2 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
             >
               {t("Edit tags")}
+            </button>
+          )}
+          {isAuthor && threadDeleteCountdown === null && (
+            <button
+              type="button"
+              onClick={() => setThreadDeleteTarget(true)}
+              className="min-h-[30px] rounded border border-rose-300 px-2 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/40"
+            >
+              {t("threads.deleteThread")}
             </button>
           )}
         </div>
