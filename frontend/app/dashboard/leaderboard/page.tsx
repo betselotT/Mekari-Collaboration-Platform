@@ -1,12 +1,12 @@
 // Represents leaderboard participant data returned from the gamification API
 "use client";
 
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { DashboardLayout } from "../../../components/layout/DashboardLayout";
 import { Card } from "../../../components/ui/Card";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Badge } from "../../../components/ui/Badge";
-import { Star, Zap } from "lucide-react";
+import { Award, BriefcaseBusiness, CalendarDays, Clock, Star, Tag, X, Zap } from "lucide-react";
 import { apiClient } from "../../../lib/api";
 import { useLanguage } from "../../../lib/i18n";
 
@@ -24,6 +24,16 @@ type LeaderboardUser = {
   skillTags: string[];
   role: string;
   createdAt?: string;
+};
+
+type PublicLeaderboardProfile = LeaderboardUser & {
+  bio?: string;
+  primaryTechnicalField?: string;
+  roleOrStatus?: string;
+  yearsOfExperience?: string;
+  availabilityStatus?: "online" | "busy" | "offline" | "in_session";
+  expertRatingAverage?: number;
+  expertReviewCount?: number;
 };
 // Generates avatar initials from a user's full name
 function initials(name: string) {
@@ -46,6 +56,17 @@ function expertiseLabel(user: LeaderboardUser) {
   if (user.skillTags?.length) return user.skillTags.slice(0, 3).join(", ");
   return user.role === "expert" ? "Mentor" : "Learner";
 }
+function roleLabel(role: string) {
+  return role === "expert" ? "Mentor" : "Learner";
+}
+
+function availabilityLabel(status?: PublicLeaderboardProfile["availabilityStatus"]) {
+  if (status === "online") return "Available now";
+  if (status === "busy") return "Busy";
+  if (status === "in_session") return "In session";
+  return "Offline";
+}
+
 export default function LeaderboardPage() {
   const { t } = useLanguage();
   const [learners, setLearners] = useState<LeaderboardUser[]>([]);
@@ -53,6 +74,32 @@ export default function LeaderboardPage() {
   const [activeTab, setActiveTab] = useState<LeaderboardTab>("experts");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedUser, setSelectedUser] = useState<LeaderboardUser | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<PublicLeaderboardProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState("");
+
+  async function openUserModal(user: LeaderboardUser) {
+    setSelectedUser(user);
+    setSelectedProfile({ ...user });
+    setProfileError("");
+    setProfileLoading(true);
+    try {
+      const res = await apiClient.get<{ user: PublicLeaderboardProfile }>(`/api/users/${user._id}`);
+      setSelectedProfile({ ...user, ...res.data.user, rank: user.rank });
+    } catch (err: any) {
+      setProfileError(err.response?.data?.error?.message || t("Failed to load profile."));
+    } finally {
+      setProfileLoading(false);
+    }
+  }
+
+  function closeUserModal() {
+    setSelectedUser(null);
+    setSelectedProfile(null);
+    setProfileError("");
+    setProfileLoading(false);
+  }
 
   useEffect(() => {
     async function loadLeaderboards() {
@@ -111,11 +158,20 @@ export default function LeaderboardPage() {
           </div>
 
           {activeTab === "experts" ? (
-            <LeaderboardSection title={t("Expert Leaderboard")} description={t("Top mentors by earned points.")} users={experts} />
+            <LeaderboardSection title={t("Expert Leaderboard")} description={t("Top mentors by earned points.")} users={experts} onUserClick={openUserModal} />
           ) : (
-            <LeaderboardSection title={t("Learner Leaderboard")} description={t("Top learners by earned points.")} users={learners} />
+            <LeaderboardSection title={t("Learner Leaderboard")} description={t("Top learners by earned points.")} users={learners} onUserClick={openUserModal} />
           )}
         </div>
+      )}
+
+      {selectedUser && (
+        <LeaderboardProfileModal
+          error={profileError}
+          loading={profileLoading}
+          onClose={closeUserModal}
+          profile={selectedProfile || selectedUser}
+        />
       )}
     </DashboardLayout>
   );
@@ -160,10 +216,12 @@ function LeaderboardSection({
   title,
   description,
   users,
+  onUserClick,
 }: {
   title: string;
   description: string;
   users: LeaderboardUser[];
+  onUserClick: (user: LeaderboardUser) => void;
 }) {
   const { t } = useLanguage();
   const topUsers = users.slice(0, 3);
@@ -191,10 +249,19 @@ function LeaderboardSection({
             {topUsers.map((user) => (
               <Card
                 key={user._id}
-                className={`relative ${
+                role="button"
+                tabIndex={0}
+                onClick={() => onUserClick(user)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onUserClick(user);
+                  }
+                }}
+                className={`relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-neutral-950 ${
                   user.rank === 1
                     ? "border-primary-500 dark:border-primary-400 ring-2 ring-primary-500 ring-opacity-20"
-                    : ""
+                    : "hover:border-primary-200 hover:shadow-md dark:hover:border-primary-800"
                 }`}
               >
                 <div className="absolute -top-3 -right-3 flex h-8 w-8 items-center justify-center rounded-full bg-primary-600 text-white font-bold shadow-lg">
@@ -230,7 +297,19 @@ function LeaderboardSection({
                 </thead>
                 <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
                   {tableUsers.map((user) => (
-                    <tr key={user._id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
+                    <tr
+                      key={user._id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onUserClick(user)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onUserClick(user);
+                        }
+                      }}
+                      className="cursor-pointer transition-colors hover:bg-neutral-50 focus:bg-neutral-50 focus:outline-none dark:hover:bg-neutral-800 dark:focus:bg-neutral-800"
+                    >
                       <td className="px-6 py-4 text-sm font-bold text-neutral-900 dark:text-white">{user.rank}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -278,5 +357,180 @@ function LeaderboardSection({
         </>
       )}
     </section>
+  );
+}
+
+function LeaderboardProfileModal({
+  error,
+  loading,
+  onClose,
+  profile,
+}: {
+  error: string;
+  loading: boolean;
+  onClose: () => void;
+  profile: PublicLeaderboardProfile | LeaderboardUser;
+}) {
+  const { t } = useLanguage();
+  const isExpert = profile.role === "expert";
+  const publicProfile = profile as PublicLeaderboardProfile;
+
+  return (
+    <div
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/60 px-4 py-6"
+      role="dialog"
+    >
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-lg border border-neutral-200 bg-white shadow-2xl dark:border-neutral-700 dark:bg-neutral-900">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-200 bg-white px-5 py-4 dark:border-neutral-700 dark:bg-neutral-900">
+          <div>
+            <p className="text-xs font-semibold uppercase text-primary-600 dark:text-primary-400">
+              {t(roleLabel(profile.role))} {t("Profile")}
+            </p>
+            <h2 className="text-lg font-bold text-neutral-950 dark:text-white">{profile.name}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
+            aria-label={t("Close")}
+            title={t("Close")}
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-6 p-5">
+          {error && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+              {error}
+            </div>
+          )}
+
+          <section className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 gap-4">
+              <Avatar size="xl" initials={initials(profile.name)} src={profile.avatarUrl} />
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={isExpert ? "primary" : "default"}>{t(roleLabel(profile.role))}</Badge>
+                  {"availabilityStatus" in publicProfile && (
+                    <Badge variant={publicProfile.availabilityStatus === "online" ? "success" : "default"}>
+                      {t(availabilityLabel(publicProfile.availabilityStatus))}
+                    </Badge>
+                  )}
+                  <Badge variant="default">#{profile.rank}</Badge>
+                </div>
+                {publicProfile.bio ? (
+                  <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-neutral-600 dark:text-neutral-300">
+                    {publicProfile.bio}
+                  </p>
+                ) : (
+                  <p className="mt-4 text-sm text-neutral-500">{t("No bio listed.")}</p>
+                )}
+              </div>
+            </div>
+            {loading && (
+              <div className="flex items-center gap-2 text-sm text-neutral-500">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+                {t("Loading profile...")}
+              </div>
+            )}
+          </section>
+
+          <section className="grid gap-3 sm:grid-cols-3">
+            <ProfileStat icon={<Zap className="h-4 w-4" />} label={t("Points")} value={(profile.points || 0).toLocaleString()} />
+            <ProfileStat icon={<Award className="h-4 w-4" />} label={t("Badges")} value={`${profile.badges?.length || 0}`} />
+            <ProfileStat
+              icon={<Star className="h-4 w-4" />}
+              label={isExpert ? t("Rating") : t("Role")}
+              value={isExpert ? publicProfile.expertRatingAverage?.toFixed(1) || t("New") : t("Learner")}
+            />
+          </section>
+
+          <section className="grid gap-5 lg:grid-cols-[1fr_280px]">
+            <div className="space-y-5">
+              <InfoPanel title={t("Expertise")}>
+                {(profile.expertise || []).length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {profile.expertise.map((item) => (
+                      <Badge key={`${item.subject}-${item.proficiency}`} variant="primary">
+                        {item.subject} ({item.proficiency})
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-neutral-500">{t("No expertise areas listed.")}</p>
+                )}
+              </InfoPanel>
+
+              <InfoPanel title={t("Skills")}>
+                {(profile.skillTags || []).length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {profile.skillTags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
+                      >
+                        <Tag className="h-3 w-3" />
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-neutral-500">{t("No skills listed.")}</p>
+                )}
+              </InfoPanel>
+            </div>
+
+            <InfoPanel title={t("Details")}>
+              <div className="space-y-4 text-sm">
+                <DetailLine icon={<BriefcaseBusiness className="h-4 w-4" />} label={t("Field")} value={publicProfile.primaryTechnicalField || t("No technical field listed")} />
+                <DetailLine icon={<Clock className="h-4 w-4" />} label={t("Experience")} value={publicProfile.yearsOfExperience || t("No experience listed")} />
+                <DetailLine icon={<CalendarDays className="h-4 w-4" />} label={t("Joined")} value={joinedLabel(profile.createdAt)} />
+                {publicProfile.roleOrStatus && (
+                  <DetailLine icon={<Award className="h-4 w-4" />} label={t("Status")} value={publicProfile.roleOrStatus} />
+                )}
+                {isExpert && (
+                  <DetailLine icon={<Star className="h-4 w-4" />} label={t("Reviews")} value={`${publicProfile.expertReviewCount || 0}`} />
+                )}
+              </div>
+            </InfoPanel>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileStat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
+      <div className="flex items-center gap-2 text-sm text-neutral-500">
+        <span className="text-primary-600 dark:text-primary-400">{icon}</span>
+        {label}
+      </div>
+      <p className="mt-2 text-xl font-bold text-neutral-950 dark:text-white">{value}</p>
+    </div>
+  );
+}
+
+function InfoPanel({ children, title }: { children: ReactNode; title: string }) {
+  return (
+    <div className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-700">
+      <h3 className="mb-3 text-sm font-bold uppercase text-neutral-700 dark:text-neutral-300">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function DetailLine({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex gap-3">
+      <span className="mt-0.5 text-neutral-400">{icon}</span>
+      <div>
+        <p className="text-xs font-semibold uppercase text-neutral-500">{label}</p>
+        <p className="mt-0.5 text-neutral-800 dark:text-neutral-200">{value}</p>
+      </div>
+    </div>
   );
 }
