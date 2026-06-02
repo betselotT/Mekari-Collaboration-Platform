@@ -27,6 +27,7 @@ import {
   X,
   BookOpen,
   Code2,
+  ExternalLink,
   FileText,
   Image as ImageIcon,
   Paperclip,
@@ -160,6 +161,33 @@ function attachmentLabel(message: ChatMessage, imageFallback: string, fileFallba
   return message.body || (message.type === "IMAGE" ? imageFallback : fileFallback);
 }
 
+function dataUrlToBlob(dataUrl: string) {
+  const [header, data] = dataUrl.split(",");
+  if (!header || !data) return null;
+  const mime = header.match(/data:([^;]+)/)?.[1] || "application/octet-stream";
+  const binary = window.atob(data);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  return new Blob([bytes], { type: mime });
+}
+
+function openAttachmentInNewTab(url: string) {
+  if (url.startsWith("data:")) {
+    const blob = dataUrlToBlob(url);
+    if (!blob) return;
+    const objectUrl = URL.createObjectURL(blob);
+    window.open(objectUrl, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000);
+    return;
+  }
+
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
 function translatedSystemEvent(body: string, t: (key: string, values?: Record<string, string | number>) => string) {
   const started = body.match(/^Live session started! Join here: (.+)$/);
   if (started) return t("Live session started! Join here: {link}", { link: started[1] });
@@ -202,7 +230,13 @@ function renderHighlightedCode(code: string) {
   });
 }
 
-function MessageContent({ message }: { message: ChatMessage }) {
+function MessageContent({
+  message,
+  onOpenImage,
+}: {
+  message: ChatMessage;
+  onOpenImage: (image: { src: string; alt: string }) => void;
+}) {
   const { t } = useLanguage();
 
   if (message.type === "CODE") {
@@ -222,33 +256,41 @@ function MessageContent({ message }: { message: ChatMessage }) {
   }
 
   if (message.type === "IMAGE" && message.attachmentUrl) {
+    const label = attachmentLabel(message, t("Shared image"), t("Attached file"));
     return (
       <figure className="space-y-2">
-        <a href={message.attachmentUrl} target="_blank" rel="noopener noreferrer">
+        <button
+          type="button"
+          onClick={() => onOpenImage({ src: message.attachmentUrl!, alt: label })}
+          className="block max-w-full text-left"
+          title={t("Open image")}
+        >
           <img
             src={message.attachmentUrl}
-            alt={attachmentLabel(message, t("Shared image"), t("Attached file"))}
-            className="max-h-72 max-w-full rounded-lg border border-black/10 object-contain dark:border-white/10"
+            alt={label}
+            className="max-h-72 max-w-full rounded-lg border border-black/10 object-contain transition-opacity hover:opacity-90 dark:border-white/10"
           />
-        </a>
-        <figcaption className="text-xs opacity-80">{attachmentLabel(message, t("Shared image"), t("Attached file"))}</figcaption>
+        </button>
+        {message.body && <figcaption className="text-xs opacity-80">{message.body}</figcaption>}
       </figure>
     );
   }
 
   if (message.type === "FILE" && message.attachmentUrl) {
+    const label = attachmentLabel(message, t("Shared image"), t("Attached file"));
     return (
-      <a
-        href={message.attachmentUrl}
-        download={attachmentLabel(message, t("Shared image"), t("Attached file"))}
+      <button
+        type="button"
+        onClick={() => openAttachmentInNewTab(message.attachmentUrl!)}
         className="flex items-center gap-3 rounded-lg border border-current/15 bg-white/10 px-3 py-2 text-left hover:bg-white/15"
       >
         <FileText className="h-5 w-5 shrink-0" />
         <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold">{attachmentLabel(message, t("Shared image"), t("Attached file"))}</span>
-          <span className="block text-xs opacity-70">{t("Open or download attachment")}</span>
+          <span className="block truncate text-sm font-semibold">{label}</span>
+          <span className="block text-xs opacity-70">{t("Open attachment in a new tab")}</span>
         </span>
-      </a>
+        <ExternalLink className="h-4 w-4 shrink-0 opacity-70" />
+      </button>
     );
   }
 
@@ -291,6 +333,7 @@ export default function ThreadDetailPage() {
   const [editDraft, setEditDraft] = useState("");
   const [savingEditId, setSavingEditId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<{ src: string; alt: string } | null>(null);
   const [isEditingTags, setIsEditingTags] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
   const [tagError, setTagError] = useState<string | null>(null);
@@ -1195,7 +1238,7 @@ export default function ThreadDetailPage() {
         </div>
       </div>
     ) : (
-      <MessageContent message={msg} />
+      <MessageContent message={msg} onOpenImage={setImagePreview} />
     )}
     {msg.editedAt && !isEditingThisMessage && (
       <div className="mt-1 text-[11px] font-medium opacity-70">{t("edited")}</div>
@@ -1740,6 +1783,24 @@ export default function ThreadDetailPage() {
           )}
         </div>
       </div>
+      {imagePreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/90 px-4 py-6">
+          <button
+            type="button"
+            onClick={() => setImagePreview(null)}
+            className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white transition-colors hover:bg-white/20"
+            aria-label={t("Close image")}
+            title={t("Close image")}
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <img
+            src={imagePreview.src}
+            alt={imagePreview.alt}
+            className="max-h-[calc(100dvh-4rem)] max-w-full rounded-lg object-contain"
+          />
+        </div>
+      )}
     </DashboardLayout>
   );
 }

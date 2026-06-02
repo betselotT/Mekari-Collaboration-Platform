@@ -45,6 +45,7 @@ interface DmConversation {
   learner: DmUser;
   expert: DmUser;
   activeSession?: DmSession | null;
+  unreadCount?: number;
   lastMessagePreview?: string;
   lastMessageAt?: string;
   updatedAt: string;
@@ -125,6 +126,33 @@ function attachmentLabel(message: DmMessage, imageFallback: string, fileFallback
   return message.body || (message.type === "IMAGE" ? imageFallback : fileFallback);
 }
 
+function dataUrlToBlob(dataUrl: string) {
+  const [header, data] = dataUrl.split(",");
+  if (!header || !data) return null;
+  const mime = header.match(/data:([^;]+)/)?.[1] || "application/octet-stream";
+  const binary = window.atob(data);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  return new Blob([bytes], { type: mime });
+}
+
+function openAttachmentInNewTab(url: string) {
+  if (url.startsWith("data:")) {
+    const blob = dataUrlToBlob(url);
+    if (!blob) return;
+    const objectUrl = URL.createObjectURL(blob);
+    window.open(objectUrl, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000);
+    return;
+  }
+
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
 function translatedSystemEvent(body: string, t: (key: string, values?: Record<string, string | number>) => string) {
   const started = body.match(/^Live session started\. Join here: (.+)$/);
   if (started) return t("Live session started. Join here: {link}", { link: started[1] });
@@ -172,7 +200,13 @@ function renderHighlightedCode(code: string) {
   });
 }
 
-function MessageContent({ message }: { message: DmMessage }) {
+function MessageContent({
+  message,
+  onOpenImage,
+}: {
+  message: DmMessage;
+  onOpenImage: (image: { src: string; alt: string }) => void;
+}) {
   const { t } = useLanguage();
 
   if (message.type === "CODE") {
@@ -192,33 +226,41 @@ function MessageContent({ message }: { message: DmMessage }) {
   }
 
   if (message.type === "IMAGE" && message.attachmentUrl) {
+    const label = attachmentLabel(message, t("Shared image"), t("Attached file"));
     return (
       <figure className="space-y-2">
-        <a href={message.attachmentUrl} target="_blank" rel="noopener noreferrer">
+        <button
+          type="button"
+          onClick={() => onOpenImage({ src: message.attachmentUrl!, alt: label })}
+          className="block max-w-full cursor-zoom-in text-left"
+          title={t("Open image")}
+        >
           <img
             src={message.attachmentUrl}
-            alt={attachmentLabel(message, t("Shared image"), t("Attached file"))}
-            className="max-h-72 max-w-full rounded-lg border border-black/10 object-contain dark:border-white/10"
+            alt={label}
+            className="max-h-72 max-w-full rounded-lg border border-black/10 object-contain transition-opacity hover:opacity-90 dark:border-white/10"
           />
-        </a>
-        <figcaption className="text-xs opacity-80">{attachmentLabel(message, t("Shared image"), t("Attached file"))}</figcaption>
+        </button>
+        {message.body && <figcaption className="text-xs opacity-80">{message.body}</figcaption>}
       </figure>
     );
   }
 
   if (message.type === "FILE" && message.attachmentUrl) {
+    const label = attachmentLabel(message, t("Shared image"), t("Attached file"));
     return (
-      <a
-        href={message.attachmentUrl}
-        download={attachmentLabel(message, t("Shared image"), t("Attached file"))}
+      <button
+        type="button"
+        onClick={() => openAttachmentInNewTab(message.attachmentUrl!)}
         className="flex items-center gap-3 rounded-lg border border-current/15 bg-white/10 px-3 py-2 text-left hover:bg-white/15"
       >
         <FileText className="h-5 w-5 shrink-0" />
         <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold">{attachmentLabel(message, t("Shared image"), t("Attached file"))}</span>
-          <span className="block text-xs opacity-70">{t("Open or download attachment")}</span>
+          <span className="block truncate text-sm font-semibold">{label}</span>
+          <span className="block text-xs opacity-70">{t("Open attachment in a new tab")}</span>
         </span>
-      </a>
+        <ExternalLink className="h-4 w-4 shrink-0 opacity-70" />
+      </button>
     );
   }
 
@@ -458,6 +500,7 @@ function MessagesContent() {
   const [deleteTarget, setDeleteTarget] = useState<DmMessage | null>(null);
   const [showEndSessionDialog, setShowEndSessionDialog] = useState(false);
   const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
+  const [imagePreview, setImagePreview] = useState<{ src: string; alt: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -624,6 +667,13 @@ function MessagesContent() {
       messageIds: string[];
       readAt: string;
     }) => {
+      if (normalizeId(data.userId) === normalizeId(user)) {
+        setConversations((prev) =>
+          prev.map((conversation) =>
+            conversation._id === data.conversationId ? { ...conversation, unreadCount: 0 } : conversation
+          )
+        );
+      }
       if (data.conversationId !== activeIdRef.current || data.messageIds.length === 0) return;
       const readMessageIds = new Set(data.messageIds);
       setMessages((prev) =>
@@ -746,6 +796,11 @@ function MessagesContent() {
 
   function selectConversation(conversationId: string) {
     setActiveId(conversationId);
+    setConversations((prev) =>
+      prev.map((conversation) =>
+        conversation._id === conversationId ? { ...conversation, unreadCount: 0 } : conversation
+      )
+    );
     setReplyTo(null);
     setShowEmojiPicker(false);
     router.replace(`/dashboard/messages?conversation=${conversationId}`);
@@ -1081,6 +1136,8 @@ function MessagesContent() {
               conversations.map((conversation) => {
                 const other = otherParticipant(conversation);
                 const isActive = conversation._id === activeId;
+                const unreadCount = conversation.unreadCount || 0;
+                const isUnread = unreadCount > 0 && !isActive;
                 return (
                   <button
                     key={conversation._id}
@@ -1089,6 +1146,8 @@ function MessagesContent() {
                     className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors ${
                       isActive
                         ? "bg-primary-50 dark:bg-primary-950/40"
+                        : isUnread
+                          ? "bg-red-50/50 hover:bg-red-50 dark:bg-red-950/10 dark:hover:bg-red-950/20"
                         : "hover:bg-neutral-50 dark:hover:bg-neutral-800"
                     }`}
                   >
@@ -1098,15 +1157,20 @@ function MessagesContent() {
                       initials={(other?.name || "DM").slice(0, 2).toUpperCase()}
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-neutral-900 dark:text-white">
+                      <span className={`block truncate text-sm text-neutral-900 dark:text-white ${isUnread ? "font-extrabold" : "font-semibold"}`}>
                         {other?.name || t("Conversation")}
                       </span>
-                      <span className="block truncate text-xs text-neutral-500 dark:text-neutral-400">
+                      <span className={`block truncate text-xs ${isUnread ? "font-bold text-neutral-800 dark:text-neutral-100" : "text-neutral-500 dark:text-neutral-400"}`}>
                         {conversation.lastMessagePreview
                           ? translatedSystemEvent(conversation.lastMessagePreview, t)
                           : t("Private conversation")}
                       </span>
                     </span>
+                    {isUnread && (
+                      <span className="min-w-5 shrink-0 rounded-full bg-red-500 px-1.5 py-0.5 text-center text-[10px] font-bold leading-none text-white">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
                   </button>
                 );
               })
@@ -1308,7 +1372,7 @@ function MessagesContent() {
                                   </div>
                                 </div>
                               ) : (
-                                <MessageContent message={message} />
+                                <MessageContent message={message} onOpenImage={setImagePreview} />
                               )}
                               {message.editedAt && !isEditingThisMessage && (
                       <div className="mt-1 text-[11px] font-medium opacity-70">{t("edited")}</div>
@@ -1530,6 +1594,24 @@ function MessagesContent() {
           )}
         </section>
       </div>
+      {imagePreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/90 px-4 py-6">
+          <button
+            type="button"
+            onClick={() => setImagePreview(null)}
+            className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white transition-colors hover:bg-white/20"
+            aria-label={t("Close image")}
+            title={t("Close image")}
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <img
+            src={imagePreview.src}
+            alt={imagePreview.alt}
+            className="max-h-[calc(100dvh-4rem)] max-w-full rounded-lg object-contain"
+          />
+        </div>
+      )}
     </DashboardLayout>
   );
 }

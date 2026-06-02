@@ -1,13 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardLayout } from "../../../components/layout";
 import { ThreadCard } from "../../../components/features/ThreadCard";
 import { ThreadRepositorySearch } from "../../../components/features/ThreadRepositorySearch";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
-import { Plus, Users } from "lucide-react";
+import { Code2, FileText, Image as ImageIcon, Paperclip, Plus, Users, X } from "lucide-react";
 import { apiClient } from "../../../lib/api";
 import { useLanguage } from "../../../lib/i18n";
 
@@ -37,8 +37,17 @@ function ThreadsContent() {
   const [subject, setSubject] = useState("");
   const [manualTags, setManualTags] = useState("");
   const [initialMessage, setInitialMessage] = useState("");
+  const [showCodeSnippet, setShowCodeSnippet] = useState(false);
+  const [codeSnippet, setCodeSnippet] = useState("");
+  const [attachment, setAttachment] = useState<{
+    type: "IMAGE" | "FILE";
+    name: string;
+    dataUrl: string;
+  } | null>(null);
   const [creating, setCreating] = useState(false);
   const creatingRef = useRef(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Open new-thread modal pre-filled when navigating via DM from experts page
   useEffect(() => {
@@ -103,7 +112,16 @@ function ThreadsContent() {
         .split(",")
         .map((tag) => tag.trim())
         .filter(Boolean);
-      const res = await apiClient.post("/api/threads", { title, subject, initialMessage, tags });
+      const res = await apiClient.post("/api/threads", {
+        title,
+        subject,
+        initialMessage: initialMessage.trim(),
+        codeSnippet: codeSnippet.trim() || undefined,
+        attachmentType: attachment?.type,
+        attachmentName: attachment?.name,
+        attachmentUrl: attachment?.dataUrl,
+        tags,
+      });
       const createdThread = res.data.thread;
       const createdThreadId = createdThread?._id || createdThread?.id;
       if (!createdThreadId) {
@@ -119,6 +137,9 @@ function ThreadsContent() {
       setSubject("");
       setManualTags("");
       setInitialMessage("");
+      setShowCodeSnippet(false);
+      setCodeSnippet("");
+      resetAttachment();
       await loadThreads();
       router.push(`/dashboard/threads/${createdThreadId}`);
     } catch (e: any) {
@@ -127,6 +148,42 @@ function ThreadsContent() {
       creatingRef.current = false;
       setCreating(false);
     }
+  }
+
+  function resetAttachment() {
+    setAttachment(null);
+    if (imageInputRef.current) imageInputRef.current.value = "";
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function handleAttachmentChange(event: ChangeEvent<HTMLInputElement>, kind: "IMAGE" | "FILE") {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const maxSize = 4 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setError(t("Attachments must be 4MB or smaller."));
+      event.target.value = "";
+      return;
+    }
+
+    if (kind === "IMAGE" && !file.type.startsWith("image/")) {
+      setError(t("Choose an image file for image messages."));
+      event.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAttachment({
+        type: kind,
+        name: file.name,
+        dataUrl: String(reader.result),
+      });
+      setError(null);
+    };
+    reader.onerror = () => setError(t("Could not read the selected attachment."));
+    reader.readAsDataURL(file);
   }
 
   useEffect(() => {
@@ -263,12 +320,93 @@ function ThreadsContent() {
                 <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
                   {t("threads.initialMessage")}
                 </label>
-                <textarea
-                  className="min-h-[120px] w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
-                  value={initialMessage}
-                  onChange={(e) => setInitialMessage(e.target.value)}
-                  placeholder={t("threads.initialPlaceholder")}
-                />
+                <div className="rounded-xl border border-neutral-200 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-950">
+                  <div className="mb-2 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowCodeSnippet((value) => !value)}
+                      className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-colors sm:px-3 ${
+                        showCodeSnippet
+                          ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-950"
+                          : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                      }`}
+                      title={t("Add code snippet")}
+                    >
+                      <Code2 className="h-4 w-4" />
+                      <span className="hidden sm:inline">{t("Code")}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => imageInputRef.current?.click()}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 sm:px-3"
+                      title={t("Attach image")}
+                    >
+                      <ImageIcon className="h-4 w-4" />
+                      <span className="hidden sm:inline">{t("Image")}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 sm:px-3"
+                      title={t("Attach file")}
+                    >
+                      <Paperclip className="h-4 w-4" />
+                      <span className="hidden sm:inline">{t("File")}</span>
+                    </button>
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(event) => handleAttachmentChange(event, "IMAGE")}
+                    />
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={(event) => handleAttachmentChange(event, "FILE")}
+                    />
+                  </div>
+
+                  {attachment && (
+                    <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm dark:border-primary-900/50 dark:bg-primary-950/30">
+                      <div className="flex min-w-0 items-center gap-2 text-primary-800 dark:text-primary-200">
+                        {attachment.type === "IMAGE" ? (
+                          <ImageIcon className="h-4 w-4 shrink-0" />
+                        ) : (
+                          <FileText className="h-4 w-4 shrink-0" />
+                        )}
+                        <span className="truncate">{attachment.name}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={resetAttachment}
+                        className="rounded p-1 text-primary-700 hover:bg-white dark:text-primary-200 dark:hover:bg-neutral-900"
+                        aria-label={t("Remove attachment")}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {showCodeSnippet && (
+                    <textarea
+                      rows={5}
+                      className="mb-2 w-full resize-none rounded-lg border border-neutral-300 bg-neutral-950 px-3 py-2 font-mono text-xs leading-5 text-neutral-100 outline-none transition-colors focus:border-primary-500 dark:border-neutral-600"
+                      value={codeSnippet}
+                      onChange={(e) => setCodeSnippet(e.target.value)}
+                      placeholder={t("Paste a code snippet...")}
+                    />
+                  )}
+
+                  <textarea
+                    rows={4}
+                    className="min-h-[120px] w-full resize-none rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none transition-colors focus:border-primary-500 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                    value={initialMessage}
+                    onChange={(e) => setInitialMessage(e.target.value)}
+                    placeholder={t("threads.initialPlaceholder")}
+                  />
+                </div>
               </div>
 
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">

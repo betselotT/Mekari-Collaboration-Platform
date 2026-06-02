@@ -2,6 +2,7 @@ import { Router } from "express";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { messageRateLimiter } from "../middleware/messageRateLimiter";
 import {
+  countUnreadDmMessages,
   createDmConversationSchema,
   createDmMessage,
   deleteDmMessage,
@@ -31,6 +32,15 @@ router.get("/conversations", requireAuth, async (req: AuthRequest, res, next) =>
   try {
     const conversations = await listDmConversations(String(req.userId));
     res.json({ conversations });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/conversations/unread-count", requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const unreadCount = await countUnreadDmMessages(String(req.userId));
+    res.json({ unreadCount });
   } catch (err) {
     next(err);
   }
