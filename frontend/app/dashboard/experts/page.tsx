@@ -18,7 +18,7 @@ interface DBExpert {
   bio?: string;
   expertise: Array<{ subject: string; proficiency: string }>;
   skillTags: string[];
-  availabilityStatus: "online" | "busy" | "offline" | "in_session";
+  availabilityStatus: "available" | "online" | "busy" | "offline" | "in_session";
   points: number;
   badges: string[];
   role: string;
@@ -46,9 +46,13 @@ type ReviewStats = {
 function mapStatus(
   s: DBExpert["availabilityStatus"]
 ): "available" | "available_in_2h" | "away" {
-  if (s === "online") return "available";
+  if (s === "available" || s === "online") return "available";
   if (s === "busy" || s === "in_session") return "available_in_2h";
   return "away";
+}
+
+function acceptsDm(status: DBExpert["availabilityStatus"]) {
+  return status === "available" || status === "online";
 }
 
 function buildTitle(expert: DBExpert): string {
@@ -215,7 +219,7 @@ export default function ExpertsPage() {
       ? undefined
       : reviewedExperts.reduce((sum, expert) => sum + (expert.expertRatingAverage || 0), 0) /
         reviewedExperts.length;
-  const availableExperts = experts.filter((expert) => expert.availabilityStatus === "online").length;
+  const availableExperts = experts.filter((expert) => acceptsDm(expert.availabilityStatus)).length;
 
   function handleConsult(expert: DBExpert) {
     const subject = expert.expertise[0]?.subject || "";
@@ -226,7 +230,7 @@ export default function ExpertsPage() {
   }
 
   async function handleDm(expert: DBExpert) {
-    if (expert.availabilityStatus !== "online") {
+    if (!acceptsDm(expert.availabilityStatus)) {
       setAvailabilityModalOpen(true);
       return;
     }
@@ -722,7 +726,7 @@ export default function ExpertsPage() {
           <div className="grid grid-cols-3 gap-2 sm:min-w-[360px] sm:gap-3">
             {[
               { label: "Experts", value: experts.length, Icon: Users, color: "text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950/20" },
-              { label: "Online", value: availableExperts, Icon: CheckCircle2, color: "text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/20" },
+              { label: "Available", value: availableExperts, Icon: CheckCircle2, color: "text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/20" },
               {
                 label: "Avg Rating",
                 value: averageNetworkRating ? averageNetworkRating.toFixed(1) : t("New"),

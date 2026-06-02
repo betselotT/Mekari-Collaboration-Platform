@@ -1,11 +1,14 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { apiClient } from "../../lib/api";
+import { useSearchParams } from "next/navigation";
+import { apiClient, getApiBaseUrl } from "../../lib/api";
 import { GoogleAuthButton } from "./GoogleAuthButton";
 import { GithubAuthButton } from "./GithubAuthButton";
 import { useLanguage } from "../../lib/i18n";
+import { COMMUNITY_GUIDELINES_VERSION } from "../../lib/communityGuidelines";
+import { CommunityGuidelinesAgreement } from "../guidelines/CommunityGuidelinesAgreement";
 
 function getAuthErrorMessage(err: any, fallback: string) {
   return err.response?.data?.message || err.response?.data?.error?.message || fallback;
@@ -13,11 +16,29 @@ function getAuthErrorMessage(err: any, fallback: string) {
 
 export function LoginForm() {
   const { t } = useLanguage();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
+  const [communityGuidelinesAccepted, setCommunityGuidelinesAccepted] = useState(false);
+  const [guidelinesAcknowledged, setGuidelinesAcknowledged] = useState(false);
+  const [guidelinesModalOpen, setGuidelinesModalOpen] = useState(false);
+  const [pendingGoogleCredential, setPendingGoogleCredential] = useState<string | null>(null);
+  const [pendingGithubLogin, setPendingGithubLogin] = useState(false);
+
+  function openGuidelinesModal() {
+    setGuidelinesAcknowledged(communityGuidelinesAccepted);
+    setGuidelinesModalOpen(true);
+  }
+
+  useEffect(() => {
+    if (searchParams?.get("githubGuidelinesRequired") === "true") {
+      setPendingGithubLogin(true);
+      openGuidelinesModal();
+    }
+  }, [searchParams]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -40,18 +61,31 @@ export function LoginForm() {
     }
   }
 
-  async function onGoogleSignIn(credential: string) {
+  async function completeGoogleSignIn(credential: string, accepted: boolean) {
     setLoading(true);
     setError(null);
     setNeedsEmailVerification(false);
     try {
-      await apiClient.post("/api/auth/google", { credential });
+      await apiClient.post("/api/auth/google", {
+        credential,
+        communityGuidelinesAccepted: accepted,
+      });
       window.location.href = "/dashboard";
     } catch (err: any) {
-      setError(getAuthErrorMessage(err, t("auth.googleLoginFailed")));
+      const message = getAuthErrorMessage(err, t("auth.googleLoginFailed"));
+      if (message === "Community guidelines must be accepted before registering") {
+        setPendingGoogleCredential(credential);
+        openGuidelinesModal();
+      } else {
+        setError(message);
+      }
     } finally {
       setLoading(false);
     }
+  }
+
+  async function onGoogleSignIn(credential: string) {
+    await completeGoogleSignIn(credential, communityGuidelinesAccepted);
   }
 
   return (
@@ -104,6 +138,37 @@ export function LoginForm() {
         <GoogleAuthButton onCredential={onGoogleSignIn} onError={setError} />
         <GithubAuthButton mode="login" />
       </div>
+      {guidelinesModalOpen && (
+        <CommunityGuidelinesAgreement
+          version={COMMUNITY_GUIDELINES_VERSION}
+          acknowledged={guidelinesAcknowledged}
+          onAcknowledgedChange={setGuidelinesAcknowledged}
+          onConfirm={() => {
+            setCommunityGuidelinesAccepted(true);
+            setGuidelinesModalOpen(false);
+            const credential = pendingGoogleCredential;
+            setPendingGoogleCredential(null);
+            if (credential) {
+              void completeGoogleSignIn(credential, true);
+              return;
+            }
+            if (pendingGithubLogin) {
+              setPendingGithubLogin(false);
+              const params = new URLSearchParams({
+                mode: "login",
+                communityGuidelinesAccepted: "true",
+              });
+              window.location.href = `${getApiBaseUrl()}/api/auth/github/start?${params.toString()}`;
+            }
+          }}
+          onClose={() => {
+            setGuidelinesAcknowledged(communityGuidelinesAccepted);
+            setGuidelinesModalOpen(false);
+            setPendingGoogleCredential(null);
+            setPendingGithubLogin(false);
+          }}
+        />
+      )}
     </form>
   );
 }

@@ -31,7 +31,7 @@ type PublicLeaderboardProfile = LeaderboardUser & {
   primaryTechnicalField?: string;
   roleOrStatus?: string;
   yearsOfExperience?: string;
-  availabilityStatus?: "online" | "busy" | "offline" | "in_session";
+  availabilityStatus?: "available" | "online" | "busy" | "offline" | "in_session";
   expertRatingAverage?: number;
   expertReviewCount?: number;
 };
@@ -61,7 +61,7 @@ function roleLabel(role: string) {
 }
 
 function availabilityLabel(status?: PublicLeaderboardProfile["availabilityStatus"]) {
-  if (status === "online") return "Available now";
+  if (status === "available" || status === "online") return "Available now";
   if (status === "busy") return "Busy";
   if (status === "in_session") return "In session";
   return "Offline";
@@ -414,7 +414,7 @@ function LeaderboardProfileModal({
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={isExpert ? "primary" : "default"}>{t(roleLabel(profile.role))}</Badge>
                   {"availabilityStatus" in publicProfile && (
-                    <Badge variant={publicProfile.availabilityStatus === "online" ? "success" : "default"}>
+                    <Badge variant={publicProfile.availabilityStatus === "available" || publicProfile.availabilityStatus === "online" ? "success" : "default"}>
                       {t(availabilityLabel(publicProfile.availabilityStatus))}
                     </Badge>
                   )}

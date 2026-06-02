@@ -132,7 +132,7 @@ export default function ProfilePage() {
     name: "",
     bio: "",
     avatarUrl: "",
-    availabilityStatus: "online",
+    availabilityStatus: "available",
   });
 
   const [isEditingSkills, setIsEditingSkills] = useState(false);
@@ -163,7 +163,7 @@ export default function ProfilePage() {
     expertiseSubject: "",
     expertiseLevel: "advanced" as "intermediate" | "advanced" | "expert",
     skillTags: "",
-    availabilityStatus: "online" as "online" | "busy" | "offline",
+    availabilityStatus: "available" as "available" | "online" | "busy" | "offline",
   });
   const [passwordForm, setPasswordForm] = useState({
     password: "",
@@ -178,6 +178,12 @@ export default function ProfilePage() {
     chip: string;
     dot: string;
   }> = {
+    available: {
+      label: "Available now",
+      Icon: CheckCircle2,
+      chip: "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
+      dot: "bg-emerald-500",
+    },
     online: {
       label: "Available now",
       Icon: CheckCircle2,
@@ -197,7 +203,7 @@ export default function ProfilePage() {
       dot: "bg-purple-500",
     },
     offline: {
-      label: "Offline",
+      label: "Unavailable",
       Icon: Moon,
       chip: "border-neutral-200 bg-neutral-50 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300",
       dot: "bg-neutral-400",
@@ -421,7 +427,7 @@ export default function ProfilePage() {
             name: res.data.user.name || "",
             bio: res.data.user.bio || "",
             avatarUrl: res.data.user.avatarUrl || "",
-            availabilityStatus: res.data.user.availabilityStatus || "online",
+            availabilityStatus: res.data.user.availabilityStatus || "available",
           });
           setSetupForm((current) => ({
             ...current,
@@ -562,7 +568,7 @@ export default function ProfilePage() {
       name: user.name || "",
       bio: user.bio || "",
       avatarUrl: user.avatarUrl || "",
-      availabilityStatus: user.availabilityStatus || "online",
+      availabilityStatus: user.availabilityStatus || "available",
     });
     setIsEditing(false);
   };
@@ -659,7 +665,7 @@ export default function ProfilePage() {
                   name: user.name || "",
                   bio: user.bio || "",
                   avatarUrl: user.avatarUrl || "",
-                  availabilityStatus: user.availabilityStatus || "online",
+                  availabilityStatus: user.availabilityStatus || "available",
                 });
                 setIsEditing(true);
               }}
@@ -1232,10 +1238,10 @@ export default function ProfilePage() {
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { value: "online", label: "Online", icon: CheckCircle2, color: "text-green-500", bg: "bg-green-500/10", border: "border-green-500" },
+                    { value: "available", label: "Available", icon: CheckCircle2, color: "text-green-500", bg: "bg-green-500/10", border: "border-green-500" },
                     { value: "busy", label: "Busy", icon: Clock, color: "text-orange-500", bg: "bg-orange-500/10", border: "border-orange-500" },
                     { value: "in_session", label: "In Session", icon: Video, color: "text-purple-500", bg: "bg-purple-500/10", border: "border-purple-500" },
-                    { value: "offline", label: "Offline", icon: Moon, color: "text-neutral-500", bg: "bg-neutral-500/10", border: "border-neutral-500" },
+                    { value: "offline", label: "Unavailable", icon: Moon, color: "text-neutral-500", bg: "bg-neutral-500/10", border: "border-neutral-500" },
                   ].map((status) => {
                     const Icon = status.icon;
                     const isSelected = formData.availabilityStatus === status.value;

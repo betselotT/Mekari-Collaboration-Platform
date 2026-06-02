@@ -84,7 +84,7 @@ export function RegisterForm() {
   const [expertiseSubject, setExpertiseSubject] = useState("");
   const [expertiseLevel, setExpertiseLevel] = useState<"intermediate" | "advanced" | "expert">("advanced");
   const [skillTags, setSkillTags] = useState("");
-  const [availabilityStatus, setAvailabilityStatus] = useState<"online" | "busy" | "offline">("online");
+  const [availabilityStatus, setAvailabilityStatus] = useState<"available" | "busy" | "offline">("available");
   const [verificationDocument, setVerificationDocument] = useState<VerificationDocument | null>(null);
   const [communityGuidelinesAccepted, setCommunityGuidelinesAccepted] = useState(false);
   const [guidelinesAcknowledged, setGuidelinesAcknowledged] = useState(false);
@@ -362,9 +362,9 @@ export function RegisterForm() {
             </Field>
             <Field label={t("auth.availability")}>
               <select className={inputClass} value={availabilityStatus} onChange={(e) => setAvailabilityStatus(e.target.value as typeof availabilityStatus)}>
-                <option value="online">{t("Online")}</option>
+                <option value="available">{t("Available")}</option>
                 <option value="busy">{t("Busy")}</option>
-                <option value="offline">{t("Offline")}</option>
+                <option value="offline">{t("Unavailable")}</option>
               </select>
             </Field>
             <Field label={t("auth.skillTags")}>

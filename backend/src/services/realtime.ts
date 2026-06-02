@@ -1,8 +1,6 @@
 import { randomUUID } from "crypto";
 import { Server } from "socket.io";
 import { RedisClientType } from "redis";
-import { User } from "../models/User";
-
 type RedisClient = RedisClientType<any, any, any>;
 type RealtimeEnvelope = {
   instanceId: string;
@@ -95,7 +93,7 @@ export function rememberSocketUser(socketId: string, userId: string) {
 
 export async function markUserPresence(socketId: string, userId: string, status: string) {
   rememberSocketUser(socketId, userId);
-  const safeStatus = ["online", "busy", "offline", "in_session"].includes(status)
+  const safeStatus = ["online", "offline", "away"].includes(status)
     ? status
     : "online";
   const now = Date.now();
@@ -113,9 +111,6 @@ export async function markUserPresence(socketId: string, userId: string, status:
     localPresence.set(userId, { status: safeStatus, lastSeen: now });
   }
 
-  await User.findByIdAndUpdate(userId, { $set: { availabilityStatus: safeStatus } }).catch(
-    () => undefined
-  );
   await broadcastGlobal("presence_update", { userId, status: safeStatus });
 }
 
@@ -141,9 +136,6 @@ export async function forgetSocketPresence(socketId: string) {
   }
 
   localPresence.set(userId, { status: "offline", lastSeen: Date.now() });
-  await User.findByIdAndUpdate(userId, { $set: { availabilityStatus: "offline" } }).catch(
-    () => undefined
-  );
   await broadcastGlobal("presence_update", { userId, status: "offline" });
 }
 
@@ -154,9 +146,6 @@ export function startPresenceExpiryLoop() {
     localPresence.forEach((data, userId) => {
       if (now - data.lastSeen <= 60_000 || data.status === "offline") return;
       localPresence.set(userId, { ...data, status: "offline" });
-      User.findByIdAndUpdate(userId, { $set: { availabilityStatus: "offline" } }).catch(
-        () => undefined
-      );
       broadcastGlobal("presence_update", { userId, status: "offline" });
     });
   }, 30_000);

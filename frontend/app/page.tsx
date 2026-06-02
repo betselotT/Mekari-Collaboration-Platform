@@ -6,9 +6,11 @@ import { ThemeToggle } from "../components/theme/ThemeToggle";
 import { LanguageToggle } from "../components/i18n/LanguageToggle";
 import { GoogleAuthButton } from "../components/auth/GoogleAuthButton";
 import { GithubAuthButton } from "../components/auth/GithubAuthButton";
+import { CommunityGuidelinesAgreement } from "../components/guidelines/CommunityGuidelinesAgreement";
 import { Button } from "../components/ui/Button";
-import { apiClient } from "../lib/api";
+import { apiClient, getApiBaseUrl } from "../lib/api";
 import { formatTechnicalTag, useLanguage } from "../lib/i18n";
+import { COMMUNITY_GUIDELINES_VERSION } from "../lib/communityGuidelines";
 import { ContourField } from "../components/visual/ContourField";
 import {
   Zap,
@@ -49,6 +51,11 @@ export default function LandingPage() {
   const [landingPassword, setLandingPassword] = useState("");
   const [landingLoading, setLandingLoading] = useState(false);
   const [landingPreview, setLandingPreview] = useState<LandingPreview | null>(null);
+  const [communityGuidelinesAccepted, setCommunityGuidelinesAccepted] = useState(false);
+  const [guidelinesAcknowledged, setGuidelinesAcknowledged] = useState(false);
+  const [guidelinesModalOpen, setGuidelinesModalOpen] = useState(false);
+  const [pendingGoogleCredential, setPendingGoogleCredential] = useState<string | null>(null);
+  const [pendingGithubLogin, setPendingGithubLogin] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -69,6 +76,11 @@ export default function LandingPage() {
     return err.response?.data?.message || err.response?.data?.error?.message || fallback;
   }
 
+  function openGuidelinesModal() {
+    setGuidelinesAcknowledged(communityGuidelinesAccepted);
+    setGuidelinesModalOpen(true);
+  }
+
   async function onLandingSignIn(e: FormEvent) {
     e.preventDefault();
     setLandingLoading(true);
@@ -87,20 +99,27 @@ export default function LandingPage() {
     }
   }
 
-  async function onGoogleSignIn(credential: string) {
+  async function completeGoogleSignIn(credential: string, accepted: boolean) {
     setAuthError(null);
     try {
       await apiClient.post("/api/auth/google", {
         credential,
+        communityGuidelinesAccepted: accepted,
       });
       window.location.href = "/dashboard";
     } catch (err: any) {
-      setAuthError(
-        err.response?.data?.message ||
-          err.response?.data?.error?.message ||
-          t("auth.googleLoginFailed")
-      );
+      const message = getAuthErrorMessage(err, t("auth.googleLoginFailed"));
+      if (message === "Community guidelines must be accepted before registering") {
+        setPendingGoogleCredential(credential);
+        openGuidelinesModal();
+      } else {
+        setAuthError(message);
+      }
     }
+  }
+
+  async function onGoogleSignIn(credential: string) {
+    await completeGoogleSignIn(credential, communityGuidelinesAccepted);
   }
 
   const heroStats = [
@@ -419,6 +438,37 @@ export default function LandingPage() {
               <GoogleAuthButton onCredential={onGoogleSignIn} onError={setAuthError} />
               <GithubAuthButton mode="login" />
             </div>
+            {guidelinesModalOpen && (
+              <CommunityGuidelinesAgreement
+                version={COMMUNITY_GUIDELINES_VERSION}
+                acknowledged={guidelinesAcknowledged}
+                onAcknowledgedChange={setGuidelinesAcknowledged}
+                onConfirm={() => {
+                  setCommunityGuidelinesAccepted(true);
+                  setGuidelinesModalOpen(false);
+                  const credential = pendingGoogleCredential;
+                  setPendingGoogleCredential(null);
+                  if (credential) {
+                    void completeGoogleSignIn(credential, true);
+                    return;
+                  }
+                  if (pendingGithubLogin) {
+                    setPendingGithubLogin(false);
+                    const params = new URLSearchParams({
+                      mode: "login",
+                      communityGuidelinesAccepted: "true",
+                    });
+                    window.location.href = `${getApiBaseUrl()}/api/auth/github/start?${params.toString()}`;
+                  }
+                }}
+                onClose={() => {
+                  setGuidelinesAcknowledged(communityGuidelinesAccepted);
+                  setGuidelinesModalOpen(false);
+                  setPendingGoogleCredential(null);
+                  setPendingGithubLogin(false);
+                }}
+              />
+            )}
           </form>
 
           <p className="mt-6 text-xs text-neutral-600 dark:text-neutral-400">

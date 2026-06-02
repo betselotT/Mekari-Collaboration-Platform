@@ -39,7 +39,7 @@ type MatchRequestResponse = {
         _id: string;
         name: string;
         avatarUrl?: string;
-        availabilityStatus: "online" | "busy" | "offline";
+        availabilityStatus: "available" | "online" | "busy" | "offline" | "in_session";
         points: number;
         expertise: Array<{ subject: string; proficiency: string }>;
         badges: string[];

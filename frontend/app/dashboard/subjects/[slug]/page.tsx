@@ -241,7 +241,7 @@ export default function SubjectPage() {
         <button type="button" onClick={showExperts} className="block text-left transition-transform hover:-translate-y-0.5">
           <StatCard
             icon={Users}
-            label={t("Experts Online")}
+            label={t("Experts Available")}
             value={loading ? "..." : summary?.expertsOnline ?? 0}
             description={t("Currently providing guidance")}
           />

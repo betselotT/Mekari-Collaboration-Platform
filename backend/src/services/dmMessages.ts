@@ -53,6 +53,10 @@ function mentorUnavailable() {
   return error;
 }
 
+function mentorAcceptsDm(status?: string) {
+  return status === "available" || status === "online";
+}
+
 export async function getConversationForUser(conversationId: string, userId: string) {
   if (!mongoose.Types.ObjectId.isValid(conversationId)) return null;
   return DmConversation.findOne({ _id: conversationId, participants: userId });
@@ -80,7 +84,7 @@ export async function findOrCreateDmConversation(learnerId: string, expertId: st
   const requester = await User.findById(learnerId).select("role");
   if (
     (requester?.role === "learner" || requester?.role === "user") &&
-    expert.availabilityStatus !== "online"
+    !mentorAcceptsDm(expert.availabilityStatus)
   ) {
     throw mentorUnavailable();
   }
@@ -188,7 +192,7 @@ export async function createDmMessage(input: {
 
   if (String(conversation.learner) === String(input.userId)) {
     const expert = await User.findById(conversation.expert).select("availabilityStatus");
-    if (expert?.availabilityStatus !== "online") {
+    if (!mentorAcceptsDm(expert?.availabilityStatus)) {
       throw mentorUnavailable();
     }
   }

@@ -71,7 +71,7 @@ const registerSchema = z
     expertise: z.array(expertiseSchema).default([]),
     skillTags: z.array(z.string().min(1)).default([]),
     availabilityStatus: z
-      .enum(["online", "busy", "offline", "in_session"])
+      .enum(["available", "online", "busy", "offline", "in_session"])
       .default("offline"),
     verificationDocument: verificationDocumentSchema.optional(),
     communityGuidelinesAccepted: z.literal(true, {
@@ -597,8 +597,7 @@ router.get("/github/start", loginRateLimiter, (req, res, next) => {
       signOAuthState({
         mode: parsed.mode,
         accountType: parsed.mode === "register" ? accountType : parsed.accountType,
-        communityGuidelinesAccepted:
-          parsed.mode === "register" ? parsed.communityGuidelinesAccepted === "true" : undefined,
+        communityGuidelinesAccepted: parsed.communityGuidelinesAccepted === "true",
       })
     );
 
@@ -686,8 +685,8 @@ router.get("/github/callback", async (req, res, next) => {
       const accountType = state.accountType || "learner";
       if (state.communityGuidelinesAccepted !== true) {
         return res.redirect(
-          frontendUrl("/register", {
-            error: "Community guidelines must be accepted before registering.",
+          frontendUrl("/login", {
+            githubGuidelinesRequired: "true",
           })
         );
       }

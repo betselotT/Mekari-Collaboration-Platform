@@ -85,6 +85,10 @@ type AttachmentDraft = {
   dataUrl: string;
 };
 
+function acceptsDm(status?: string) {
+  return status === "available" || status === "online";
+}
+
 const emojiOptions = [
   "\u{1F44D}",
   "\u{1F64F}",
@@ -864,7 +868,7 @@ function MessagesContent() {
     if (
       activeConversation &&
       user?._id === activeConversation.learner?._id &&
-      activeConversation.expert?.availabilityStatus !== "online"
+      !acceptsDm(activeConversation.expert?.availabilityStatus)
     ) {
       setAvailabilityModalOpen(true);
       return;
