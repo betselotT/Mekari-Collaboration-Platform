@@ -140,6 +140,7 @@ export function registerChatHandlers(
           type: parsed.data.type,
           attachmentUrl: parsed.data.attachmentUrl,
           parentMessageId: parsed.data.parentMessageId,
+          mentionedUserIds: parsed.data.mentionedUserIds,
         });
       } catch (err) {
         console.error("[socket send_message]", err);
@@ -198,6 +199,7 @@ export function registerChatHandlers(
           body: parsed.data.body,
           type: parsed.data.type,
           parentMessageId: parsed.data.parentMessageId,
+          mentionedUserIds: parsed.data.mentionedUserIds,
         });
       } catch (err) {
         console.error("[socket send_dm_message]", err);

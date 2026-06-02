@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import type { Socket } from "socket.io-client";
 import { DashboardLayout } from "../../../components/layout/DashboardLayout";
+import { SenderIdentityAvatar } from "../../../components/features/SenderIdentityAvatar";
+import { MentionSuggestions, type MentionCandidate } from "../../../components/features/MentionSuggestions";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Button } from "../../../components/ui/Button";
 import { apiClient } from "../../../lib/api";
@@ -439,6 +441,7 @@ function MessagesContent() {
   const [activeId, setActiveId] = useState(requestedConversation);
   const [messages, setMessages] = useState<DmMessage[]>([]);
   const [draft, setDraft] = useState("");
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [composerMode, setComposerMode] = useState<ComposerMode>("TEXT");
   const [attachment, setAttachment] = useState<AttachmentDraft | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -691,6 +694,10 @@ function MessagesContent() {
     () => conversations.find((conversation) => conversation._id === activeId) || null,
     [activeId, conversations]
   );
+  const mentionCandidates = useMemo<MentionCandidate[]>(
+    () => activeConversation?.participants || [],
+    [activeConversation]
+  );
 
   const latestOwnReadMessageId = useMemo(() => {
     if (!activeConversation || !user?._id) return "";
@@ -747,6 +754,7 @@ function MessagesContent() {
   function selectConversation(conversationId: string) {
     setActiveId(conversationId);
     setReplyTo(null);
+    setMentionedUserIds([]);
     setShowEmojiPicker(false);
     router.replace(`/dashboard/messages?conversation=${conversationId}`);
   }
@@ -754,6 +762,7 @@ function MessagesContent() {
   function showConversationList() {
     setActiveId("");
     setReplyTo(null);
+    setMentionedUserIds([]);
     setShowEmojiPicker(false);
     router.replace("/dashboard/messages");
   }
@@ -877,13 +886,14 @@ function MessagesContent() {
     setSending(true);
     setError(null);
     const parentMessageId = replyTo ? getId(replyTo) : undefined;
+    const selectedMentionIds = mentionedUserIds;
     const messageType = attachment?.type || composerMode;
     const messageBody = body || attachment?.name || "Attachment";
     const attachmentUrl = attachment?.dataUrl;
     try {
       const res = await apiClient.post<{ message: DmMessage }>(
         `/api/dms/conversations/${activeId}/messages`,
-        { body: messageBody, type: messageType, attachmentUrl, parentMessageId }
+        { body: messageBody, type: messageType, attachmentUrl, parentMessageId, mentionedUserIds: selectedMentionIds }
       );
       setMessages((prev) => {
         const messageId = getId(res.data.message);
@@ -893,6 +903,7 @@ function MessagesContent() {
       socketRef.current?.emit("dm_typing_stop", activeId);
       isTypingRef.current = false;
       setDraft("");
+      setMentionedUserIds([]);
       setComposerMode("TEXT");
       setShowEmojiPicker(false);
       resetAttachment();
@@ -1242,10 +1253,10 @@ function MessagesContent() {
                     }
                     return (
                     <div key={messageId} className={`flex min-w-0 gap-2 sm:gap-3 ${isMine ? "flex-row-reverse" : ""}`}>
-                        <Avatar
-                          size="sm"
-                          src={message.sender?.avatarUrl}
+                        <SenderIdentityAvatar
+                          sender={message.sender}
                           initials={senderInitials(message.sender)}
+                          align={isMine ? "right" : "left"}
                         />
                         <div className={`flex min-w-0 max-w-[calc(100%-2.5rem)] flex-col gap-1 sm:max-w-[75%] ${isMine ? "items-end" : ""}`}>
                           <div className="flex max-w-full items-center gap-2">
@@ -1492,7 +1503,17 @@ function MessagesContent() {
                     </div>
                   )}
 
-                  <div className="flex items-end gap-2">
+                  <div className="relative flex items-end gap-2">
+                    <MentionSuggestions
+                      candidates={mentionCandidates}
+                      currentUserId={user?._id}
+                      value={draft}
+                      onSelect={(value, userId) => {
+                        handleDraftChange(value);
+                        setMentionedUserIds((current) => [...new Set([...current, userId])]);
+                        requestAnimationFrame(() => inputRef.current?.focus());
+                      }}
+                    />
                     <textarea
                       ref={inputRef}
                       rows={composerMode === "CODE" ? 5 : 2}

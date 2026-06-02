@@ -5,6 +5,7 @@ import { Message, type MessageType } from "../models/Message";
 import { User } from "../models/User";
 import { awardPoints } from "./awardPoints";
 import { createGoogleMeetSpace } from "./googleMeet";
+import { notifyMessageRecipients } from "./messageNotifications";
 import { createNotification } from "./notifications";
 import { broadcastToRoom, broadcastToUser, roomName } from "./realtime";
 
@@ -17,6 +18,7 @@ export const dmMessageSchema = z.object({
   type: z.enum(["TEXT", "CODE", "IMAGE", "FILE", "SYSTEM_EVENT"]).optional(),
   attachmentUrl: z.string().max(7_000_000).optional(),
   parentMessageId: z.string().optional(),
+  mentionedUserIds: z.array(z.string()).max(20).optional(),
 });
 
 export const updateDmMessageSchema = z.object({
@@ -186,6 +188,7 @@ export async function createDmMessage(input: {
   type?: MessageType;
   attachmentUrl?: string;
   parentMessageId?: string;
+  mentionedUserIds?: string[];
 }) {
   const conversation = await getConversationForUser(input.conversationId, input.userId);
   if (!conversation) throw forbidden();
@@ -197,16 +200,16 @@ export async function createDmMessage(input: {
     }
   }
 
-  if (input.parentMessageId) {
-    const parent = await Message.exists({
+  const parentMessage = input.parentMessageId
+    ? await Message.findOne({
       _id: input.parentMessageId,
       conversation: input.conversationId,
-    });
-    if (!parent) {
-      const error = new Error("Reply target not found") as Error & { status?: number };
-      error.status = 404;
-      throw error;
-    }
+    }).select("sender")
+    : null;
+  if (input.parentMessageId && !parentMessage) {
+    const error = new Error("Reply target not found") as Error & { status?: number };
+    error.status = 404;
+    throw error;
   }
 
   const message = await Message.create({
@@ -251,20 +254,19 @@ export async function createDmMessage(input: {
 
   const sender = populated.sender as unknown as { name?: string };
   const senderName = sender?.name || "Someone";
-  await Promise.all(
-    conversation.participants
-      .filter((participantId) => String(participantId) !== String(input.userId))
-      .map((participantId) =>
-        createNotification({
-          userId: String(participantId),
-          category: "chat",
-          type: "new_dm_message",
-          title: "New message",
-          message: `${senderName}: ${input.body.slice(0, 120)}`,
-          link: `/dashboard/messages?conversation=${input.conversationId}`,
-        })
-      )
-  );
+  await notifyMessageRecipients({
+    body: input.body,
+    senderId: input.userId,
+    senderName,
+    recipientIds: conversation.participants.map(String),
+    mentionedUserIds: input.mentionedUserIds,
+    parentSenderId: parentMessage ? String(parentMessage.sender) : undefined,
+    link: `/dashboard/messages?conversation=${input.conversationId}`,
+    contextLabel: "your DM",
+    defaultType: "new_dm_message",
+    defaultTitle: "New message",
+    defaultMessage: `${senderName}: ${input.body.slice(0, 120)}`,
+  });
 
   return { message: populated, payload };
 }

@@ -9,7 +9,7 @@ import { ThemeToggle } from "../../../components/theme/ThemeToggle";
 import { LanguageToggle } from "../../../components/i18n/LanguageToggle";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
-import { Avatar } from "../../../components/ui/Avatar";
+import { SenderIdentityAvatar } from "../../../components/features/SenderIdentityAvatar";
 import { formatTechnicalTag, useLanguage } from "../../../lib/i18n";
 import { ContourField } from "../../../components/visual/ContourField";
 
@@ -17,6 +17,7 @@ interface Sender {
   _id: string;
   name: string;
   avatarUrl?: string;
+  role?: string;
 }
 
 interface PublicThread {
@@ -225,10 +226,13 @@ export default function PublicThreadDetailPage() {
                         className="border-b border-neutral-100 p-4 last:border-b-0 dark:border-neutral-800"
                       >
                         <div className="mb-3 flex items-center gap-2">
-                          <Avatar
-                            size="sm"
+                          <SenderIdentityAvatar
+                            sender={
+                              !message.isFromAi && typeof message.sender === "object"
+                                ? message.sender
+                                : undefined
+                            }
                             initials={senderName(message.sender, t("user")).slice(0, 2).toUpperCase()}
-                            src={typeof message.sender === "object" ? message.sender.avatarUrl : undefined}
                           />
                           <div>
                             <p className="text-sm font-medium">

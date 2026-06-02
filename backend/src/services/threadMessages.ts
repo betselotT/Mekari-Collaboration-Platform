@@ -3,7 +3,7 @@ import { Message } from "../models/Message";
 import { Thread } from "../models/Thread";
 import { PointEvent } from "../models/PointEvent";
 import { awardPoints } from "./awardPoints";
-import { createNotification } from "./notifications";
+import { notifyMessageRecipients } from "./messageNotifications";
 import { broadcastToRoom, roomName } from "./realtime";
 import { generateContentTags } from "./tagExtraction";
 
@@ -12,6 +12,7 @@ export const threadMessageSchema = z.object({
   type: z.enum(["TEXT", "CODE", "IMAGE", "FILE", "SYSTEM_EVENT"]).optional(),
   attachmentUrl: z.string().max(7_000_000).optional(),
   parentMessageId: z.string().optional(),
+  mentionedUserIds: z.array(z.string()).max(20).optional(),
 });
 
 type ThreadMessageInput = {
@@ -21,6 +22,7 @@ type ThreadMessageInput = {
   type?: "TEXT" | "CODE" | "IMAGE" | "FILE" | "SYSTEM_EVENT";
   attachmentUrl?: string;
   parentMessageId?: string;
+  mentionedUserIds?: string[];
   broadcast?: boolean;
 };
 
@@ -28,6 +30,15 @@ export async function createThreadMessage(input: ThreadMessageInput) {
   const thread = await Thread.findById(input.threadId);
   if (!thread) {
     const error = new Error("Thread not found") as Error & { status?: number };
+    error.status = 404;
+    throw error;
+  }
+
+  const parentMessage = input.parentMessageId
+    ? await Message.findOne({ _id: input.parentMessageId, thread: input.threadId }).select("sender")
+    : null;
+  if (input.parentMessageId && !parentMessage) {
+    const error = new Error("Reply target not found") as Error & { status?: number };
     error.status = 404;
     throw error;
   }
@@ -68,7 +79,7 @@ export async function createThreadMessage(input: ThreadMessageInput) {
     });
   }
 
-  const populated = await message.populate("sender", "name avatarUrl");
+  const populated = await message.populate("sender", "name avatarUrl role");
   const payload = {
     _id: message.id,
     id: message.id,
@@ -98,18 +109,19 @@ export async function createThreadMessage(input: ThreadMessageInput) {
 
   const sender = populated.sender as unknown as { name?: string };
   const senderName = sender?.name || "Someone";
-  await Promise.all(
-    Array.from(notifyIds).map((userId) =>
-      createNotification({
-        userId,
-        category: "chat",
-        type: "new_thread_message",
-        title: "New thread message",
-        message: `${senderName} replied in "${thread.title}"`,
-        link: `/dashboard/threads/${input.threadId}`,
-      })
-    )
-  );
+  await notifyMessageRecipients({
+    body: input.body,
+    senderId: input.userId,
+    senderName,
+    recipientIds: Array.from(notifyIds),
+    mentionedUserIds: input.mentionedUserIds,
+    parentSenderId: parentMessage ? String(parentMessage.sender) : undefined,
+    link: `/dashboard/threads/${input.threadId}`,
+    contextLabel: `"${thread.title}"`,
+    defaultType: "new_thread_message",
+    defaultTitle: "New thread message",
+    defaultMessage: `${senderName} replied in "${thread.title}"`,
+  });
 
   if (String(thread.createdBy) !== String(input.userId)) {
     await awardPoints(String(input.userId), "ANSWERED_QUESTION", String(message._id));

@@ -7,6 +7,8 @@ import { DashboardLayout } from "../../../../components/layout";
 import { Button } from "../../../../components/ui/Button";
 import { Avatar } from "../../../../components/ui/Avatar";
 import { Badge } from "../../../../components/ui/Badge";
+import { SenderIdentityAvatar } from "../../../../components/features/SenderIdentityAvatar";
+import { MentionSuggestions, type MentionCandidate } from "../../../../components/features/MentionSuggestions";
 import { apiClient } from "../../../../lib/api";
 import { useAuth } from "../../../../lib/useAuth";
 import { ensureSocket } from "../../../../lib/useSocket";
@@ -41,6 +43,7 @@ interface Sender {
   _id: string;
   name: string;
   avatarUrl?: string;
+  role?: string;
 }
 
 interface ChatMessage {
@@ -268,6 +271,7 @@ export default function ThreadDetailPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [input, setInput] = useState("");
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [composerMode, setComposerMode] = useState<ComposerMode>("TEXT");
   const [attachment, setAttachment] = useState<AttachmentDraft | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -626,6 +630,19 @@ export default function ThreadDetailPage() {
       });
   }, [messages, threadId, user?._id]);
 
+  const mentionCandidates = useMemo(() => {
+    const candidates: MentionCandidate[] = [];
+    if (thread?.createdBy?._id) candidates.push(thread.createdBy);
+    for (const expert of thread?.matchedExperts || []) {
+      const expertId = expert._id || expert.expertId;
+      if (expertId && expert.name) candidates.push({ _id: expertId, name: expert.name, role: "expert" });
+    }
+    for (const message of messages) {
+      if (typeof message.sender !== "string") candidates.push(message.sender);
+    }
+    return candidates;
+  }, [messages, thread]);
+
   const handleInputChange = useCallback((value: string) => {
     setInput(value);
     const socket = socketRef.current;
@@ -695,10 +712,12 @@ export default function ThreadDetailPage() {
     setSending(true);
     setInput("");
     const parentMessageId = replyTo ? getMessageId(replyTo) : undefined;
+    const selectedMentionIds = mentionedUserIds;
     const messageType = attachment?.type || composerMode;
     const messageBody = text || attachment?.name || "Attachment";
     const attachmentUrl = attachment?.dataUrl;
     setReplyTo(null);
+    setMentionedUserIds([]);
     setShowEmojiPicker(false);
     resetAttachment();
 
@@ -706,7 +725,13 @@ export default function ThreadDetailPage() {
     if (socket?.connected && !attachmentUrl) {
       socket.emit("typing_stop", threadId);
       isTypingRef.current = false;
-      socket.emit("send_message", { threadId, body: messageBody, type: messageType, parentMessageId });
+      socket.emit("send_message", {
+        threadId,
+        body: messageBody,
+        type: messageType,
+        parentMessageId,
+        mentionedUserIds: selectedMentionIds,
+      });
       setSending(false);
     } else {
       try {
@@ -715,6 +740,7 @@ export default function ThreadDetailPage() {
           type: messageType,
           attachmentUrl,
           parentMessageId,
+          mentionedUserIds: selectedMentionIds,
         });
       } catch (err) {
         console.error(err);
@@ -1122,10 +1148,10 @@ export default function ThreadDetailPage() {
                       <Bot className="h-4 w-4 text-primary-600 dark:text-primary-400" />
                     </div>
                   ) : (
-                    <Avatar
-                      size="sm"
+                    <SenderIdentityAvatar
+                      sender={typeof msg.sender === "object" ? msg.sender : undefined}
                       initials={senderInitials(msg.sender)}
-                      src={typeof msg.sender === "object" ? msg.sender.avatarUrl : undefined}
+                      align={isMe ? "right" : "left"}
                     />
                   )}
                   <div className={`flex min-w-0 max-w-[calc(100%-2.5rem)] flex-col gap-1 sm:max-w-[75%] ${isMe ? "items-end" : ""}`}>
@@ -1446,7 +1472,17 @@ export default function ThreadDetailPage() {
                   </div>
                 )}
 
-                <div className="flex items-end gap-2">
+                <div className="relative flex items-end gap-2">
+                  <MentionSuggestions
+                    candidates={mentionCandidates}
+                    currentUserId={user?._id}
+                    value={input}
+                    onSelect={(value, userId) => {
+                      handleInputChange(value);
+                      setMentionedUserIds((current) => [...new Set([...current, userId])]);
+                      requestAnimationFrame(() => inputRef.current?.focus());
+                    }}
+                  />
                   <textarea
                     ref={inputRef}
                     rows={composerMode === "CODE" ? 5 : 2}
