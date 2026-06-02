@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ContourField } from "../../../components/visual/ContourField";
+import { apiClient } from "../../../lib/api";
 
 export default function OAuthCallbackPage() {
   return (
@@ -20,7 +21,7 @@ function OAuthCallbackContent() {
 
   useEffect(() => {
     const error = searchParams.get("error");
-    const token = searchParams.get("token");
+    const code = searchParams.get("code");
 
     if (error) {
       setFailed(true);
@@ -28,14 +29,21 @@ function OAuthCallbackContent() {
       return;
     }
 
-    if (!token) {
+    if (!code) {
       setFailed(true);
-      setMessage("OAuth did not return a session token.");
+      setMessage("OAuth did not return a session code.");
       return;
     }
 
-    localStorage.setItem("mekari_token", token);
-    window.location.href = "/dashboard";
+    apiClient
+      .post("/api/auth/oauth/exchange", { code })
+      .then(() => {
+        window.location.href = "/dashboard";
+      })
+      .catch(() => {
+        setFailed(true);
+        setMessage("OAuth session exchange failed. Please sign in again.");
+      });
   }, [searchParams]);
 
   return <OAuthShell message={message} failed={failed} />;

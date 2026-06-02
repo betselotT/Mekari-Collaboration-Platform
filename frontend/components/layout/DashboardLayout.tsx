@@ -5,6 +5,7 @@ import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { useLanguage } from "../../lib/i18n";
 import { ContourField } from "../visual/ContourField";
+import { useSessionActivity } from "../../lib/useSessionActivity";
 // Props for configuring the dashboard layout structure and header content
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -18,6 +19,7 @@ export function DashboardLayout({
 }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { t } = useLanguage();
+  useSessionActivity();
 
   return (
     <div className="relative isolate min-h-dvh overflow-hidden bg-neutral-50 dark:bg-neutral-950">

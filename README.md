@@ -157,6 +157,9 @@ JWT_SECRET=your_jwt_secret
 REDIS_URL=redis://localhost:6379
 FRONTEND_ORIGIN=http://localhost:3000
 PUBLIC_API_BASE_URL=http://localhost:4000
+# Set to none only when the browser calls a cross-site API directly.
+# Production cookies are always Secure; the default SameSite mode is lax.
+AUTH_COOKIE_SAME_SITE=lax
 GITHUB_CLIENT_ID=your_github_oauth_client_id
 GITHUB_CLIENT_SECRET=your_github_oauth_client_secret
 GITHUB_CALLBACK_URL=http://localhost:4000/api/auth/github/callback

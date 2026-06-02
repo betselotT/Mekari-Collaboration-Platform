@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
-import jwt from "jsonwebtoken";
 import { User } from "../models/User";
 import { bannedAccountMessage } from "../services/accountBan";
+import { readSessionToken, setSessionCookie, verifySessionToken } from "../authSession";
 
 export type UserRole = "user" | "admin" | "learner" | "expert" | "mod";
 
@@ -15,15 +15,14 @@ export async function requireAuth(
   res: Response,
   next: NextFunction
 ) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) {
-    return res.status(401).json({ error: { message: "Missing authorization" } });
+  const token = readSessionToken(req);
+  if (!token) {
+    return res.status(401).json({ error: { message: "Missing session" } });
   }
 
-  const token = authHeader.slice("Bearer ".length);
   let decoded: { sub: string; role: UserRole };
   try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET || "dev-secret") as {
+    decoded = verifySessionToken(token) as {
       sub: string;
       role: UserRole;
     };
@@ -41,6 +40,7 @@ export async function requireAuth(
     }
     req.userId = decoded.sub;
     req.userRole = user.role;
+    setSessionCookie(res, decoded.sub, user.role);
     next();
   } catch (err) {
     next(err);

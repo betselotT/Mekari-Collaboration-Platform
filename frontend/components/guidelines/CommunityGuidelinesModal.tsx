@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiClient, getAuthToken } from "../../lib/api";
+import { apiClient } from "../../lib/api";
 import { useLanguage } from "../../lib/i18n";
 import { CommunityGuidelinesAgreement } from "./CommunityGuidelinesAgreement";
 
@@ -18,8 +18,6 @@ export function CommunityGuidelinesModal() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!getAuthToken()) return;
-
     apiClient
       .get<GuidelinesStatus>("/api/users/me/community-guidelines")
       .then((response) => setStatus(response.data))

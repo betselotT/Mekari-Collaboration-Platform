@@ -4,12 +4,6 @@ Cypress.Commands.add("mockCurrentUser", (fixture = "currentUser") => {
   });
 });
 
-Cypress.Commands.add("loginByToken", (token = "cypress-user-token") => {
-  cy.window().then((win) => {
-    win.localStorage.setItem("mekari_token", token);
-  });
-});
-
 Cypress.Commands.add("visitVerified", (path, options = {}) => {
   const userOnBeforeLoad = options.onBeforeLoad;
   cy.visit(path, {
@@ -23,11 +17,7 @@ Cypress.Commands.add("visitVerified", (path, options = {}) => {
 
 Cypress.Commands.add("visitAsUser", (path, options = {}) => {
   cy.mockCurrentUser(options.fixture || "currentUser");
-  cy.visitVerified(path, {
-    onBeforeLoad(win) {
-      win.localStorage.setItem("mekari_token", options.token || "cypress-user-token");
-    },
-  });
+  cy.visitVerified(path);
 });
 
 Cypress.Commands.add("browserApi", (path, init = {}) => {

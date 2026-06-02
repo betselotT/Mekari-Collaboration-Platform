@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { Types } from "mongoose";
 import { requireAuth, AuthRequest } from "../middleware/auth";
+import { clearSessionCookie } from "../authSession";
 import { User } from "../models/User";
 import { ExpertReview } from "../models/ExpertReview";
 import { logAuditEvent } from "../services/auditLog";
@@ -289,6 +290,7 @@ router.delete("/me", requireAuth, async (req: AuthRequest, res, next) => {
     const user = await deleteUserAccount(String(req.userId));
     if (!user) return res.status(404).json({ error: { message: "User not found" } });
 
+    clearSessionCookie(res);
     res.json({ message: "Account deleted" });
   } catch (err) {
     next(err);

@@ -1,5 +1,4 @@
 import { Server, Socket } from "socket.io";
-import jwt from "jsonwebtoken";
 import { RedisClientType } from "redis";
 import { z } from "zod";
 import { createThreadMessage, markThreadMessagesRead, threadMessageSchema } from "../services/threadMessages";
@@ -29,8 +28,8 @@ import {
   whiteboardRoomName,
   whiteboardStrokeSchema,
 } from "../services/whiteboards";
+import { AUTH_SESSION_COOKIE, readCookie, verifySessionToken } from "../authSession";
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
 const socketThreadMessageSchema = threadMessageSchema.extend({
   threadId: z.string().min(1),
 });
@@ -56,11 +55,11 @@ async function getTypingUserName(userId: string) {
 }
 
 async function authenticateSocket(socket: Socket) {
-  const token = socket.handshake.auth?.token as string | undefined;
+  const token = readCookie(socket.handshake.headers.cookie, AUTH_SESSION_COOKIE);
   if (!token) return null;
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as SocketAuth;
+    const decoded = verifySessionToken(token) as SocketAuth & { exp?: number };
     if (!decoded.sub) return null;
     const user = await User.findById(decoded.sub).select("role isBanned").lean();
     if (!user || user.isBanned) return null;
@@ -68,6 +67,13 @@ async function authenticateSocket(socket: Socket) {
     socket.data.userRole = user.role;
     socket.join(roomName("user", decoded.sub));
     rememberSocketUser(socket.id, decoded.sub);
+    if (decoded.exp) {
+      const expiresInMs = Math.max(0, decoded.exp * 1000 - Date.now());
+      setTimeout(() => {
+        socket.emit("session_expired");
+        socket.disconnect(true);
+      }, expiresInMs);
+    }
     return decoded.sub;
   } catch {
     return null;
@@ -76,7 +82,7 @@ async function authenticateSocket(socket: Socket) {
 
 function canJoinAdminDashboard(socket: Socket) {
   const expectedKey = process.env.ADMIN_API_KEY?.trim();
-  if (!expectedKey) return true;
+  if (!expectedKey) return false;
 
   const providedKey = socket.handshake.auth?.adminApiKey;
   return typeof providedKey === "string" && providedKey === expectedKey;
@@ -88,6 +94,12 @@ export function registerChatHandlers(
 ) {
   io.on("connection", async (socket: Socket) => {
     const connectedUserId = await authenticateSocket(socket);
+    const adminDashboardAllowed = canJoinAdminDashboard(socket);
+    if (!connectedUserId && !adminDashboardAllowed) {
+      socket.disconnect(true);
+      return;
+    }
+
     if (connectedUserId) {
       markUserPresence(socket.id, connectedUserId, "online").catch((err) =>
         console.error("[socket presence online]", err)
@@ -95,7 +107,7 @@ export function registerChatHandlers(
     }
 
     socket.on("join_room", (threadId: string) => {
-      if (!threadId) return;
+      if (!connectedUserId || !threadId) return;
       socket.join(roomName("thread", threadId));
     });
 
@@ -105,7 +117,7 @@ export function registerChatHandlers(
     });
 
     socket.on("join_admin_dashboard", () => {
-      if (!canJoinAdminDashboard(socket)) return;
+      if (!adminDashboardAllowed) return;
       socket.join(ADMIN_DASHBOARD_ROOM);
     });
 

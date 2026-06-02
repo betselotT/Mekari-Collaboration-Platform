@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { Socket } from "socket.io-client";
-import { getAuthToken } from "./api";
+import { apiClient, clearAuthToken } from "./api";
 
 function resolveSocketUrl() {
   if (process.env.NEXT_PUBLIC_SOCKET_URL) {
@@ -24,7 +24,6 @@ function resolveSocketUrl() {
 const SOCKET_URL = resolveSocketUrl();
 
 let globalSocket: Socket | null = null;
-let globalSocketToken: string | null = null;
 
 export function getSocket(): Socket | null {
   return globalSocket;
@@ -32,22 +31,23 @@ export function getSocket(): Socket | null {
 
 export async function ensureSocket(): Promise<Socket> {
   const { io } = await import("socket.io-client");
-  const token = getAuthToken();
-
-  if (globalSocket && globalSocketToken === token) return globalSocket;
-
-  if (globalSocket) {
-    globalSocket.disconnect();
-    globalSocket = null;
-  }
-  globalSocketToken = token;
+  if (globalSocket) return globalSocket;
 
   globalSocket = io(SOCKET_URL, {
-    auth: { token },
+    withCredentials: true,
     autoConnect: true,
     reconnection: true,
     reconnectionDelay: 1000,
     transports: ["websocket", "polling"],
+  });
+  globalSocket.on("session_expired", async () => {
+    try {
+      await apiClient.post("/api/auth/session/refresh");
+      globalSocket?.connect();
+    } catch {
+      clearAuthToken();
+      window.location.href = "/login?expired=true";
+    }
   });
 
   return globalSocket;
