@@ -9,25 +9,13 @@ export function getApiBaseUrl() {
   return API_BASE_URL;
 }
 
-export function getAuthToken() {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem("mekari_token");
-}
-
 export function clearAuthToken() {
   if (typeof window === "undefined") return;
+  // Remove tokens created by older releases. Current sessions are HttpOnly cookies.
   window.localStorage.removeItem("mekari_token");
 }
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
-});
-
-apiClient.interceptors.request.use((config) => {
-  const token = getAuthToken();
-  if (token) {
-    config.headers = config.headers || {};
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+  withCredentials: true,
 });

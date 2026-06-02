@@ -15,6 +15,13 @@ import {
   storeEmailOtpHash,
 } from "../services/emailOtpStore";
 import { COMMUNITY_GUIDELINES_VERSION } from "../config/communityGuidelines";
+import {
+  clearSessionCookie,
+  consumeOAuthExchangeCode,
+  setSessionCookie,
+  signOAuthExchangeCode,
+} from "../authSession";
+import { requireAuth } from "../middleware/auth";
 
 const router = Router();
 const googleClient = new OAuth2Client();
@@ -107,20 +114,15 @@ const githubStartSchema = z.object({
   mode: z.enum(["login", "register"]).default("login"),
   communityGuidelinesAccepted: z.enum(["true", "false"]).optional(),
 });
+const oauthExchangeSchema = z.object({
+  code: z.string().min(1),
+});
 
 type OAuthState = {
   accountType?: z.infer<typeof accountTypeSchema>;
   mode: "login" | "register";
   communityGuidelinesAccepted?: boolean;
 };
-
-function signAuthToken(userId: string, role: string) {
-  return jwt.sign(
-    { sub: userId, role },
-    process.env.JWT_SECRET || "dev-secret",
-    { expiresIn: "7d" }
-  );
-}
 
 function generateOtp() {
   return crypto.randomInt(100000, 1000000).toString();
@@ -361,7 +363,7 @@ router.post("/login", loginRateLimiter, async (req, res, next) => {
       await user.save();
     }
 
-    const token = signAuthToken(user.id, user.role);
+    setSessionCookie(res, user.id, user.role);
     await logAuditEvent({
       actorId: user.id,
       actorName: user.name,
@@ -375,7 +377,6 @@ router.post("/login", loginRateLimiter, async (req, res, next) => {
 
     res.json({
       user: serializeUser(user),
-      token,
     });
   } catch (err) {
     next(err);
@@ -383,7 +384,23 @@ router.post("/login", loginRateLimiter, async (req, res, next) => {
 });
 
 router.post("/logout", (_req, res) => {
+  clearSessionCookie(res);
   res.json({ ok: true });
+});
+
+router.post("/session/refresh", requireAuth, (_req, res) => {
+  res.json({ ok: true });
+});
+
+router.post("/oauth/exchange", (req, res, next) => {
+  try {
+    const parsed = oauthExchangeSchema.parse(req.body);
+    const session = consumeOAuthExchangeCode(parsed.code);
+    setSessionCookie(res, session.sub, session.role);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(401).json({ error: { message: "Invalid or expired OAuth exchange code" } });
+  }
 });
 
 router.post("/verify-email", async (req, res, next) => {
@@ -533,7 +550,7 @@ router.post("/google", loginRateLimiter, async (req, res, next) => {
       await user.save();
     }
 
-    const token = signAuthToken(user.id, user.role);
+    setSessionCookie(res, user.id, user.role);
     await logAuditEvent({
       actorId: user.id,
       actorName: user.name,
@@ -547,7 +564,6 @@ router.post("/google", loginRateLimiter, async (req, res, next) => {
 
     res.json({
       user: serializeUser(user),
-      token,
       isNewUser,
     });
   } catch (err) {
@@ -721,7 +737,6 @@ router.get("/github/callback", async (req, res, next) => {
       return res.redirect(frontendUrl("/login", { registered: "github" }));
     }
 
-    const token = signAuthToken(user.id, user.role);
     await logAuditEvent({
       actorId: user.id,
       actorName: user.name,
@@ -732,7 +747,7 @@ router.get("/github/callback", async (req, res, next) => {
       targetId: user.id,
       status: user.role,
     });
-    res.redirect(frontendUrl("/oauth/callback", { token }));
+    res.redirect(frontendUrl("/oauth/callback", { code: signOAuthExchangeCode(user.id, user.role) }));
   } catch (err) {
     next(err);
   }

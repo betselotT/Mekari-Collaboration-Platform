@@ -20,11 +20,15 @@ describe("Mekari authentication", () => {
       .and("include", "/verify-email?email=learner%40example.com");
   });
 
-  it("stores the token and redirects to the dashboard on successful login", () => {
+  it("redirects to the dashboard without exposing the session token after successful login", () => {
     cy.intercept("POST", "/api/auth/login", {
       statusCode: 200,
-      body: { token: "login-token" },
+      headers: {
+        "set-cookie": "mekari_session=session-value; Path=/; HttpOnly; SameSite=Lax; Max-Age=1800",
+      },
+      body: { user: { id: "learner-1" } },
     }).as("loginRequest");
+    cy.mockCurrentUser();
 
     cy.visitVerified("/login");
     cy.contains("Email").parent().find("input").type("learner@example.com");
@@ -33,7 +37,15 @@ describe("Mekari authentication", () => {
 
     cy.wait("@loginRequest");
     cy.location("pathname").should("include", "/dashboard");
-    cy.window().its("localStorage.mekari_token").should("eq", "login-token");
+    cy.window().then((win) => {
+      expect(win.localStorage.getItem("mekari_token")).to.eq(null);
+    });
+    cy.getCookie("mekari_session").should((cookie) => {
+      expect(cookie).not.to.eq(null);
+      expect(cookie.httpOnly).to.eq(true);
+      expect(cookie.sameSite).to.eq("lax");
+      expect(cookie.expiry).to.be.closeTo(Math.floor(Date.now() / 1000) + 1800, 5);
+    });
   });
 
   it("shows the stored ban reason when a banned user tries to sign in", () => {

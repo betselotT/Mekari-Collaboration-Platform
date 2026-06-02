@@ -26,11 +26,10 @@ export function LoginForm() {
     setNeedsEmailVerification(false);
 
     try {
-      const res = await apiClient.post("/api/auth/login", {
+      await apiClient.post("/api/auth/login", {
         email,
         password,
       });
-      localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
     } catch (err: any) {
       const message = getAuthErrorMessage(err, t("auth.loginFailed"));
@@ -46,8 +45,7 @@ export function LoginForm() {
     setError(null);
     setNeedsEmailVerification(false);
     try {
-      const res = await apiClient.post("/api/auth/google", { credential });
-      localStorage.setItem("mekari_token", res.data.token);
+      await apiClient.post("/api/auth/google", { credential });
       window.location.href = "/dashboard";
     } catch (err: any) {
       setError(getAuthErrorMessage(err, t("auth.googleLoginFailed")));

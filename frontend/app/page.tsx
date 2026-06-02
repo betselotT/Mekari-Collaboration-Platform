@@ -75,11 +75,10 @@ export default function LandingPage() {
     setAuthError(null);
 
     try {
-      const res = await apiClient.post("/api/auth/login", {
+      await apiClient.post("/api/auth/login", {
         email: landingEmail,
         password: landingPassword,
       });
-      localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
     } catch (err: any) {
       setAuthError(getAuthErrorMessage(err, t("auth.loginFailed")));
@@ -91,10 +90,9 @@ export default function LandingPage() {
   async function onGoogleSignIn(credential: string) {
     setAuthError(null);
     try {
-      const res = await apiClient.post("/api/auth/google", {
+      await apiClient.post("/api/auth/google", {
         credential,
       });
-      localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
     } catch (err: any) {
       setAuthError(

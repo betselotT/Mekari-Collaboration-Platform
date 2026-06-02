@@ -52,6 +52,20 @@ export const createApp = () => {
       credentials: true,
     })
   );
+  app.use((req, res, next) => {
+    if (["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+      next();
+      return;
+    }
+
+    const origin = req.header("origin");
+    if (!origin || allowedOrigins.has(origin)) {
+      next();
+      return;
+    }
+
+    res.status(403).json({ error: { message: "Origin is not allowed" } });
+  });
   app.use(helmet());
   app.use(morgan("dev"));
   app.use(json({ limit: "8mb" }));

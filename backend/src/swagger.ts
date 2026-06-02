@@ -14,14 +14,14 @@ export function createOpenApiSpec() {
       servers: [{ url: serverUrl }],
       components: {
         securitySchemes: {
-          bearerAuth: {
-            type: "http",
-            scheme: "bearer",
-            bearerFormat: "JWT",
+          cookieAuth: {
+            type: "apiKey",
+            in: "cookie",
+            name: "mekari_session",
           },
         },
       },
-      security: [{ bearerAuth: [] }],
+      security: [{ cookieAuth: [] }],
       paths: {
         "/health": {
           get: {

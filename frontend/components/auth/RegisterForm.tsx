@@ -225,7 +225,6 @@ export function RegisterForm() {
         window.location.href = "/login?registered=google";
         return;
       }
-      localStorage.setItem("mekari_token", res.data.token);
       window.location.href = "/dashboard";
     } catch (err: any) {
       showError(err.response?.data?.error?.message || t("auth.googleSignupFailed"));
