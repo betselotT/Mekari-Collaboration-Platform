@@ -152,7 +152,7 @@ async function buildSubjectSummaryForGroup(group: ReturnType<typeof subjectGroup
       { $count: "count" },
     ]),
     User.aggregate([
-      { $match: { role: "expert", availabilityStatus: "online" } },
+      { $match: { role: "expert", availabilityStatus: { $in: ["available", "online"] } } },
       { $unwind: "$expertise" },
       { $match: { "expertise.subject": regex } },
       { $count: "count" },
@@ -206,7 +206,7 @@ router.get("/subjects/:slug/experts", requireAuth, async (req: AuthRequest, res,
     const regex = subjectRegex(group.patterns);
     const experts = await User.find({
       role: "expert",
-      availabilityStatus: "online",
+      availabilityStatus: { $in: ["available", "online"] },
       isBanned: { $ne: true },
       "expertise.subject": regex,
     })

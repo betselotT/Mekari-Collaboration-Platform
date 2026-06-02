@@ -33,7 +33,7 @@ type EscalationExpert = {
   avatarUrl?: string;
   expertise: Array<{ subject: string; proficiency: string }>;
   skillTags: string[];
-  availabilityStatus: "online" | "busy" | "offline" | "in_session";
+  availabilityStatus: "available" | "online" | "busy" | "offline" | "in_session";
   points: number;
   score: number;
   reasons: string[];
@@ -106,9 +106,13 @@ function expertTitle(expert: EscalationExpert, t: (key: string) => string) {
 }
 
 function statusLabel(status: EscalationExpert["availabilityStatus"], t: (key: string) => string) {
-  if (status === "online") return t("Online");
+  if (status === "available" || status === "online") return t("Available");
   if (status === "busy" || status === "in_session") return t("Busy");
   return t("Offline");
+}
+
+function acceptsDm(status: EscalationExpert["availabilityStatus"]) {
+  return status === "available" || status === "online";
 }
 
 function renderInlineMarkdown(text: string): ReactNode[] {
@@ -337,7 +341,7 @@ export default function AIAssistantPage() {
   }
 
   async function contactExpert(expert: EscalationExpert) {
-    if (expert.availabilityStatus !== "online") {
+    if (!acceptsDm(expert.availabilityStatus)) {
       router.push(`/dashboard/profile/${expert._id}`);
       return;
     }
@@ -442,7 +446,7 @@ export default function AIAssistantPage() {
                                     className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg bg-primary-600 px-2.5 text-xs font-semibold text-white hover:bg-primary-700"
                                   >
                                     <MessageSquare className="mr-1 h-3.5 w-3.5" />
-                                    {expert.availabilityStatus === "online" ? t("DM") : t("View")}
+                                    {acceptsDm(expert.availabilityStatus) ? t("DM") : t("View")}
                                   </button>
                                 </div>
                               </div>

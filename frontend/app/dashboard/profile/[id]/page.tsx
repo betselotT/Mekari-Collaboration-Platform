@@ -22,7 +22,7 @@ type PublicUser = {
   yearsOfExperience?: string;
   expertise?: Array<{ subject: string; proficiency: string }>;
   skillTags?: string[];
-  availabilityStatus?: "online" | "busy" | "offline" | "in_session";
+  availabilityStatus?: "available" | "online" | "busy" | "offline" | "in_session";
   points?: number;
   badges?: string[];
   expertRatingAverage?: number;
@@ -88,7 +88,7 @@ export default function PublicProfilePage() {
   const isExpert = profile?.role === "expert";
   const isOwnProfile = currentUser?._id === userId;
   const availabilityLabel = useMemo(() => {
-    if (profile?.availabilityStatus === "online") return "Available now";
+    if (profile?.availabilityStatus === "available" || profile?.availabilityStatus === "online") return "Available now";
     if (profile?.availabilityStatus === "busy") return "Busy";
     if (profile?.availabilityStatus === "in_session") return "In session";
     return "Offline";
@@ -192,7 +192,7 @@ export default function PublicProfilePage() {
                 <Badge variant={isExpert ? "primary" : "default"}>
                   {isExpert ? "Mentor" : "Learner"}
                 </Badge>
-                <Badge variant={profile.availabilityStatus === "online" ? "success" : "default"}>
+                <Badge variant={profile.availabilityStatus === "available" || profile.availabilityStatus === "online" ? "success" : "default"}>
                   {availabilityLabel}
                 </Badge>
               </div>

@@ -25,7 +25,7 @@ export function GithubAuthButton({
   if (accountType) {
     params.set("accountType", accountType);
   }
-  if (mode === "register") {
+  if (communityGuidelinesAccepted !== undefined) {
     params.set("communityGuidelinesAccepted", String(communityGuidelinesAccepted === true));
   }
   const href = `${getApiBaseUrl()}/api/auth/github/start?${params.toString()}`;
@@ -34,7 +34,7 @@ export function GithubAuthButton({
     <a
       href={href}
       onClick={(event) => {
-        if (mode === "register" && !communityGuidelinesAccepted) {
+        if (communityGuidelinesAccepted === false) {
           event.preventDefault();
           onAcceptanceRequired?.();
         }

@@ -70,7 +70,7 @@ export interface IUser extends Document {
   communityGuidelinesEulaVersion?: string;
   expertise: ExpertiseArea[];
   skillTags: string[];
-  availabilityStatus: "online" | "busy" | "offline" | "in_session";
+  availabilityStatus: "available" | "online" | "busy" | "offline" | "in_session";
   expertVerification: ExpertVerification;
   notificationPreferences: NotificationPreferences;
   pushTokens: PushToken[];
@@ -182,7 +182,7 @@ const UserSchema = new Schema<IUser>(
     skillTags: { type: [String], default: [] },
     availabilityStatus: {
       type: String,
-      enum: ["online", "busy", "offline", "in_session"],
+      enum: ["available", "online", "busy", "offline", "in_session"],
       default: "offline",
     },
     expertVerification: {

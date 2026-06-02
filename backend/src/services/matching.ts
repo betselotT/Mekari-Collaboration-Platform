@@ -12,10 +12,14 @@ const PROFICIENCY_WEIGHT: Record<ExpertiseArea["proficiency"], number> = {
 const MAX_LLM_CANDIDATES = 24;
 
 function availabilityFactor(status: IUser["availabilityStatus"]) {
-  if (status === "online") return 1;
+  if (status === "available" || status === "online") return 1;
   if (status === "busy") return 0.6;
   if (status === "in_session") return 0.3;
   return 0;
+}
+
+function acceptsImmediateDm(status: IUser["availabilityStatus"]) {
+  return status === "available" || status === "online";
 }
 
 function allowedByAvailabilityPreference(
@@ -24,8 +28,8 @@ function allowedByAvailabilityPreference(
 ) {
   if (pref === "any") return true;
   if (pref === "online_or_busy")
-    return status === "online" || status === "busy" || status === "in_session";
-  return status === "online";
+    return acceptsImmediateDm(status) || status === "busy" || status === "in_session";
+  return acceptsImmediateDm(status);
 }
 
 function normalizePoints(points: number) {

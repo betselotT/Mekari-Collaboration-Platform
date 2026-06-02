@@ -38,7 +38,7 @@ const profileUpdateSchema = z.object({
     )
     .optional(),
   skillTags: z.array(z.string().min(1)).optional(),
-  availabilityStatus: z.enum(["online", "busy", "offline", "in_session"]).optional(),
+  availabilityStatus: z.enum(["available", "online", "busy", "offline", "in_session"]).optional(),
 });
 
 const passwordSchema = z
@@ -77,7 +77,7 @@ const profileSetupSchema = z
       )
       .default([]),
     skillTags: z.array(z.string().min(1)).default([]),
-    availabilityStatus: z.enum(["online", "busy", "offline", "in_session"]).default("offline"),
+    availabilityStatus: z.enum(["available", "online", "busy", "offline", "in_session"]).default("offline"),
     verificationDocument: verificationDocumentSchema.optional(),
   })
   .superRefine((value, ctx) => {
@@ -632,7 +632,7 @@ router.patch("/:id/availability", requireAuth, async (req: AuthRequest, res, nex
       return res.status(403).json({ error: { message: "Forbidden" } });
     }
     const { status } = req.body as { status: string };
-    const valid = ["online", "busy", "offline", "in_session"];
+    const valid = ["available", "online", "busy", "offline", "in_session"];
     if (!valid.includes(status)) {
       return res.status(400).json({ error: { message: "Invalid status" } });
     }
