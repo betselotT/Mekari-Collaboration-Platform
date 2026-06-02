@@ -330,7 +330,7 @@ router.get("/public/:threadId/messages", async (req, res, next) => {
 
     const messages = await Message.find({ thread: req.params.threadId })
       .sort({ createdAt: 1 })
-      .populate("sender", "name avatarUrl");
+      .populate("sender", "name avatarUrl role");
 
     res.json({ messages });
   } catch (err) {
@@ -661,7 +661,7 @@ router.get("/:threadId/messages", requireAuth, async (req: AuthRequest, res, nex
     const messages = await Message.find({ thread: req.params.threadId })
       .sort({ createdAt: 1 })
       .select("-readBy")
-      .populate("sender", "name avatarUrl");
+      .populate("sender", "name avatarUrl role");
     res.json({ messages });
   } catch (err) {
     next(err);
@@ -690,6 +690,7 @@ router.post("/:threadId/messages", requireAuth, async (req: AuthRequest, res, ne
       type: parsed.type,
       attachmentUrl: parsed.attachmentUrl,
       parentMessageId: parsed.parentMessageId,
+      mentionedUserIds: parsed.mentionedUserIds,
     });
 
     res.status(201).json({ message });
@@ -723,7 +724,7 @@ router.post("/:threadId/messages/:messageId/upvote", requireAuth, async (req: Au
         ? { $pull: { upvotes: req.userId } }
         : { $addToSet: { upvotes: req.userId } },
       { new: true }
-    ).populate("sender", "name avatarUrl");
+    ).populate("sender", "name avatarUrl role");
 
     if (!updated) {
       return res.status(404).json({ error: { message: "Message not found" } });
@@ -779,7 +780,7 @@ router.patch("/:threadId/messages/:messageId", requireAuth, async (req: AuthRequ
     await message.save();
     await Thread.findByIdAndUpdate(threadId, { $set: { updatedAt: new Date() } });
 
-    const updated = await message.populate("sender", "name avatarUrl");
+    const updated = await message.populate("sender", "name avatarUrl role");
     await broadcastToRoom(roomName("thread", threadId), "message_edited", {
       threadId,
       message: updated,
@@ -811,7 +812,7 @@ router.patch("/:threadId/messages/:messageId/pin", requireAuth, async (req: Auth
       { _id: messageId, thread: threadId, sender: { $ne: req.userId }, isFromAi: false },
       { $set: { isPinned: true } },
       { new: true }
-    ).populate("sender", "name avatarUrl");
+    ).populate("sender", "name avatarUrl role");
 
     if (!message) {
       return res.status(404).json({ error: { message: "Solution message not found" } });
@@ -879,6 +880,26 @@ router.patch("/:threadId/solve", requireAuth, async (req: AuthRequest, res, next
       solutionMsgId: parsed.solutionMsgId,
       solvedBy: solutionMsg.sender,
     });
+
+    const notifyIds = new Set<string>([
+      String(thread.createdBy),
+      String(solutionMsg.sender),
+      ...thread.participants.map((participantId) => String(participantId)),
+      ...thread.matchedExperts.map((expertId) => String(expertId)),
+    ]);
+    notifyIds.delete(String(req.userId));
+    await Promise.all(
+      Array.from(notifyIds).map((userId) =>
+        createNotification({
+          userId,
+          category: "chat",
+          type: "thread_solved",
+          title: "Thread solved",
+          message: `"${thread.title}" was marked as solved`,
+          link: `/dashboard/threads/${threadId}`,
+        })
+      )
+    );
 
     // Capture knowledge asynchronously (CRITICAL BEHAVIOR #5)
     setImmediate(() => {

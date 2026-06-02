@@ -107,6 +107,7 @@ router.post(
         type: parsed.type,
         attachmentUrl: parsed.attachmentUrl,
         parentMessageId: parsed.parentMessageId,
+        mentionedUserIds: parsed.mentionedUserIds,
       });
       res.status(201).json({ message });
     } catch (err) {
