@@ -29,6 +29,7 @@ export function Header({ title = "Dashboard", onMenuClick }: HeaderProps) {
   const { user } = useAuth(false);
   const { t } = useLanguage();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const displayName = user?.name || "Mekari User";
@@ -64,9 +65,19 @@ export function Header({ title = "Dashboard", onMenuClick }: HeaderProps) {
     }
   }
 
+  async function loadUnreadMessageCount() {
+    try {
+      const res = await apiClient.get<{ unreadCount: number }>("/api/dms/conversations/unread-count");
+      setUnreadMessageCount(res.data.unreadCount || 0);
+    } catch {
+      setUnreadMessageCount(0);
+    }
+  }
+
   useEffect(() => {
     if (!user?._id) return;
     loadNotifications();
+    loadUnreadMessageCount();
 
     let cleanup: (() => void) | undefined;
     let mounted = true;
@@ -80,7 +91,16 @@ export function Header({ title = "Dashboard", onMenuClick }: HeaderProps) {
         });
       };
       socket.on("notification", handleNotification);
-      cleanup = () => socket.off("notification", handleNotification);
+      const refreshUnreadMessages = () => {
+        void loadUnreadMessageCount();
+      };
+      socket.on("dm_conversation_updated", refreshUnreadMessages);
+      socket.on("dm_messages_read", refreshUnreadMessages);
+      cleanup = () => {
+        socket.off("notification", handleNotification);
+        socket.off("dm_conversation_updated", refreshUnreadMessages);
+        socket.off("dm_messages_read", refreshUnreadMessages);
+      };
     });
 
     return () => {
@@ -220,6 +240,11 @@ export function Header({ title = "Dashboard", onMenuClick }: HeaderProps) {
           title={t("header.messages")}
         >
           <MessageCircle className="h-5 w-5" />
+          {unreadMessageCount > 0 && (
+            <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+              {unreadMessageCount > 9 ? "9+" : unreadMessageCount}
+            </span>
+          )}
         </Link>
 
         <ThemeToggle />

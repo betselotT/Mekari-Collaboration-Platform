@@ -110,11 +110,41 @@ export async function findOrCreateDmConversation(learnerId: string, expertId: st
 }
 
 export async function listDmConversations(userId: string) {
-  return DmConversation.find({ participants: userId })
+  const conversations = await DmConversation.find({ participants: userId })
     .sort({ lastMessageAt: -1, updatedAt: -1 })
     .populate("participants", "name avatarUrl role availabilityStatus")
     .populate("learner", "name avatarUrl role availabilityStatus")
-    .populate("expert", "name avatarUrl role availabilityStatus");
+    .populate("expert", "name avatarUrl role availabilityStatus")
+    .lean();
+
+  const unreadCounts = await Message.aggregate([
+    {
+      $match: {
+        conversation: { $in: conversations.map((conversation) => conversation._id) },
+        sender: { $ne: new mongoose.Types.ObjectId(userId) },
+        "readBy.user": { $ne: new mongoose.Types.ObjectId(userId) },
+      },
+    },
+    { $group: { _id: "$conversation", count: { $sum: 1 } } },
+  ]);
+  const unreadCountMap = new Map(unreadCounts.map((item) => [String(item._id), item.count as number]));
+
+  return conversations.map((conversation) => ({
+    ...conversation,
+    unreadCount: unreadCountMap.get(String(conversation._id)) || 0,
+  }));
+}
+
+export async function countUnreadDmMessages(userId: string) {
+  const conversations = await DmConversation.find({ participants: userId }).select("_id").lean();
+  const conversationIds = conversations.map((conversation) => conversation._id);
+  if (conversationIds.length === 0) return 0;
+
+  return Message.countDocuments({
+    conversation: { $in: conversationIds },
+    sender: { $ne: userId },
+    "readBy.user": { $ne: userId },
+  });
 }
 
 export async function listDmMessages(conversationId: string, userId: string) {

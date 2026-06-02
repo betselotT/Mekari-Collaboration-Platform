@@ -29,6 +29,11 @@ const createThreadSchema = z.object({
   body: z.string().optional(),
   tags: z.array(z.string().min(1)).default([]),
   initialMessage: z.string().min(1),
+  initialMessageType: z.enum(["TEXT", "CODE", "IMAGE", "FILE"]).optional(),
+  codeSnippet: z.string().trim().optional(),
+  attachmentType: z.enum(["IMAGE", "FILE"]).optional(),
+  attachmentName: z.string().trim().optional(),
+  attachmentUrl: z.string().max(7_000_000).optional(),
 });
 
 const solveSchema = z.object({
@@ -541,10 +546,10 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
     const tags = await generateContentTags({
       title: parsed.title,
       subject: parsed.subject,
-      body: [parsed.body, parsed.initialMessage].filter(Boolean).join("\n\n"),
+      body: [parsed.body, parsed.initialMessage, parsed.codeSnippet].filter(Boolean).join("\n\n"),
       existingTags: parsed.tags,
     });
-    const questionText = [parsed.body, parsed.initialMessage].filter(Boolean).join("\n\n");
+    const questionText = [parsed.body, parsed.initialMessage, parsed.codeSnippet].filter(Boolean).join("\n\n");
     const recommendations = await recommendExperts({
       requesterId: req.userId,
       subject: parsed.subject,
@@ -576,6 +581,32 @@ router.post("/", requireAuth, messageRateLimiter, async (req: AuthRequest, res, 
       isPinned: true,
       isFromAi: false,
     });
+
+    const extraMessages = [];
+    if (parsed.codeSnippet) {
+      extraMessages.push({
+        thread: thread.id,
+        sender: req.userId,
+        body: parsed.codeSnippet,
+        type: "CODE",
+        readBy: [{ user: req.userId, readAt: new Date() }],
+        isPinned: false,
+        isFromAi: false,
+      });
+    }
+    if (parsed.attachmentUrl) {
+      extraMessages.push({
+        thread: thread.id,
+        sender: req.userId,
+        body: parsed.attachmentName || (parsed.attachmentType === "IMAGE" ? "Shared image" : "Attached file"),
+        type: parsed.attachmentType || parsed.initialMessageType || "FILE",
+        attachmentUrl: parsed.attachmentUrl,
+        readBy: [{ user: req.userId, readAt: new Date() }],
+        isPinned: false,
+        isFromAi: false,
+      });
+    }
+    if (extraMessages.length > 0) await Message.insertMany(extraMessages);
 
     const experts = await User.find({ _id: { $in: recommendedExpertIds }, isBanned: { $ne: true } })
       .select("name avatarUrl expertise skillTags availabilityStatus points")
